@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { Session } from '@supabase/supabase-js'
+import AuthRedirect from '@/components/AuthRedirect'
 
 export type User = {
   id: string
@@ -32,8 +34,16 @@ const conditionOptions = [
   { value: 'normal_check', label: 'Normal Check' },
   { value: 'Not specified', label: 'Not specified' },
   { value: 'not_eval', label: 'Not Evaluated' }
-
 ]
+
+const handleLogout = async () => {
+  const { error } = await supabase.auth.signOut()
+  if (error) {
+    console.error('Logout error:', error)
+  } else {
+    window.location.href = '/login' // Full page reload to clear state
+  }
+}
 
 const formatToThaiTime = (timestamp: string | undefined) => {
   if (!timestamp) return '-'
@@ -49,7 +59,8 @@ const formatToThaiTime = (timestamp: string | undefined) => {
   })
 }
 
-export default function UsersPage() {
+export default function UsersClientPage() {
+  const [session, setSession] = useState<Session | null>(null)
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [searchId, setSearchId] = useState('')
@@ -59,22 +70,18 @@ export default function UsersPage() {
   const [totalCount, setTotalCount] = useState(0)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [searchCondition, setSearchCondition] = useState('')
-
-  const itemsPerPage = 50 // Reduced for better readability
+  const itemsPerPage = 50
 
   const fetchUsers = async () => {
     setLoading(true)
     const from = (currentPage - 1) * itemsPerPage
     const to = from + itemsPerPage - 1
-
     const likePattern = `%${searchId.trim()}%`
-
     let query = supabase
       .from('user_record_summary_with_users')
       .select('*', { count: 'exact' })
       .order('timestamp', { ascending: false })
       .range(from, to)
-
     if (searchId.trim()) {
       query = query.or(
         `id.ilike.${likePattern},firstname.ilike.${likePattern},lastname.ilike.${likePattern},recorder.ilike.${likePattern},thaiid.ilike.${likePattern}`
@@ -105,8 +112,28 @@ export default function UsersPage() {
   }
 
   useEffect(() => {
-    fetchUsers()
-  }, [currentPage, searchId, startDate, endDate, searchCondition])
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session)
+    })
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session)
+    })
+
+    return () => subscription.unsubscribe()
+  }, [])
+
+  useEffect(() => {
+    if (session) {
+      fetchUsers()
+    }
+  }, [currentPage, searchId, startDate, endDate, searchCondition, session])
+
+  if (!session) {
+    return <AuthRedirect />
+  }
 
   const handleConditionChange = (id: string, value: string) => {
     setUsers((prev) =>
@@ -133,8 +160,16 @@ export default function UsersPage() {
   const totalPages = Math.ceil(totalCount / itemsPerPage)
 
   return (
-    <div className="max-w-9xl mx-auto bg-white rounded-lg shadow-md">
-      <h1 className="text-2xl font-bold mb-6 text-gray-800">PD Screening Data View System</h1>
+    <div className="max-w-9xl mx-auto bg-white rounded-lg shadow-lg p-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-semibold mb-4 text-gray-900">Patient Data Management System</h1>
+        <button
+          onClick={handleLogout}
+          className="px-5 py-3 bg-red-500 text-white font-medium rounded-lg hover:bg-red-600 transition duration-300"
+        >
+          Sign Out
+        </button>
+      </div>
 
       {/* Search and Filter Section */}
       <div className="mb-6 p-4 bg-gray-50 rounded-lg">
@@ -226,6 +261,7 @@ export default function UsersPage() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">#</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Patient ID</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Name</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Source</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Age/Gender</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Location</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Recorded</th>
@@ -249,6 +285,9 @@ export default function UsersPage() {
                         {user.firstname} {user.lastname}
                       </div>
                       <div className="text-sm text-gray-500">{user.recorder}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">{user.source || '-'}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">{user.age} years</div>
