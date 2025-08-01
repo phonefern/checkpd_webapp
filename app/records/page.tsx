@@ -13,7 +13,6 @@ export type User = {
   age: number
   prediction_risk: boolean | null
   recorder: string
-  condition: string
   province?: string
   region?: string
   gender?: string
@@ -21,20 +20,6 @@ export type User = {
   timestamp?: string
   last_update?: string
 }
-
-const conditionOptions = [
-  { value: '', label: 'All Conditions' },
-  { value: 'cdt7', label: 'CDT7' },
-  { value: 'ctrl', label: 'Control' },
-  { value: 'pd', label: 'PD' },
-  { value: 'pdm', label: 'PDM' },
-  { value: 'pksm', label: 'PKSM' },
-  { value: 'other', label: 'Other' },
-  { value: 'nodiag', label: 'No Diagnosis' },
-  { value: 'normal_check', label: 'Normal Check' },
-  { value: 'Not specified', label: 'Not specified' },
-  { value: 'not_eval', label: 'Not Evaluated' }
-]
 
 const handleLogout = async () => {
   const { error } = await supabase.auth.signOut()
@@ -78,7 +63,7 @@ export default function UsersClientPage() {
     const to = from + itemsPerPage - 1
     const likePattern = `%${searchId.trim()}%`
     let query = supabase
-      .from('user_record_summary_with_users')
+      .from('users_history_with_users')
       .select('*', { count: 'exact' })
       .order('timestamp', { ascending: false })
       .range(from, to)
@@ -188,23 +173,7 @@ export default function UsersClientPage() {
             />
           </div>
           
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Condition</label>
-            <select
-              value={searchCondition}
-              onChange={(e) => {
-                setSearchCondition(e.target.value)
-                setCurrentPage(1)
-              }}
-              className="w-full border border-gray-300 p-2 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              {conditionOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </div>
+
           
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">From Date</label>
@@ -237,21 +206,20 @@ export default function UsersClientPage() {
           <p className="text-sm text-gray-600">
             Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, totalCount)} of {totalCount} records
           </p>
-          <div className="flex gap-2">
-            <a href="/records">
-              <button
-                className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500"
+        <div className='flex gap-2'>
+        <a href="/records">
+         <button
+             className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500"
               >
-                View All Records
+                Back to Users Page
               </button>
-            </a>
-            <button
-              onClick={fetchUsers}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              Refresh Data
-            </button>
-            
+        </a>
+          <button
+            onClick={fetchUsers}
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            Refresh Data
+          </button>
           </div>
         </div>
       </div>
@@ -276,8 +244,6 @@ export default function UsersClientPage() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Location</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Recorded</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Risk</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Condition</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -329,56 +295,7 @@ export default function UsersClientPage() {
                         </span>
                       )}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {editingId === user.id ? (
-                        <select
-                          value={user.condition || ''}
-                          onChange={(e) => handleConditionChange(user.id, e.target.value)}
-                          className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
-                        >
-                          {conditionOptions.filter(opt => opt.value).map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          !user.condition || user.condition === 'Not specified' ? 'bg-gray-100 text-gray-800' :
-                          user.condition === 'pd' || user.condition === 'pdm' ? 'bg-purple-100 text-purple-800' :
-                          user.condition === 'cdt7' ? 'bg-blue-100 text-blue-800' :
-                          user.condition === 'ctrl' ? 'bg-green-100 text-green-800' :
-                          'bg-yellow-100 text-yellow-800'
-                        }`}>
-                          {user.condition || 'Not specified'}
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      {editingId === user.id ? (
-                        <div className="space-x-2">
-                          <button
-                            onClick={() => handleSave(user.id, user.condition)}
-                            className="text-green-600 hover:text-green-900"
-                          >
-                            Save
-                          </button>
-                          <button
-                            onClick={() => setEditingId(null)}
-                            className="text-gray-600 hover:text-gray-900"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => setEditingId(user.id)}
-                          className="text-blue-600 hover:text-blue-900"
-                        >
-                          Edit
-                        </button>
-                      )}
-                    </td>
+
                   </tr>
                 ))}
               </tbody>
