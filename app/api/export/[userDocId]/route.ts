@@ -2,18 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebaseAdmin';
 import { Timestamp } from 'firebase-admin/firestore';
 
-export async function GET(
-  req: NextRequest,
-  context: { params: Record<string, string> }  // ✅ ใช้ Record<string, string>
-) {
-  const { userDocId } = context.params;
-
+export async function GET(req: NextRequest, context: any) {
   try {
-    if (!userDocId) {
-      return NextResponse.json({ error: 'Missing userDocId' }, { status: 400 });
-    }
+    const { userDocId } = context.params;
 
-    // ตรวจสอบว่าเป็นเลขล้วน (เช่น 3570401003540) → ใช้ temps collection
     const isNumericId = /^[0-9]+$/.test(userDocId);
     const collectionName = isNumericId ? 'temps' : 'users';
 
@@ -38,7 +30,6 @@ export async function GET(
     const allFields = Array.from(
       new Set(recordsSnap.docs.flatMap((doc) => Object.keys(doc.data())))
     );
-    console.log('All fields in documents:', allFields);
 
     const allowedFields = [
       'balance', 'dualtap', 'dualtapright', 'gaitwalk', 'pinchtosize',
@@ -77,8 +68,6 @@ export async function GET(
 
       if (fieldRecords.length > 0) {
         groupedData[field] = fieldRecords;
-      } else {
-        console.log(`No data found for field: ${field}`);
       }
     });
 
