@@ -140,22 +140,39 @@ export default function ExportPage() {
 
   // Handle select all checkbox
   useEffect(() => {
+    const fetchAllUserIds = async () => {
+      // Fetch all user IDs (and last_update if needed) matching current filters, no pagination
+      let query = supabase
+        .from('users_history_with_users')
+        .select('id', { count: 'exact' })
+        .order('timestamp', { ascending: false })
+      if (searchId.trim()) {
+        const likePattern = `%${searchId.trim()}%`
+        query = query.or(
+          `id.ilike.${likePattern},firstname.ilike.${likePattern},lastname.ilike.${likePattern},recorder.ilike.${likePattern},thaiid.ilike.${likePattern},condition.ilike.${likePattern}`
+        )
+      }
+      if (startDate) query = query.gte('timestamp', startDate)
+      if (endDate) {
+        const nextDay = new Date(endDate)
+        nextDay.setDate(nextDay.getDate() + 1)
+        query = query.lt('timestamp', nextDay.toISOString())
+      }
+      if (searchCondition.trim()) {
+        query = query.eq('condition', searchCondition)
+      }
+      // Remove pagination
+      const { data, error } = await query
+      if (!error && data) {
+        setSelectedUsers(new Set(data.map((u: { id: string }) => u.id)))
+      }
+    }
     if (selectAll) {
-      const allIds = new Set(users.map(user => user.id))
-      setSelectedUsers(allIds)
+      fetchAllUserIds()
     } else {
       setSelectedUsers(new Set())
     }
-  }, [selectAll, users])
-
-  // Update select all when individual selections change
-  useEffect(() => {
-    if (selectedUsers.size === users.length && users.length > 0) {
-      setSelectAll(true)
-    } else {
-      setSelectAll(false)
-    }
-  }, [selectedUsers, users])
+  }, [selectAll, searchId, startDate, endDate, searchCondition])
 
   const handleUserSelect = (userId: string) => {
     const newSelected = new Set(selectedUsers)
@@ -180,26 +197,41 @@ export default function ExportPage() {
     try {
       const selectedUserIds = Array.from(selectedUsers)
       const exportPromises = selectedUserIds.map(async (userId) => {
-        const res = await fetch(`/api/export/${userId}`)
-        if (!res.ok) {
-          const { error } = await res.json()
-          throw new Error(`Failed to export ${userId}: ${error?.message || 'Export failed'}`)
+        // Find all user records with this userId (could be more than one if last_update differs)
+        const userRecords = users.filter(u => u.id === userId)
+        // If only one record, export as before
+        if (userRecords.length === 1) {
+          const res = await fetch(`/api/export/${userId}`)
+          if (!res.ok) {
+            const { error } = await res.json()
+            throw new Error(`Failed to export ${userId}: ${error?.message || 'Export failed'}`)
+          }
+          return { userId, last_update: userRecords[0].last_update, data: await res.json() }
+        } else {
+          // Export each record with unique last_update
+          return Promise.all(userRecords.map(async (user) => {
+            const res = await fetch(`/api/export/${user.id}?last_update=${encodeURIComponent(user.last_update || '')}`)
+            if (!res.ok) {
+              const { error } = await res.json()
+              throw new Error(`Failed to export ${user.id}: ${error?.message || 'Export failed'}`)
+            }
+            return { userId: user.id, last_update: user.last_update, data: await res.json() }
+          }))
         }
-        return { userId, data: await res.json() }
       })
-
-      const results = await Promise.all(exportPromises)
-      
+      // Flatten results if needed
+      const resultsNested = await Promise.all(exportPromises)
+      const results = resultsNested.flat()
       // Create virtual folder structure
       const zip = new JSZip()
       const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-')
       const folderName = `patient_records_export_${timestamp}`
-
-      // Add each patient's data as a separate folder
-      results.forEach(({ userId, data }) => {
-        const patientFolder = zip.folder(`${folderName}/${userId}`)
+      // Add each patient's data as a separate folder, using userId and last_update for uniqueness
+      results.forEach(({ userId, last_update, data }) => {
+        const safeUpdate = last_update ? String(last_update).replace(/[:\\/]/g, '-') : 'no_update'
+        const patientFolder = zip.folder(`${folderName}/${userId}_${safeUpdate}`)
         if (data.tests && data.data) {
-          data.tests.forEach((testType: string) => {
+          (data.tests as string[]).forEach((testType: string) => {
             if (data.data[testType]) {
               patientFolder?.file(
                 `${testType}.json`,
@@ -209,22 +241,21 @@ export default function ExportPage() {
           })
         }
       })
-
-      // Add CSV files with demographic data for each selected user
-      const csvPromises = selectedUserIds.map(async (userId) => {
-        // Fetch demographic data from user_record_summary_with_users view (has more information)
+      // Add CSV files with demographic data for each selected user record
+      const csvPromises = results.map(async ({ userId, last_update }) => {
         const { data: demographicData, error } = await supabase
           .from('user_record_summary_with_users')
           .select('*')
-          .eq('user_id', userId)
+          .eq('id', userId)
           .single()
-
-        let csvData = null
+        if (error) {
+          console.error(`Error fetching demographic data for ${userId}:`, error)
+          return { userId, last_update, csvData: null }
+        }
         if (demographicData) {
-          // Convert to CSV format
           const headers = Object.keys(demographicData)
           const values = Object.values(demographicData)
-          csvData = [
+          const csvContent = [
             headers.join(','),
             values.map(value => {
               if (value === null || value === undefined) return ''
@@ -234,57 +265,16 @@ export default function ExportPage() {
               return String(value)
             }).join(',')
           ].join('\n')
+          return { userId, last_update, csvData: csvContent }
         }
-        return { userId, csvData }
+        return { userId, last_update, csvData: null }
       })
-
       const csvResults = await Promise.all(csvPromises)
-
-      // Add CSV files and WAV files from Firestore test data to the ZIP
-      results.forEach(({ userId, data }) => {
-        const patientFolder = zip.folder(`${folderName}/${userId}`)
-        // Add JSON test data as before
-        if (data.tests && data.data) {
-          data.tests.forEach((testType: string) => {
-            if (data.data[testType]) {
-              patientFolder?.file(
-                `${testType}.json`,
-                JSON.stringify(data.data[testType], null, 2)
-              )
-            }
-          })
-        }
-        // Add WAV files from Firestore test data
-        const voiceFields = ['voiceAhh', 'voiceYPL']
-        voiceFields.forEach((field) => {
-          const testRecords = data.data && data.data[field]
-          if (Array.isArray(testRecords)) {
-            testRecords.forEach(async (record, idx) => {
-              if (
-                record.downloadUrl &&
-                typeof record.downloadUrl === 'string' &&
-                record.downloadUrl.startsWith('http')
-              ) {
-                try {
-                  const response = await fetch(record.downloadUrl)
-                  if (response.ok) {
-                    const blob = await response.blob()
-                    const filename = testRecords.length > 1 ? `${field}_${idx + 1}.wav` : `${field}.wav`
-                    patientFolder?.file(filename, blob)
-                  }
-                } catch (e) {
-                  // Optionally log or skip
-                }
-              }
-            })
-          }
-        })
-      })
-
       // Add CSV files to the ZIP
-      csvResults.forEach(({ userId, csvData }) => {
-        const patientFolder = zip.folder(`${folderName}/${userId}`)
+      csvResults.forEach(({ userId, last_update, csvData }) => {
         if (csvData) {
+          const safeUpdate = last_update ? String(last_update).replace(/[:\\/]/g, '-') : 'no_update'
+          const patientFolder = zip.folder(`${folderName}/${userId}_${safeUpdate}`)
           patientFolder?.file(
             `demographic_data.csv`,
             csvData
@@ -461,13 +451,14 @@ export default function ExportPage() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Age/Gender</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Location</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Recorded</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Last Update</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Risk</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Condition</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {users.map((user, index) => (
-                  <tr key={user.id} className="hover:bg-gray-50">
+                  <tr key={user.id + (user.last_update || '')} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <input
                         type="checkbox"
@@ -503,6 +494,11 @@ export default function ExportPage() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">
                         {formatToThaiTime(user.timestamp)}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">
+                        {formatToThaiTime(user.last_update)}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">

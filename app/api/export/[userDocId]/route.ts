@@ -1,23 +1,29 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { adminDb } from '@/lib/firebaseAdmin'
+import { NextRequest, NextResponse } from 'next/server';
+import { adminDb } from '@/lib/firebaseAdmin';
+import { Timestamp } from 'firebase-admin/firestore';
 
 export async function GET(
   req: NextRequest,
-  context: { params: { userDocId: string } }
+  { params }: { params: Promise<{ userDocId: string }> }
 ) {
   try {
-    const { params } = await Promise.resolve(context); // Await params
-    const { userDocId } = params;
+    const awaitedParams = await params
+    const { userDocId } = awaitedParams
 
-    // Verify user exists
-    const userDoc = await adminDb.collection('users').doc(userDocId).get();
+    // ตรวจสอบว่าเป็นเลขล้วน (เช่น 3570401003540) → ใช้ temps collection
+    const isNumericId = /^[0-9]+$/.test(userDocId);
+    const collectionName = isNumericId ? 'temps' : 'users';
+
+    const userDoc = await adminDb.collection(collectionName).doc(userDocId).get();
     if (!userDoc.exists) {
-      return NextResponse.json({ error: `User not found: ${userDocId}` }, { status: 404 });
+      return NextResponse.json(
+        { error: `User not found in ${collectionName}: ${userDocId}` },
+        { status: 404 }
+      );
     }
 
-    // Get all records
     const recordsSnap = await adminDb
-      .collection('users')
+      .collection(collectionName)
       .doc(userDocId)
       .collection('records')
       .get();
@@ -26,52 +32,43 @@ export async function GET(
       return NextResponse.json({ error: 'No records found' }, { status: 404 });
     }
 
-    // Debug: Log all fields found
-    const allFields = Array.from(new Set(
-      recordsSnap.docs.flatMap(doc => Object.keys(doc.data()))
-    ));
-    console.log("All fields in documents:", allFields);
+    const allFields = Array.from(
+      new Set(recordsSnap.docs.flatMap((doc) => Object.keys(doc.data())))
+    );
+    console.log('All fields in documents:', allFields);
 
-    // Define allowed test types (case insensitive)
     const allowedFields = [
-      'balance',
-      'dualtap',
-      'dualtapright',
-      'gaitwalk',
-      'pinchtosize',
-      'pinchtosizeright',
-      'questionnaire',
-      'tremorpostural',
-      'tremorresting',
-      'voiceAhh',
-      'voiceYPL',
-      
-
+      'balance', 'dualtap', 'dualtapright', 'gaitwalk', 'pinchtosize',
+      'pinchtosizeright', 'questionnaire', 'tremorpostural',
+      'tremorresting', 'voiceAhh', 'voiceYPL',
     ];
 
-    // Organize data by test type
     const groupedData: Record<string, any[]> = {};
 
-    allowedFields.forEach(field => {
+    allowedFields.forEach((field) => {
       const fieldRecords = recordsSnap.docs
-        .filter(doc => {
+        .filter((doc) => {
           const docData = doc.data();
           return Object.keys(docData).some(
-            key => key.toLowerCase() === field.toLowerCase()
+            (key) => key.toLowerCase() === field.toLowerCase()
           );
         })
-        .map(doc => {
+        .map((doc) => {
           const docData = doc.data();
-          const fieldKey = Object.keys(docData).find(
-            key => key.toLowerCase() === field.toLowerCase()
-          ) || field;
-          
+          const fieldKey =
+            Object.keys(docData).find(
+              (key) => key.toLowerCase() === field.toLowerCase()
+            ) || field;
+
           return {
             docId: doc.id,
-            ...(typeof docData[fieldKey] === 'object' 
-              ? docData[fieldKey] 
+            ...(typeof docData[fieldKey] === 'object'
+              ? docData[fieldKey]
               : { value: docData[fieldKey] }),
-            timestamp: docData.createdAt?.toDate?.() || null
+            timestamp:
+              docData.createdAt instanceof Timestamp
+                ? docData.createdAt.toDate()
+                : null,
           };
         });
 
@@ -82,18 +79,18 @@ export async function GET(
       }
     });
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       success: true,
+      collection: collectionName,
       userDocId,
       tests: Object.keys(groupedData),
       data: groupedData,
-      debug: { allFields } // สำหรับตรวจสอบ
+      debug: { allFields },
     });
-
   } catch (err: any) {
-    console.error("API Error:", err);
+    console.error('API Error:', err);
     return NextResponse.json(
-      { error: `Server error: ${err.message}` }, 
+      { error: `Server error: ${err.message}` },
       { status: 500 }
     );
   }
