@@ -4,11 +4,14 @@ import { Timestamp } from 'firebase-admin/firestore';
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: Promise<{ userDocId: string }> }
+  context: { params: Record<string, string> }  // ✅ ใช้ Record<string, string>
 ) {
+  const { userDocId } = context.params;
+
   try {
-    const awaitedParams = await params
-    const { userDocId } = awaitedParams
+    if (!userDocId) {
+      return NextResponse.json({ error: 'Missing userDocId' }, { status: 400 });
+    }
 
     // ตรวจสอบว่าเป็นเลขล้วน (เช่น 3570401003540) → ใช้ temps collection
     const isNumericId = /^[0-9]+$/.test(userDocId);
