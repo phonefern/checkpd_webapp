@@ -100,7 +100,7 @@ export default function SearchFilters({
           Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, totalCount)} of {totalCount} records
         </p>
         <div className="flex gap-2">
-          <a href="/records">
+          <a href="/pages/records">
             <button
               className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500"
             >

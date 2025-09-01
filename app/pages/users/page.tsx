@@ -14,7 +14,7 @@ const handleLogout = async () => {
   if (error) {
     console.error('Logout error:', error)
   } else {
-    window.location.href = '/login'
+    window.location.href = '/pages/login'
   }
 }
 
