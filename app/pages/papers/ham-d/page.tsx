@@ -1,11 +1,22 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { supabase } from "@/lib/supabase";
 
 const HamiltonDepressionScale = () => {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const thaiId = searchParams.get("patient_thaiid");
+
   const [answers, setAnswers] = useState<Record<number, number>>({});
   const [showResults, setShowResults] = useState(false);
-  const [question16Choice, setQuestion16Choice] = useState<string>(''); // Add state for question 16 choice
+  const [patientInfo, setPatientInfo] = useState<any>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitMessage, setSubmitMessage] = useState("");
+  const [question16Choice, setQuestion16Choice] = useState<string>('');
+
 
   const questions = [
     {
@@ -210,8 +221,12 @@ const HamiltonDepressionScale = () => {
     });
   };
 
+  const getOrderedAnswers = () => {
+    return questions.map(q => answers[q.id] ?? 0);
+  };
+
   const calculateTotalScore = () => {
-    return Object.values(answers).reduce((sum, score) => sum + (score || 0), 0);
+    return getOrderedAnswers().reduce((sum, score) => sum + (score || 0), 0);
   };
 
   const getDepressionLevel = (score: number) => {
@@ -222,28 +237,110 @@ const HamiltonDepressionScale = () => {
     if (score > 30) return { level: "ซึมเศร้าระดับรุนแรงมาก", color: "text-red-800", bg: "bg-red-200" };
   };
 
-  const handleSubmit = () => {
-    setShowResults(true);
+  const fetchPatientInfo = async () => {
+    if (!thaiId) {
+      setSubmitMessage("ไม่พบข้อมูลผู้ป่วย");
+      return;
+    }
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setSubmitMessage("กรุณาเข้าสู่ระบบ");
+        return;
+      }
+      const { data, error } = await supabase
+        .from("pd_screenings")
+        .select("id, first_name, last_name, thaiid")
+        .eq("thaiid", thaiId)
+        .eq("user_id", session.user.id)
+        .single();
+      if (error) {
+        console.error("Error fetching patient info:", error);
+        setSubmitMessage("ไม่พบข้อมูลผู้ป่วย");
+      } else {
+        setPatientInfo(data);
+      }
+    } catch (err) {
+      console.error("Unexpected error:", err);
+      setSubmitMessage("เกิดข้อผิดพลาดในการโหลดข้อมูลผู้ป่วย");
+    }
   };
 
-  const handleReset = () => {
-    setAnswers({});
-    setShowResults(false);
-    setQuestion16Choice(''); // Reset question 16 choice
+  useEffect(() => {
+    fetchPatientInfo();
+  }, [thaiId]);
+
+  const handleSubmit = async () => {
+    if (!thaiId || !patientInfo) {
+      setSubmitMessage("ไม่พบข้อมูลผู้ป่วย");
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error("ไม่พบ session ผู้ใช้");
+      }
+      const { data: existingRows } = await supabase
+        .from("risk_factors_test")
+        .select("id")
+        .eq("user_id", session.user.id)
+        .eq("thaiid", thaiId);
+
+      const existingRecord = existingRows && existingRows.length > 0 ? existingRows[0] : null;
+
+      let dbError: any = null;
+      const orderedAnswers = getOrderedAnswers();
+      if (existingRecord) {
+        const { error: updateError } = await supabase
+          .from("risk_factors_test")
+          .update({
+            hamd_answer: orderedAnswers,
+            hamd_score: calculateTotalScore(),
+            patient_id: patientInfo.id,
+            user_id: session.user.id,
+            thaiid: thaiId,
+          })
+          .eq("id", existingRecord.id);
+        dbError = updateError;
+      } else {
+        const { error: insertError } = await supabase
+          .from("risk_factors_test")
+          .insert([{
+            user_id: session.user.id,
+            patient_id: patientInfo.id,
+            thaiid: thaiId,
+            hamd_answer: orderedAnswers,
+            hamd_score: calculateTotalScore(),
+          }]);
+        dbError = insertError;
+      }
+
+      if (dbError) {
+        console.error("Error saving HAM-D:", dbError);
+        setSubmitMessage(`เกิดข้อผิดพลาด: ${dbError.message}`);
+      } else {
+        setSubmitMessage("บันทึกผลการประเมินเรียบร้อยแล้ว!");
+        setShowResults(true);
+      }
+    } catch (err) {
+      console.error("Unexpected error:", err);
+      setSubmitMessage("เกิดข้อผิดพลาดที่ไม่คาดคิด");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const totalScore = calculateTotalScore();
-  const depressionInfo = getDepressionLevel(totalScore);
+  const depressionInfo = getDepressionLevel(totalScore) || { level: "", color: "text-gray-600", bg: "bg-gray-100" };
   const answeredQuestions = Object.keys(answers).length;
-  const totalQuestions = questions.length + (question16Choice ? 0 : 1); // Adjust total for question 16
+  const allAnswered = questions.every(q => answers[q.id] !== undefined && answers[q.id] !== null) && (!!question16Choice);
 
   return (
     <div className="max-w-4xl mx-auto p-6 bg-white">
       <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold text-gray-800 mb-2">
-          Hamilton Depression Rating Scale (HAM-D)
-        </h1>
-        <p className="text-gray-600">แบบประเมินภาวะซึมเศร้า ฉบับภาษาไทย</p>
+        <h1 className="text-3xl font-bold text-gray-800 mb-2">Hamilton Depression Rating Scale (HAM-D)</h1>
+        <p className="text-gray-600">แบบประเมินภาวะซึมเศร้า</p>
       </div>
 
       {!showResults ? (
@@ -268,115 +365,107 @@ const HamiltonDepressionScale = () => {
                   {question.description}
                 </p>
               )}
-              
-              <div className="space-y-2">
-                {question.id === 16 ? (
-                  <div>
-                    {/* Choice selection for question 16 */}
-                    <div className="mb-4">
-                      <p className="text-sm font-medium text-gray-700 mb-2">เลือกวิธีการประเมิน:</p>
-                      <div className="flex space-x-4">
-                        <label className="flex items-center p-3 border border-gray-200 rounded hover:bg-gray-50 cursor-pointer">
-                          <input
-                            type="radio"
-                            name="question16_choice"
-                            value="ก"
-                            onChange={(e) => handleQuestion16Choice(e.target.value)}
-                            className="mr-3 text-blue-600"
-                            checked={question16Choice === 'ก'}
-                          />
-                          <span className="text-gray-700">ก. ประวัติ</span>
-                        </label>
-                        <label className="flex items-center p-3 border border-gray-200 rounded hover:bg-gray-50 cursor-pointer">
-                          <input
-                            type="radio"
-                            name="question16_choice"
-                            value="ข"
-                            onChange={(e) => handleQuestion16Choice(e.target.value)}
-                            className="mr-3 text-blue-600"
-                            checked={question16Choice === 'ข'}
-                          />
-                          <span className="text-gray-700">ข. การชั่งน้ำหนัก</span>
-                        </label>
-                      </div>
-                    </div>
 
-                    {/* Show options based on choice */}
-                    {question16Choice === 'ก' && (
-                      <div>
-                        <p className="text-sm text-gray-600 mb-3">{question.subtitle}</p>
-                        {question.options.map((option) => (
-                          <label key={option.value} className="flex items-center p-3 border border-gray-200 rounded hover:bg-gray-50 cursor-pointer">
-                            <input
-                              type="radio"
-                              name={`question_${question.id}`}
-                              value={option.value}
-                              onChange={(e) => handleAnswerChange(question.id, parseInt(e.target.value))}
-                              className="mr-3 text-blue-600"
-                              checked={answers[question.id] === option.value}
-                            />
-                            <span className="text-gray-700">{option.label}</span>
-                          </label>
-                        ))}
-                      </div>
-                    )}
-
-                    {question16Choice === 'ข' && question.options2 && (
-                      <div>
-                        <p className="text-sm text-gray-600 mb-3">{question.subtitle2}</p>
-                        {question.options2.map((option) => (
-                          <label key={option.value} className="flex items-center p-3 border border-gray-200 rounded hover:bg-gray-50 cursor-pointer">
-                            <input
-                              type="radio"
-                              name={`question_${question.id}`}
-                              value={option.value}
-                              onChange={(e) => handleAnswerChange(question.id, parseInt(e.target.value))}
-                              className="mr-3 text-blue-600"
-                              checked={answers[question.id] === option.value}
-                            />
-                            <span className="text-gray-700">{option.label}</span>
-                          </label>
-                        ))}
-                      </div>
-                    )}
+              {question.id === 16 ? (
+                <div className="space-y-4">
+                  <div className="flex gap-3 mb-2">
+                    <button
+                      type="button"
+                      onClick={() => handleQuestion16Choice('A')}
+                      className={`px-3 py-1 rounded border ${question16Choice === 'A' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300'}`}
+                    >
+                      เลือกข้อ ก.
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleQuestion16Choice('B')}
+                      className={`px-3 py-1 rounded border ${question16Choice === 'B' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300'}`}
+                    >
+                      เลือกข้อ ข.
+                    </button>
                   </div>
-                ) : (
-                  question.options.map((option) => (
+                  {question16Choice === 'A' && (
+                    <>
+                      {question.subtitle && (
+                        <p className="text-sm text-gray-600 mb-3">{question.subtitle}</p>
+                      )}
+                      <div className="space-y-2">
+                        {question.options.map((option) => (
+                          <label key={`16A_${option.value}`} className="flex items-center p-3 border border-gray-200 rounded hover:bg-gray-50 cursor-pointer">
+                            <input
+                              type="radio"
+                              name={`question_16`}
+                              value={option.value}
+                              onChange={(e) => handleAnswerChange(16, parseInt(e.target.value))}
+                              checked={answers[16] === option.value}
+                              className="mr-3 text-blue-600"
+                            />
+                            <span className="text-gray-700">{option.label}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                  {question16Choice === 'B' && (
+                    <>
+                      {question.subtitle2 && (
+                        <p className="text-sm text-gray-600 mb-3">{question.subtitle2}</p>
+                      )}
+                      <div className="space-y-2">
+                        {(question.options2 || []).map((option) => (
+                          <label key={`16B_${option.value}`} className="flex items-center p-3 border border-gray-200 rounded hover:bg-gray-50 cursor-pointer">
+                            <input
+                              type="radio"
+                              name={`question_16`}
+                              value={option.value}
+                              onChange={(e) => handleAnswerChange(16, parseInt(e.target.value))}
+                              checked={answers[16] === option.value}
+                              className="mr-3 text-blue-600"
+                            />
+                            <span className="text-gray-700">{option.label}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {question.options.map((option) => (
                     <label key={option.value} className="flex items-center p-3 border border-gray-200 rounded hover:bg-gray-50 cursor-pointer">
                       <input
                         type="radio"
                         name={`question_${question.id}`}
                         value={option.value}
                         onChange={(e) => handleAnswerChange(question.id, parseInt(e.target.value))}
-                        className="mr-3 text-blue-600"
                         checked={answers[question.id] === option.value}
+                        className="mr-3 text-blue-600"
                       />
                       <span className="text-gray-700">{option.label}</span>
                     </label>
-                  ))
-                )}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
-
           <div className="flex flex-col items-center space-y-4 mt-8">
             <div className="text-center">
               <p className="text-gray-600">
-                ตอบแล้ว {answeredQuestions} จาก {totalQuestions} ข้อ
+                ตอบแล้ว {answeredQuestions} จาก {questions.length} ข้อ
               </p>
               <div className="w-64 bg-gray-200 rounded-full h-2 mt-2">
                 <div 
                   className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${(answeredQuestions / totalQuestions) * 100}%` }}
+                  style={{ width: `${(answeredQuestions / questions.length) * 100}%` }}
                 ></div>
               </div>
             </div>
             
             <button
               onClick={handleSubmit}
-              disabled={answeredQuestions < totalQuestions}
+              disabled={!allAnswered}
               className={`px-8 py-3 rounded-lg font-semibold transition-colors ${
-                answeredQuestions === totalQuestions
+                allAnswered
                   ? "bg-blue-600 text-white hover:bg-blue-700"
                   : "bg-gray-300 text-gray-500 cursor-not-allowed"
               }`}
@@ -387,11 +476,11 @@ const HamiltonDepressionScale = () => {
         </div>
       ) : (
         <div className="text-center">
-          <div className={`inline-block px-8 py-6 rounded-lg ${depressionInfo?.bg ?? ''} mb-6`}>
+          <div className={`inline-block px-8 py-6 rounded-lg ${depressionInfo.bg} mb-6`}>
             <h2 className="text-2xl font-bold text-gray-800 mb-2">ผลการประเมิน</h2>
             <div className="text-4xl font-bold text-gray-800 mb-2">{totalScore} คะแนน</div>
-            <div className={`text-xl font-semibold ${depressionInfo?.color ?? ''}`}>
-              {depressionInfo?.level ?? ''}
+            <div className={`text-xl font-semibold ${depressionInfo.color}`}>
+              {depressionInfo.level}
             </div>
           </div>
 
@@ -436,14 +525,23 @@ const HamiltonDepressionScale = () => {
             </p>
           </div>
 
-          <div className="space-y-4">
-            <button
-              onClick={handleReset}
-              className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-            >
-              ทำแบบประเมินใหม่
-            </button>
-          </div>
+          <div className="grid grid-cols-2 gap-4">
+          <button
+            onClick={() => setShowResults(false)}
+            className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+          >
+            ทำแบบประเมินใหม่
+          </button>
+
+          <button onClick={() => window.history.go(-1)} className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700">
+            กลับหน้าก่อนหน้า
+          </button>
+        </div>
+        </div>
+      )}
+      {submitMessage && (
+        <div className={`mt-4 p-3 rounded ${submitMessage.includes("เรียบร้อย") ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+          {submitMessage}
         </div>
       )}
     </div>
