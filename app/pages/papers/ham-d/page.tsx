@@ -345,12 +345,18 @@ const HamiltonDepressionScale = () => {
 
       {!showResults ? (
         <div className="space-y-8">
-          <div className="bg-blue-50 p-4 rounded-lg mb-6">
+          {/* <div className="bg-blue-50 p-4 rounded-lg mb-6">
             <h2 className="font-semibold text-blue-800 mb-2">คำแนะนำการทำแบบประเมิน</h2>
             <p className="text-blue-700 text-sm">
               กรุณาอ่านคำถามแต่ละข้อและเลือกคำตอบที่ตรงกับสภาวะของคุณในช่วง 2 สัปดาห์ที่ผ่านมา
             </p>
-          </div>
+          </div> */}
+
+          {thaiId && patientInfo && (
+            <div className="mb-4 p-3 bg-blue-50 rounded-lg text-center text-blue-700">
+              กำลังทำแบบประเมินสำหรับ: {patientInfo.first_name} {patientInfo.last_name} ({thaiId})
+            </div>
+          )}
 
           {questions.map((question) => (
             <div key={question.id} className="border border-gray-200 rounded-lg p-6 shadow-sm">
@@ -454,21 +460,20 @@ const HamiltonDepressionScale = () => {
                 ตอบแล้ว {answeredQuestions} จาก {questions.length} ข้อ
               </p>
               <div className="w-64 bg-gray-200 rounded-full h-2 mt-2">
-                <div 
+                <div
                   className="bg-blue-600 h-2 rounded-full transition-all duration-300"
                   style={{ width: `${(answeredQuestions / questions.length) * 100}%` }}
                 ></div>
               </div>
             </div>
-            
+
             <button
               onClick={handleSubmit}
               disabled={!allAnswered}
-              className={`px-8 py-3 rounded-lg font-semibold transition-colors ${
-                allAnswered
+              className={`px-8 py-3 rounded-lg font-semibold transition-colors ${allAnswered
                   ? "bg-blue-600 text-white hover:bg-blue-700"
                   : "bg-gray-300 text-gray-500 cursor-not-allowed"
-              }`}
+                }`}
             >
               ดูผลประเมิน
             </button>
@@ -513,30 +518,30 @@ const HamiltonDepressionScale = () => {
           <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6 text-left">
             <div className="font-medium text-yellow-800 mb-1">คำแนะนำ:</div>
             <p className="text-yellow-700 text-sm">
-              จุดประสงค์ของแบบประเมิน HAM-D เพื่อประเมิน คัดกรองภาวะซึมเศร้า สามารถใช้ในบุคคลทั่วไปและในผู้ป่วยพาร์กินสัน โดยเป็นถามผู้ป่วย และเลือกตัวเลือกที่เหมาะสมที่สุด ประกอบด้วยคำถาม จำนวน 17 ข้อ ให้คะแนนตั้งแต่ 0 คือ ไม่มีอาการนั้นๆ เลย ถึง 4 คะแนน คือ มีอาการนั้นๆ ในความรุนแรงมากที่สุด 
+              จุดประสงค์ของแบบประเมิน HAM-D เพื่อประเมิน คัดกรองภาวะซึมเศร้า สามารถใช้ในบุคคลทั่วไปและในผู้ป่วยพาร์กินสัน โดยเป็นถามผู้ป่วย และเลือกตัวเลือกที่เหมาะสมที่สุด ประกอบด้วยคำถาม จำนวน 17 ข้อ ให้คะแนนตั้งแต่ 0 คือ ไม่มีอาการนั้นๆ เลย ถึง 4 คะแนน คือ มีอาการนั้นๆ ในความรุนแรงมากที่สุด
             </p>
           </div>
 
           <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-6 text-left">
             <div className="font-medium text-red-800 mb-1">คำแนะนำ:</div>
             <p className="text-red-700 text-sm">
-              ผลการประเมินนี้เป็นเพียงข้อมูลเบื้องต้นเท่านั้น ไม่สามารถใช้วินิจฉัยทางการแพทย์ได้ 
+              ผลการประเมินนี้เป็นเพียงข้อมูลเบื้องต้นเท่านั้น ไม่สามารถใช้วินิจฉัยทางการแพทย์ได้
               หากมีคะแนนสูงหรือมีความกังวลเกี่ยวกับสุขภาพจิต กรุณาปรึกษาแพทย์หรือผู้เชี่ยวชาญด้านสุขภาพจิต
             </p>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-          <button
-            onClick={() => setShowResults(false)}
-            className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
-          >
-            ทำแบบประเมินใหม่
-          </button>
+            <button
+              onClick={() => setShowResults(false)}
+              className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+            >
+              ทำแบบประเมินใหม่
+            </button>
 
-          <button onClick={() => window.history.go(-1)} className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700">
-            กลับหน้าก่อนหน้า
-          </button>
-        </div>
+            <button onClick={() => window.history.go(-1)} className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700">
+              กลับหน้าก่อนหน้า
+            </button>
+          </div>
         </div>
       )}
       {submitMessage && (

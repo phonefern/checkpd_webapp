@@ -1,11 +1,21 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { supabase } from "@/lib/supabase";
 
 const RBDAssessment = () => {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const thaiId = searchParams.get("patient_thaiid");
+
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [frequencyAnswers, setFrequencyAnswers] = useState<Record<number, number>>({});
   const [showResults, setShowResults] = useState(false);
+  const [patientInfo, setPatientInfo] = useState<any>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitMessage, setSubmitMessage] = useState("");
 
   const questions = [
     {
@@ -156,14 +166,200 @@ const RBDAssessment = () => {
     }
   };
 
-  const handleSubmit = () => {
-    setShowResults(true);
+  const fetchPatientInfo = async () => {
+    if (!thaiId) {
+      setSubmitMessage("ไม่พบข้อมูลผู้ป่วย");
+      return;
+    }
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setSubmitMessage("กรุณาเข้าสู่ระบบ");
+        return;
+      }
+      const { data, error } = await supabase
+        .from("pd_screenings")
+        .select("id, first_name, last_name, thaiid")
+        .eq("thaiid", thaiId)
+        .eq("user_id", session.user.id)
+        .single();
+      if (error) {
+        console.error("Error fetching patient info:", error);
+        setSubmitMessage("ไม่พบข้อมูลผู้ป่วย");
+      } else {
+        setPatientInfo(data);
+      }
+    } catch (err) {
+      console.error("Unexpected error:", err);
+      setSubmitMessage("เกิดข้อผิดพลาดในการโหลดข้อมูลผู้ป่วย");
+    }
+  };
+
+  useEffect(() => {
+    fetchPatientInfo();
+  }, [thaiId]);
+
+  const handleSubmit = async () => {
+    if (!thaiId || !patientInfo) {
+      setSubmitMessage("ไม่พบข้อมูลผู้ป่วย");
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error("ไม่พบ session ผู้ใช้");
+      }
+      
+      // Prepare answers in ordered array format
+      const orderedAnswers = questions.map(q => ({
+        answer: answers[q.id] || "",
+        frequency: frequencyAnswers[q.id] || 0
+      }));
+
+      // Also prepare a simpler format as fallback
+      const simpleAnswers = questions.map(q => {
+        const answer = answers[q.id] || "";
+        // Convert string answers to integers: yes=1, no=0, unknown=0
+        return answer === "yes" ? 1 : 0;
+      });
+      const simpleFrequencies = questions.map(q => frequencyAnswers[q.id] || 0);
+
+      // Validate data before sending
+      console.log("Validating data before save:", {
+        thaiId,
+        patientInfo: patientInfo ? { id: patientInfo.id, name: `${patientInfo.first_name} ${patientInfo.last_name}` } : null,
+        orderedAnswers,
+        score: calculateScore(),
+        answersCount: Object.keys(answers).length,
+        frequencyAnswersCount: Object.keys(frequencyAnswers).length
+      });
+
+      // Additional validation
+      if (!thaiId) {
+        throw new Error("ไม่พบ Thai ID");
+      }
+      if (!patientInfo || !patientInfo.id) {
+        throw new Error("ไม่พบข้อมูลผู้ป่วย");
+      }
+      if (!session.user || !session.user.id) {
+        throw new Error("ไม่พบข้อมูลผู้ใช้");
+      }
+
+      const { data: existingRows } = await supabase
+        .from("risk_factors_test")
+        .select("id")
+        .eq("user_id", session.user.id)
+        .eq("thaiid", thaiId);
+
+      const existingRecord = existingRows && existingRows.length > 0 ? existingRows[0] : null;
+
+      let dbError: any = null;
+      let useSimpleFormat = false;
+      
+      try {
+        if (existingRecord) {
+          console.log("Updating existing record with data:", {
+            sleep_answer: orderedAnswers,
+            sleep_score: calculateScore(),
+            patient_id: patientInfo.id,
+            user_id: session.user.id,
+            thaiid: thaiId,
+          });
+          const { error: updateError } = await supabase
+            .from("risk_factors_test")
+            .update({
+              sleep_answer: orderedAnswers,
+              sleep_score: calculateScore(),
+              patient_id: patientInfo.id,
+              user_id: session.user.id,
+              thaiid: thaiId,
+            })
+            .eq("id", existingRecord.id);
+          dbError = updateError;
+        } else {
+          console.log("Inserting new record with data:", {
+            user_id: session.user.id,
+            patient_id: patientInfo.id,
+            thaiid: thaiId,
+            sleep_answer: orderedAnswers,
+            sleep_score: calculateScore(),
+          });
+          const { error: insertError } = await supabase
+            .from("risk_factors_test")
+            .insert([{
+              user_id: session.user.id,
+              patient_id: patientInfo.id,
+              thaiid: thaiId,
+              sleep_answer: orderedAnswers,
+              sleep_score: calculateScore(),
+            }]);
+          dbError = insertError;
+        }
+      } catch (dbOperationError) {
+        console.error("Database operation failed:", dbOperationError);
+        dbError = dbOperationError;
+      }
+
+      // If complex format failed, try simple format
+      if (dbError) {
+        console.log("Trying simple format as fallback...");
+        try {
+          if (existingRecord) {
+            const { error: updateError } = await supabase
+              .from("risk_factors_test")
+              .update({
+                sleep_answer: simpleAnswers,
+                sleep_frequency: simpleFrequencies,
+                sleep_score: calculateScore(),
+                patient_id: patientInfo.id,
+                user_id: session.user.id,
+                thaiid: thaiId,
+              })
+              .eq("id", existingRecord.id);
+            dbError = updateError;
+          } else {
+            const { error: insertError } = await supabase
+              .from("risk_factors_test")
+              .insert([{
+                user_id: session.user.id,
+                patient_id: patientInfo.id,
+                thaiid: thaiId,
+                sleep_answer: simpleAnswers,
+                sleep_frequency: simpleFrequencies,
+                sleep_score: calculateScore(),
+              }]);
+            dbError = insertError;
+          }
+          useSimpleFormat = true;
+        } catch (fallbackError) {
+          console.error("Fallback format also failed:", fallbackError);
+          dbError = fallbackError;
+        }
+      }
+
+      if (dbError) {
+        console.error("Error saving RBD assessment:", dbError);
+        const errorMessage = dbError.message || dbError.details || JSON.stringify(dbError) || "ไม่ทราบสาเหตุ";
+        setSubmitMessage(`เกิดข้อผิดพลาด: ${errorMessage}`);
+      } else {
+        const formatUsed = useSimpleFormat ? " (ใช้รูปแบบข้อมูลแบบง่าย)" : "";
+        setSubmitMessage(`บันทึกผลการประเมินเรียบร้อยแล้ว!${formatUsed}`);
+        setShowResults(true);
+      }
+    } catch (err) {
+      console.error("Unexpected error:", err);
+      setSubmitMessage("เกิดข้อผิดพลาดที่ไม่คาดคิด");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleReset = () => {
     setAnswers({});
     setFrequencyAnswers({});
     setShowResults(false);
+    setSubmitMessage("");
   };
 
   const totalScore = calculateScore();
@@ -182,6 +378,12 @@ const RBDAssessment = () => {
           </h1>
           <p className="text-gray-600">REM Sleep Behavior Disorder (RBD) Assessment</p>
         </div>
+
+        {thaiId && patientInfo && (
+          <div className="mb-4 p-3 bg-blue-50 rounded-lg text-center text-blue-700">
+            กำลังทำแบบประเมินสำหรับ: {patientInfo.first_name} {patientInfo.last_name} ({thaiId})
+          </div>
+        )}
 
         <div className="bg-blue-50 p-4 rounded-lg mb-6">
           <h2 className="font-semibold text-blue-800 mb-2">คำแนะนำการทำแบบประเมิน</h2>
@@ -241,7 +443,7 @@ const RBDAssessment = () => {
 
         {/* Scoring Information */}
         <div className="bg-gray-50 p-6 rounded-lg mt-8 mb-6">
-        <h3 className="font-semibold text-gray-800 mb-3">หลักเกณฑ์คะแนน:</h3>
+          <h3 className="font-semibold text-gray-800 mb-3">หลักเกณฑ์คะแนน:</h3>
           <div className="space-y-2 text-sm text-gray-700">
             <p className="mt-3"><strong>คำถามเรื่องอาการซึ่งเคยมีตลอดชีวิต </strong></p>
             <p><strong>ข้อ 1-5 และ ข้อ 13 :</strong> ให้คะแนน ดังนี้ ไม่ทราบ = 0, ไม่ = 0, 	ใช่ = 1 </p>
@@ -270,16 +472,22 @@ const RBDAssessment = () => {
           
           <button
             onClick={handleSubmit}
-            disabled={!isComplete}
+            disabled={!isComplete || isSubmitting}
             className={`px-8 py-3 rounded-lg font-semibold transition-colors ${
-              isComplete
+              isComplete && !isSubmitting
                 ? "bg-blue-600 text-white hover:bg-blue-700"
                 : "bg-gray-300 text-gray-500 cursor-not-allowed"
             }`}
           >
-            ดูผลประเมิน
+            {isSubmitting ? "กำลังบันทึก..." : "ดูผลประเมิน"}
           </button>
         </div>
+        
+        {submitMessage && (
+          <div className={`mt-4 p-3 rounded ${submitMessage.includes("เรียบร้อย") ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+            {submitMessage}
+          </div>
+        )}
       </div>
     );
   }
@@ -344,14 +552,24 @@ const RBDAssessment = () => {
         </p>
       </div>
 
-      <div className="text-center">
+      <div className="grid grid-cols-2 gap-4">
         <button
           onClick={handleReset}
           className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
         >
           ทำแบบประเมินใหม่
         </button>
+        
+        <button onClick={() => window.history.go(-1)} className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700">
+          กลับหน้าก่อนหน้า
+        </button>
       </div>
+      
+      {submitMessage && (
+        <div className={`mt-4 p-3 rounded ${submitMessage.includes("เรียบร้อย") ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+          {submitMessage}
+        </div>
+      )}
     </div>
   );
 };

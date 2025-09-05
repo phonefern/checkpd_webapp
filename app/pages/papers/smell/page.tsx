@@ -1,6 +1,8 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 
 // Types
 interface Answer {
@@ -182,8 +184,15 @@ const QUESTIONS = [
 ];
 
 const SmellTest = () => {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const thaiId = searchParams.get("patient_thaiid");
+
   const [answers, setAnswers] = useState<Answer>({});
   const [showResults, setShowResults] = useState(false);
+  const [patientInfo, setPatientInfo] = useState<any>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitMessage, setSubmitMessage] = useState("");
 
   // Memoized handlers to prevent unnecessary re-renders
   const handleAnswerChange = useCallback((questionId: number, value: string) => {
@@ -230,13 +239,148 @@ const SmellTest = () => {
     }
   }, []);
 
-  const handleSubmit = useCallback(() => {
-    setShowResults(true);
-  }, []);
+  const fetchPatientInfo = async () => {
+    if (!thaiId) {
+      setSubmitMessage("ไม่พบข้อมูลผู้ป่วย");
+      return;
+    }
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setSubmitMessage("กรุณาเข้าสู่ระบบ");
+        return;
+      }
+      const { data, error } = await supabase
+        .from("pd_screenings")
+        .select("id, first_name, last_name, thaiid")
+        .eq("thaiid", thaiId)
+        .eq("user_id", session.user.id)
+        .single();
+      if (error) {
+        console.error("Error fetching patient info:", error);
+        setSubmitMessage("ไม่พบข้อมูลผู้ป่วย");
+      } else {
+        setPatientInfo(data);
+      }
+    } catch (err) {
+      console.error("Unexpected error:", err);
+      setSubmitMessage("เกิดข้อผิดพลาดในการโหลดข้อมูลผู้ป่วย");
+    }
+  };
+
+  useEffect(() => {
+    fetchPatientInfo();
+  }, [thaiId]);
+
+  const handleSubmit = async () => {
+    if (!thaiId || !patientInfo) {
+      setSubmitMessage("ไม่พบข้อมูลผู้ป่วย");
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error("ไม่พบ session ผู้ใช้");
+      }
+      
+      // Prepare answers in ordered array format
+      const orderedAnswers = QUESTIONS.map(q => answers[q.id] || "");
+      const totalScore = calculateScore();
+
+      // Validate data before sending
+      console.log("Validating data before save:", {
+        thaiId,
+        patientInfo: patientInfo ? { id: patientInfo.id, name: `${patientInfo.first_name} ${patientInfo.last_name}` } : null,
+        orderedAnswers,
+        score: totalScore,
+        answersCount: Object.keys(answers).length
+      });
+
+      // Additional validation
+      if (!thaiId) {
+        throw new Error("ไม่พบ Thai ID");
+      }
+      if (!patientInfo || !patientInfo.id) {
+        throw new Error("ไม่พบข้อมูลผู้ป่วย");
+      }
+      if (!session.user || !session.user.id) {
+        throw new Error("ไม่พบข้อมูลผู้ใช้");
+      }
+
+      const { data: existingRows } = await supabase
+        .from("risk_factors_test")
+        .select("id")
+        .eq("user_id", session.user.id)
+        .eq("thaiid", thaiId);
+
+      const existingRecord = existingRows && existingRows.length > 0 ? existingRows[0] : null;
+
+      let dbError: any = null;
+      try {
+        if (existingRecord) {
+          console.log("Updating existing record with data:", {
+            smell_answer: orderedAnswers,
+            smell_score: totalScore,
+            patient_id: patientInfo.id,
+            user_id: session.user.id,
+            thaiid: thaiId,
+          });
+          const { error: updateError } = await supabase
+            .from("risk_factors_test")
+            .update({
+              smell_answer: orderedAnswers,
+              smell_score: totalScore,
+              patient_id: patientInfo.id,
+              user_id: session.user.id,
+              thaiid: thaiId,
+            })
+            .eq("id", existingRecord.id);
+          dbError = updateError;
+        } else {
+          console.log("Inserting new record with data:", {
+            user_id: session.user.id,
+            patient_id: patientInfo.id,
+            thaiid: thaiId,
+            smell_answer: orderedAnswers,
+            smell_score: totalScore,
+          });
+          const { error: insertError } = await supabase
+            .from("risk_factors_test")
+            .insert([{
+              user_id: session.user.id,
+              patient_id: patientInfo.id,
+              thaiid: thaiId,
+              smell_answer: orderedAnswers,
+              smell_score: totalScore,
+            }]);
+          dbError = insertError;
+        }
+      } catch (dbOperationError) {
+        console.error("Database operation failed:", dbOperationError);
+        dbError = dbOperationError;
+      }
+
+      if (dbError) {
+        console.error("Error saving smell assessment:", dbError);
+        const errorMessage = dbError.message || dbError.details || JSON.stringify(dbError) || "ไม่ทราบสาเหตุ";
+        setSubmitMessage(`เกิดข้อผิดพลาด: ${errorMessage}`);
+      } else {
+        setSubmitMessage("บันทึกผลการประเมินเรียบร้อยแล้ว!");
+        setShowResults(true);
+      }
+    } catch (err) {
+      console.error("Unexpected error:", err);
+      setSubmitMessage("เกิดข้อผิดพลาดที่ไม่คาดคิด");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const handleReset = useCallback(() => {
     setAnswers({});
     setShowResults(false);
+    setSubmitMessage("");
   }, []);
 
   const totalScore = calculateScore();
@@ -259,6 +403,12 @@ const SmellTest = () => {
             </p>
           </div>
         </div>
+
+        {thaiId && patientInfo && (
+          <div className="mb-4 p-3 bg-blue-50 rounded-lg text-center text-blue-700">
+            กำลังทำแบบประเมินสำหรับ: {patientInfo.first_name} {patientInfo.last_name} ({thaiId})
+          </div>
+        )}
 
         {/* Questions in 2x2 grid layout */}
         <div className="space-y-6">
@@ -336,17 +486,23 @@ const SmellTest = () => {
           
           <button
             onClick={handleSubmit}
-            disabled={!isComplete}
+            disabled={!isComplete || isSubmitting}
             className={`px-8 py-3 rounded-lg font-semibold transition-colors ${
-              isComplete
+              isComplete && !isSubmitting
                 ? "bg-blue-600 text-white hover:bg-blue-700"
                 : "bg-gray-300 text-gray-500 cursor-not-allowed"
             }`}
             aria-label={isComplete ? "ดูผลการทดสอบ" : "กรุณาตอบคำถามให้ครบก่อน"}
           >
-            ดูผลการทดสอบ
+            {isSubmitting ? "กำลังบันทึก..." : "ดูผลการทดสอบ"}
           </button>
         </div>
+        
+        {submitMessage && (
+          <div className={`mt-4 p-3 rounded ${submitMessage.includes("เรียบร้อย") ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+            {submitMessage}
+          </div>
+        )}
       </div>
     );
   }
@@ -444,7 +600,17 @@ const SmellTest = () => {
         >
           พิมพ์ผลการทดสอบ
         </button>
+
+        <button onClick={() => window.history.go(-1)} className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
+          กลับหน้าก่อนหน้า
+        </button>
       </div>
+      
+      {submitMessage && (
+        <div className={`mt-4 p-3 rounded ${submitMessage.includes("เรียบร้อย") ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+          {submitMessage}
+        </div>
+      )}
     </div>
   );
 };

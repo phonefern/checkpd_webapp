@@ -18,7 +18,7 @@ export default function Rome4() {
   const router = useRouter();
   const thaiId = searchParams.get("patient_thaiid");
 
-  const [answers, setAnswers] = useState<(boolean | null)[]>(Array(questions.length).fill(null));
+  const [answers, setAnswers] = useState<number[]>(Array(questions.length).fill(0));
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitMessage, setSubmitMessage] = useState("");
   const [patientInfo, setPatientInfo] = useState<any>(null);
@@ -59,13 +59,13 @@ export default function Rome4() {
     fetchPatientInfo();
   }, [thaiId]);
 
-  const handleAnswer = (index: number, value: boolean) => {
+  const handleAnswer = (index: number, value: number) => {
     const updated = [...answers];
     updated[index] = value;
     setAnswers(updated);
   };
 
-  const totalScore = answers.filter((a) => a === true).length;
+  const totalScore = answers.reduce((acc, val) => acc + val, 0);
 
   const handleSubmit = async () => {
     if (!thaiId || !patientInfo) {
@@ -142,9 +142,11 @@ export default function Rome4() {
         const { error: scoreError } = await supabase
           .from('risk_factors_scores')
           .insert([{
-            risk_test_id: riskTestId,
-            score_type: 'total',
-            score_value: totalScore,
+              user_id: session.user.id,
+              patient_id: patientInfo.id,
+              thaiid: thaiId,
+              rome4_answer: answers,
+              rome4_score: totalScore,
           }]);
 
         if (scoreError) {
@@ -208,8 +210,8 @@ export default function Rome4() {
                 <input
                   type="radio"
                   name={`q${i}`}
-                  checked={answers[i] === true}
-                  onChange={() => handleAnswer(i, true)}
+                  checked={answers[i] === 1}
+                  onChange={() => handleAnswer(i, 1)}
                   className="h-4 w-4"
                 />
               </td>
@@ -217,8 +219,8 @@ export default function Rome4() {
                 <input
                   type="radio"
                   name={`q${i}`}
-                  checked={answers[i] === false}
-                  onChange={() => handleAnswer(i, false)}
+                  checked={answers[i] === 0}
+                  onChange={() => handleAnswer(i, 0)}
                   className="h-4 w-4"
                 />
               </td>
