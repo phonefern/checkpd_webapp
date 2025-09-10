@@ -3,23 +3,30 @@
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { supabase } from '@/lib/supabase';
+import otherDiagnosisData from '@/app/component/questions/other_diagnosis_dropdown.json';
 
 interface PatientData {
   id: number;
   thaiid?: string;
   first_name: string;
   last_name: string;
+  gender: string;
   age: string;
   province: string;
   collection_date: string;
   hn_number: string;
   prediction_risk?: boolean | null;
+  condition?: string;
+  other?: string;
   risk_factors?: {
     rome4_score: number | null;
     epworth_score: number | null;
     hamd_score: number | null;
     sleep_score: number | null;
     smell_score: number | null;
+    mds_score: number | null;
+    moca_score: number | null;
+    tmse_score: number | null;
   };
 }
 
@@ -28,7 +35,10 @@ const assessmentLabels = {
   epworth_score: 'Epworth',
   hamd_score: 'HAM-D',
   sleep_score: 'Sleep',
-  smell_score: 'Smell'
+  smell_score: 'Smell',
+  mds_score: 'MDS',
+  moca_score: 'MoCA',
+  tmse_score: 'TMSE'
 };
 
 const assessmentDescriptions = {
@@ -36,7 +46,10 @@ const assessmentDescriptions = {
   epworth_score: 'แบบประเมินระดับความง่วงนอน',
   hamd_score: 'แบบประเมินระดับความรุนแรงของอาการซึมเศร้า',
   sleep_score: 'แบบสอบถามความผิดปกติของการนอนหลับ',
-  smell_score: 'แบบประเมินความผิดปกติของการรับกลิ่น'
+  smell_score: 'แบบประเมินความผิดปกติของการรับกลิ่น',
+  mds_score: 'แบบประเมินอาการทางระบบประสาท',
+  moca_score: 'แบบทดสอบการทำงานของสมอง',
+  tmse_score: 'แบบทดสอบการทำงานของสมอง'
 };
 
 export default function PapersPage() {
@@ -46,6 +59,26 @@ export default function PapersPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editingPatient, setEditingPatient] = useState<PatientData | null>(null);
+  const [editCondition, setEditCondition] = useState<string>('');
+  const [editOther, setEditOther] = useState<string>('');
+  const [isCustomOther, setIsCustomOther] = useState<boolean>(false);
+  const [selectedOtherCategory, setSelectedOtherCategory] = useState<string>('');
+  const [selectedOtherDiagnosis, setSelectedOtherDiagnosis] = useState<string>('');
+
+  const conditionOptions = useMemo(
+    () => ['Prodromal', 'Other diagnosis', 'Control', 'PD'],
+    []
+  );
+  const otherCategories = useMemo(() => {
+    return ['-', ...otherDiagnosisData.map(item => item.category), 'Custom...'];
+  }, []);
+  const getDiagnosesByCategory = (category: string): string[] => {
+    if (!category || category === '-' || category === 'Custom...') return [];
+    const found = (otherDiagnosisData as { category: string; diagnosis: string[] }[]).find(i => i.category === category);
+    return found ? found.diagnosis : [];
+  };
 
   useEffect(() => {
     fetchPatientData();
@@ -63,7 +96,7 @@ export default function PapersPage() {
       // Fetch patient data
       const { data: patientData, error: patientError } = await supabase
         .from('pd_screenings')
-        .select('id, thaiid, first_name, last_name, age, province, collection_date, hn_number')
+        .select('id, thaiid, first_name, last_name, gender, age, province, collection_date, hn_number, condition, other')
         .eq('user_id', session.user.id)
         .order('created_at', { ascending: false });
 
@@ -78,7 +111,7 @@ export default function PapersPage() {
       const patientIds = patientData.map(patient => patient.id);
       const { data: riskFactorsData, error: riskFactorsError } = await supabase
         .from('risk_factors_test')
-        .select('patient_id, rome4_score, epworth_score, hamd_score, sleep_score, smell_score')
+        .select('patient_id, rome4_score, epworth_score, hamd_score, sleep_score, smell_score, mds_score, moca_score, tmse_score')
         .in('patient_id', patientIds);
 
       if (riskFactorsError) {
@@ -113,7 +146,10 @@ export default function PapersPage() {
             epworth_score: null,
             hamd_score: null,
             sleep_score: null,
-            smell_score: null
+            smell_score: null,
+            mds_score: null,
+            moca_score: null,
+            tmse_score: null
           }
         };
       });
@@ -132,8 +168,8 @@ export default function PapersPage() {
     
     return patients.filter(patient => 
       patient.thaiid?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      patient.first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      patient.last_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      patient.first_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      patient.last_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       patient.hn_number?.toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [patients, searchTerm]);
@@ -166,6 +202,76 @@ export default function PapersPage() {
     return risk
       ? 'bg-red-100 text-red-700 border border-red-200'
       : 'bg-green-100 text-green-700 border border-green-200';
+  };
+
+  const openEditModal = (patient: PatientData) => {
+    setEditingPatient(patient);
+    setEditCondition(patient.condition || '');
+    const initialOther = patient.other || '-';
+    // Determine if initialOther matches any diagnosis in JSON
+    const match = (otherDiagnosisData as { category: string; diagnosis: string[] }[]).find(cat =>
+      cat.diagnosis.includes(initialOther)
+    );
+    if (initialOther === '-') {
+      setSelectedOtherCategory('-');
+      setSelectedOtherDiagnosis('');
+      setIsCustomOther(false);
+      setEditOther('-');
+    } else if (match) {
+      setSelectedOtherCategory(match.category);
+      setSelectedOtherDiagnosis(initialOther);
+      setIsCustomOther(false);
+      setEditOther(initialOther);
+    } else {
+      setSelectedOtherCategory('Custom...');
+      setSelectedOtherDiagnosis('');
+      setIsCustomOther(true);
+      setEditOther(initialOther);
+    }
+    setIsEditOpen(true);
+  };
+
+  const closeEditModal = () => {
+    setIsEditOpen(false);
+    setEditingPatient(null);
+    setEditCondition('');
+    setEditOther('');
+    setIsCustomOther(false);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingPatient) return;
+    try {
+      setLoading(true);
+      let finalOther = '-';
+      if (isCustomOther) {
+        finalOther = editOther.trim() || '-';
+      } else if (selectedOtherCategory === '-' || !selectedOtherCategory) {
+        finalOther = '-';
+      } else if (selectedOtherCategory === 'Custom...') {
+        finalOther = editOther.trim() || '-';
+      } else {
+        finalOther = selectedOtherDiagnosis || '-';
+      }
+      const { error: updateError } = await supabase
+        .from('pd_screenings')
+        .update({ condition: editCondition || null, other: finalOther || null })
+        .eq('id', editingPatient.id);
+
+      if (updateError) {
+        console.error('Error updating patient:', updateError);
+        setError('ไม่สามารถบันทึกข้อมูลได้');
+        return;
+      }
+
+      setPatients(prev => prev.map(p => p.id === editingPatient.id ? { ...p, condition: editCondition || undefined, other: finalOther || undefined } : p));
+      closeEditModal();
+    } catch (err) {
+      console.error('Unexpected error during update:', err);
+      setError('เกิดข้อผิดพลาดในการบันทึกข้อมูล');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleDeletePatient = async (patientId: number, patientName: string) => {
@@ -209,6 +315,9 @@ export default function PapersPage() {
       setLoading(false);
     }
   };
+
+  
+
 
   const renderScoreIndicator = (score: number | null, key: keyof typeof assessmentLabels) => {
     const status = getScoreStatus(score);
@@ -372,6 +481,7 @@ export default function PapersPage() {
   }
 
   return (
+    <>
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 shadow-sm">
@@ -450,6 +560,12 @@ export default function PapersPage() {
                       ความเสี่ยง
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      อาการ
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      อื่นๆ
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       การดำเนินการ
                     </th>
                   </tr>
@@ -466,13 +582,13 @@ export default function PapersPage() {
                           </div>
                           <div className="ml-4">
                             <div className="text-sm font-medium text-gray-900">
-                              {patient.first_name} {patient.last_name}
+                              {patient.first_name} {patient.last_name} 
                             </div>
                             <div className="text-sm text-gray-500">
                               {patient.thaiid ? `ID: ${patient.thaiid}` : 'ไม่มีเลขบัตรประชาชน'}
                             </div>
                             <div className="text-xs text-gray-500 mt-1 space-y-1">
-                              <div>อายุ: {patient.age} ปี • จังหวัด: {patient.province}</div>
+                              <div>อายุ: {patient.age} ปี • จังหวัด: {patient.province} • เพศ: {patient.gender}</div>
                               <div>HN: {patient.hn_number || '-'} • วันที่: {formatDate(patient.collection_date)}</div>
                             </div>
                           </div>
@@ -499,8 +615,23 @@ export default function PapersPage() {
                           </span>
                         )}
                       </td>
+                      <td className="text-sm px-6 py-4">
+                        {patient.condition || '-'}
+                      </td>
+                      <td className="text-sm px-6 py-4">
+                        {patient.other || '-'}
+                      </td>
                       <td className="px-6 py-4">
                         <div className="flex flex-col gap-2">
+                          <button
+                            onClick={() => openEditModal(patient)}
+                            className="inline-flex items-center justify-center px-3 py-2 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700 transition-colors"
+                          >
+                            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z" />
+                            </svg>
+                            เพิ่ม/แก้ไข
+                          </button>
                           <Link
                             href={`/pages/papers/assessment?patient_thaiid=${patient.thaiid}`}
                             className="inline-flex items-center justify-center px-3 py-2 bg-emerald-600 text-white rounded-lg text-sm hover:bg-emerald-700 transition-colors"
@@ -554,5 +685,103 @@ export default function PapersPage() {
         )}
       </div>
     </div>
+      {isEditOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-lg bg-white rounded-xl shadow-lg">
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900">แก้ไข Condition / Other</h3>
+              <button onClick={closeEditModal} className="text-gray-400 hover:text-gray-600">
+                <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              </button>
+            </div>
+            <div className="px-6 py-5 space-y-5">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Condition</label>
+                <select
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                  value={editCondition}
+                  onChange={(e) => setEditCondition(e.target.value)}
+                >
+                  <option value="">-</option>
+                  {conditionOptions.map(opt => (
+                    <option key={opt} value={opt}>{opt}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Other</label>
+                <div className="grid grid-cols-1 gap-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <select
+                      className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                      value={selectedOtherCategory}
+                      onChange={(e) => {
+                        const cat = e.target.value;
+                        setSelectedOtherCategory(cat);
+                        setSelectedOtherDiagnosis('');
+                        if (cat === 'Custom...') {
+                          setIsCustomOther(true);
+                          setEditOther('');
+                        } else if (cat === '-' || !cat) {
+                          setIsCustomOther(false);
+                          setEditOther('-');
+                        } else {
+                          setIsCustomOther(false);
+                          setEditOther('');
+                        }
+                      }}
+                    >
+                      {otherCategories.map(opt => (
+                        <option key={opt} value={opt}>{opt}</option>
+                      ))}
+                    </select>
+                    <select
+                      className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white disabled:bg-gray-100 disabled:text-gray-400"
+                      value={selectedOtherDiagnosis}
+                      onChange={(e) => {
+                        setSelectedOtherDiagnosis(e.target.value);
+                        setEditOther(e.target.value);
+                      }}
+                      disabled={isCustomOther || !selectedOtherCategory || selectedOtherCategory === '-' || selectedOtherCategory === 'Custom...'}
+                    >
+                      <option value="">เลือกการวินิจฉัย</option>
+                      {getDiagnosesByCategory(selectedOtherCategory).map(opt => (
+                        <option key={opt} value={opt}>{opt}</option>
+                      ))}
+                    </select>
+                  </div>
+                  {isCustomOther && (
+                    <input
+                      type="text"
+                      className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="ระบุค่า Other (Custom)"
+                      value={editOther}
+                      onChange={(e) => setEditOther(e.target.value)}
+                    />
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-end gap-3">
+              <button
+                onClick={closeEditModal}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+              >
+                ยกเลิก
+              </button>
+              <button
+                onClick={handleSaveEdit}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                disabled={loading || (isCustomOther && editOther.trim() === '')}
+              >
+                บันทึก
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

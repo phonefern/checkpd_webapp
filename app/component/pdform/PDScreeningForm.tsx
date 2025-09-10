@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Session } from '@supabase/supabase-js'
 import AuthRedirect from '@/components/AuthRedirect'
 import { supabase } from '@/lib/supabase'
+import { provinceOptions } from '@/app/types/user';
 
 export default function PDScreeningForm() {
   const router = useRouter();
@@ -220,14 +221,19 @@ export default function PDScreeningForm() {
               
               <div>
                 <label className="block mb-1">จังหวัด</label>
-                <input 
-                  type="text" 
+                <select 
                   name="province" 
                   value={formData.province}
                   onChange={handleInputChange}
                   className="w-full p-2 border rounded"
-                  placeholder=""
-                />
+                >
+                  
+                  {provinceOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
             
