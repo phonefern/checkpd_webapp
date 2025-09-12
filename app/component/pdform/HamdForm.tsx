@@ -191,10 +191,10 @@ const questions = [
     }
   ];
 
-export default function Hamd() {
+export default function Hamd({ thaiId }: { thaiId?: string }) {
     const searchParams = useSearchParams();
     const router = useRouter();
-    const thaiId = searchParams.get("patient_thaiid");
+    // const thaiId = searchParams.get("patient_thaiid");
   
     const [answers, setAnswers] = useState<Record<number, number>>({});
     const [showResults, setShowResults] = useState(false);

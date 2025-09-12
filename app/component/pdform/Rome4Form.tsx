@@ -15,10 +15,10 @@ const questions = [
   "ขับถ่ายอุจจาระน้อยกว่า 3 ครั้งต่อสัปดาห์ (หากไม่ได้ใช้วิธีอื่นช่วย)",
 ];
 
-export default function Rome4() {
+export default function Rome4({ thaiId }: { thaiId?: string }) {
   const searchParams = useSearchParams();
     const router = useRouter();
-    const thaiId = searchParams.get("patient_thaiid");
+    // const thaiId = searchParams.get("patient_thaiid");
   
     const [answers, setAnswers] = useState<number[]>(Array(questions.length).fill(0));
     const [isSubmitting, setIsSubmitting] = useState(false);

@@ -185,11 +185,11 @@ const QUESTIONS = [
     }
 ];
 
-export default function Smell() {
+export default function Smell({ thaiId }: { thaiId?: string }) {
 
     const searchParams = useSearchParams();
     const router = useRouter();
-    const thaiId = searchParams.get("patient_thaiid");
+    // const thaiId = searchParams.get("patient_thaiid");
 
     const [answers, setAnswers] = useState<Answer>({});
     const [showResults, setShowResults] = useState(false);

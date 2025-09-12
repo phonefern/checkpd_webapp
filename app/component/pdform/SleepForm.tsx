@@ -7,11 +7,11 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
 
-export default function Sleep() {
+export default function Sleep({ thaiId }: { thaiId?: string }) {
 
   const searchParams = useSearchParams();
   const router = useRouter();
-  const thaiId = searchParams.get("patient_thaiid");
+  // const thaiId = searchParams.get("patient_thaiid");
 
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [frequencyAnswers, setFrequencyAnswers] = useState<Record<number, number>>({});

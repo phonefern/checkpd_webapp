@@ -14,10 +14,12 @@ const questions = [
   "7. ขณะขับรถ (หรือยานพาหนะอื่น) แล้วรถ (หรือยานพาหนะอื่น) ต้องหยุดนิ่ง 2-3 นาทีตามจังหวะการจราจร",
 ];
 
-export default function Epworth() {
+
+
+export default function EpworthForm({ thaiId }: { thaiId?: string }) {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const thaiId = searchParams.get("patient_thaiid");
+  // const thaiId = searchParams.get("patient_thaiid");
 
   const [answers, setAnswers] = useState<number[]>(Array(questions.length).fill(0));
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -102,20 +104,21 @@ export default function Epworth() {
             {
               user_id: session.user.id,
               patient_id: patientInfo.id,
-              thaiid: thaiId, 
+              thaiid: thaiId,
               epworth_answer: answers,
               epworth_score: totalScore,
             },
           ],
-          { onConflict: "patient_id" } 
+          { onConflict: "patient_id" }
         );
 
       if (upsertError) {
         console.error("Error saving assessment:", upsertError);
         setSubmitMessage(`เกิดข้อผิดพลาด: ${upsertError.message}`);
       } else {
+        console.log("Assessment saved successfully");
         setSubmitMessage("บันทึกผลการประเมินเรียบร้อยแล้ว!");
-        router.back();
+        setTimeout(() => router.back(), 1200);
       }
     } catch (err) {
       console.error("Unexpected error:", err);
@@ -192,11 +195,10 @@ export default function Epworth() {
         <button
           onClick={handleSubmit}
           disabled={isSubmitting || !thaiId || !patientInfo}
-          className={`px-6 py-2 rounded text-white ${
-            isSubmitting || !thaiId || !patientInfo
+          className={`px-6 py-2 rounded text-white ${isSubmitting || !thaiId || !patientInfo
               ? "bg-gray-400 cursor-not-allowed"
               : "bg-blue-600 hover:bg-blue-700"
-          }`}
+            }`}
         >
           {isSubmitting ? "กำลังบันทึก..." : "ส่งแบบประเมิน"}
         </button>
@@ -204,11 +206,10 @@ export default function Epworth() {
 
       {submitMessage && (
         <div
-          className={`mt-4 p-3 rounded text-center ${
-            submitMessage.includes("เรียบร้อย")
+          className={`mt-4 p-3 rounded text-center ${submitMessage.includes("เรียบร้อย")
               ? "bg-green-100 text-green-700"
               : "bg-red-100 text-red-700"
-          }`}
+            }`}
         >
           {submitMessage}
         </div>

@@ -1,13 +1,16 @@
 // app/pages/papers/smell/page.tsx
-import { supabase } from "@/lib/supabase";
 import Smell from "@/app/component/pdform/SmellForm";
 
-export default function SmellPage({
 
+export default async function SmellPage({
+  searchParams,
 }: {
-  searchParams: { [key: string]: string | undefined };
+  searchParams: Promise<{ patient_thaiid?: string | string[] }>;
 }) {
-  
+  const params = await searchParams;
+  const thaiId = Array.isArray(params.patient_thaiid) 
+    ? params.patient_thaiid[0] 
+    : params.patient_thaiid;
 
-  return <Smell />;
+  return <Smell thaiId={thaiId} />;
 }

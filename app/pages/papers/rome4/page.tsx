@@ -1,13 +1,16 @@
 // app/pages/papers/rome4/page.tsx
-import { supabase } from "@/lib/supabase";
 import Rome4 from "@/app/component/pdform/Rome4Form";
 
-export default function Rome4Page({
 
+export default async function Rome4Page({
+  searchParams,
 }: {
-  searchParams: { [key: string]: string | undefined };
+  searchParams: Promise<{ patient_thaiid?: string | string[] }>;
 }) {
-  
+  const params = await searchParams;
+  const thaiId = Array.isArray(params.patient_thaiid) 
+    ? params.patient_thaiid[0] 
+    : params.patient_thaiid;
 
-  return <Rome4 />;
+  return <Rome4 thaiId={thaiId} />;
 }

@@ -1,13 +1,15 @@
 // app/pages/papers/epworth/page.tsx
-import { supabase } from "@/lib/supabase";
 import EpworthForm from "@/app/component/pdform/EpworthForm";
 
-export default function EpworthPage({
-
+export default async function EpworthPage({
+  searchParams,
 }: {
-  searchParams: { [key: string]: string | undefined };
+  searchParams: Promise<{ patient_thaiid?: string | string[] }>;
 }) {
-  
+  const params = await searchParams;
+  const thaiId = Array.isArray(params.patient_thaiid) 
+    ? params.patient_thaiid[0] 
+    : params.patient_thaiid;
 
-  return <EpworthForm />;
+  return <EpworthForm thaiId={thaiId} />;
 }

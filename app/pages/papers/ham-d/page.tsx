@@ -1,13 +1,15 @@
 // app/pages/papers/ham-d/page.tsx
-import { supabase } from "@/lib/supabase";
-import HamdForm from "@/app/component/pdform/HamdForm";
+import Hamd from "@/app/component/pdform/HamdForm";
 
-export default function HamdPage({
-
+export default async function HamdPage({
+  searchParams,
 }: {
-  searchParams: { [key: string]: string | undefined };
+  searchParams: Promise<{ patient_thaiid?: string | string[] }>;
 }) {
-  
+  const params = await searchParams;
+  const thaiId = Array.isArray(params.patient_thaiid) 
+    ? params.patient_thaiid[0] 
+    : params.patient_thaiid;
 
-  return <HamdForm />;
+  return <Hamd thaiId={thaiId} />;
 }
