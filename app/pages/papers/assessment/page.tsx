@@ -6,6 +6,16 @@ import Link from "next/link";
 
 // Assessment configuration for easy scaling
 const assessments = [
+    {
+    id: 'ham-d',
+    title: 'Behavioral / psychiatric domain',
+    description: 'แบบประเมินระดับความรุนแรงของอาการซึมเศร้า',
+    category: 'HAM-D',
+    icon: '🧠',
+    color: 'bg-purple-50 hover:bg-purple-100 border-purple-200',
+    textColor: 'text-purple-700',
+    badgeColor: 'bg-purple-100 text-purple-800'
+  },
   {
     id: 'rome4',
     title: 'Constipation ',
@@ -17,26 +27,6 @@ const assessments = [
     badgeColor: 'bg-blue-100 text-blue-800'
   },
   {
-    id: 'epworth',
-    title: 'Epworth Sleepiness Scale',
-    description: 'แบบประเมินระดับความง่วงนอนในชีวิตประจำวัน',
-    category: 'Sleep domain',
-    icon: '😴',
-    color: 'bg-indigo-50 hover:bg-indigo-100 border-indigo-200',
-    textColor: 'text-indigo-700',
-    badgeColor: 'bg-indigo-100 text-indigo-800'
-  },
-  {
-    id: 'ham-d',
-    title: 'Behavioral / psychiatric domain',
-    description: 'แบบประเมินระดับความรุนแรงของอาการซึมเศร้า',
-    category: 'HAM-D',
-    icon: '🧠',
-    color: 'bg-purple-50 hover:bg-purple-100 border-purple-200',
-    textColor: 'text-purple-700',
-    badgeColor: 'bg-purple-100 text-purple-800'
-  },
-  {
     id: 'sleep',
     title: 'RBD Questionnaire ',
     description: 'แบบสอบถามความผิดปกติของการนอนหลับ',
@@ -46,6 +36,17 @@ const assessments = [
     textColor: 'text-slate-700',
     badgeColor: 'bg-slate-100 text-slate-800'
   },
+  {
+    id: 'epworth',
+    title: 'Epworth Sleepiness Scale',
+    description: 'แบบประเมินระดับความง่วงนอนในชีวิตประจำวัน',
+    category: 'Sleep domain',
+    icon: '😴',
+    color: 'bg-indigo-50 hover:bg-indigo-100 border-indigo-200',
+    textColor: 'text-indigo-700',
+    badgeColor: 'bg-indigo-100 text-indigo-800'
+  },
+
   {
     id: 'smell',
     title: 'Smell Test',
@@ -77,7 +78,7 @@ export default function AssessmentPage() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-semibold text-gray-900 mb-2">
-                Medical Assessment Center
+                Parkinson Disease Assessment
               </h1>
               <p className="text-gray-600">เลือกแบบประเมินทางการแพทย์ที่เหมาะสม</p>
             </div>

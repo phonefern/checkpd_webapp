@@ -31,7 +31,7 @@ const handleLogin = async (e: React.FormEvent) => {
     }
 
     // Force full page reload to ensure cookies are set
-    window.location.href = '/pages/users'
+    window.location.href = '/pages/index'
   } catch (err) {
     setError('An unexpected error occurred')
   } finally {

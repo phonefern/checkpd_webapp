@@ -84,6 +84,15 @@ export default function PapersPage() {
     fetchPatientData();
   }, []);
 
+  const handleLogout = async () => {
+    const { error } = await supabase.auth.signOut()
+    if (error) {
+      console.error('Logout error:', error)
+    } else {
+      window.location.href = '/pages/login'
+    }
+  }
+
   const fetchPatientData = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -133,13 +142,13 @@ export default function PapersPage() {
       const mergedData = patientData.map(patient => {
         const riskFactors = riskFactorsData?.find(rf => rf.patient_id === patient.id);
         const predictionRisk = predictionData?.find(pd => pd.thaiid === patient.thaiid);
-        
+
         return {
           ...patient,
-          prediction_risk: typeof predictionRisk?.prediction_risk === 'boolean' 
-            ? predictionRisk?.prediction_risk 
-            : predictionRisk?.prediction_risk == null 
-              ? null 
+          prediction_risk: typeof predictionRisk?.prediction_risk === 'boolean'
+            ? predictionRisk?.prediction_risk
+            : predictionRisk?.prediction_risk == null
+              ? null
               : Boolean(predictionRisk?.prediction_risk),
           risk_factors: riskFactors || {
             rome4_score: null,
@@ -165,8 +174,8 @@ export default function PapersPage() {
 
   const filteredPatients = useMemo(() => {
     if (!searchTerm) return patients;
-    
-    return patients.filter(patient => 
+
+    return patients.filter(patient =>
       patient.thaiid?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       patient.first_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       patient.last_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -281,7 +290,7 @@ export default function PapersPage() {
 
     try {
       setLoading(true);
-      
+
       const { error: riskFactorsError } = await supabase
         .from('risk_factors_test')
         .delete()
@@ -307,7 +316,7 @@ export default function PapersPage() {
       }
 
       setPatients(prevPatients => prevPatients.filter(patient => patient.id !== patientId));
-      
+
     } catch (err) {
       console.error('Unexpected error during deletion:', err);
       setError('เกิดข้อผิดพลาดในการลบข้อมูล');
@@ -316,21 +325,20 @@ export default function PapersPage() {
     }
   };
 
-  
+
 
 
   const renderScoreIndicator = (score: number | null, key: keyof typeof assessmentLabels) => {
     const status = getScoreStatus(score);
     const label = assessmentLabels[key];
     const description = assessmentDescriptions[key];
-    
+
     return (
-      <div 
-        className={`inline-flex items-center justify-center min-w-[2.5rem] h-10 px-2 rounded-lg text-sm font-medium mr-2 mb-2 transition-all duration-200 ${
-          status === 'completed' 
-            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100' 
+      <div
+        className={`inline-flex items-center justify-center min-w-[2.5rem] h-10 px-2 rounded-lg text-sm font-medium mr-2 mb-2 transition-all duration-200 ${status === 'completed'
+            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
             : 'bg-slate-50 text-slate-500 border border-slate-200 hover:bg-slate-100'
-        }`}
+          }`}
         title={`${label}: ${description}\nคะแนน: ${score !== null ? score : 'ยังไม่ทำแบบทดสอบ'}`}
       >
         <div className="text-center">
@@ -349,7 +357,7 @@ export default function PapersPage() {
       const showPages = 5;
       let startPage = Math.max(1, currentPage - Math.floor(showPages / 2));
       let endPage = Math.min(totalPages, startPage + showPages - 1);
-      
+
       if (endPage - startPage < showPages - 1) {
         startPage = Math.max(1, endPage - showPages + 1);
       }
@@ -397,16 +405,15 @@ export default function PapersPage() {
                   <path fillRule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z" clipRule="evenodd" />
                 </svg>
               </button>
-              
+
               {getPageNumbers().map((page) => (
                 <button
                   key={page}
                   onClick={() => setCurrentPage(page)}
-                  className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 ${
-                    currentPage === page
+                  className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 ${currentPage === page
                       ? 'z-10 bg-blue-600 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600'
                       : 'text-gray-900'
-                  }`}
+                    }`}
                 >
                   {page}
                 </button>
@@ -464,7 +471,7 @@ export default function PapersPage() {
               </div>
             </div>
             <div className="flex justify-center">
-              <button 
+              <button
                 onClick={fetchPatientData}
                 className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center transition-colors"
               >
@@ -482,209 +489,224 @@ export default function PapersPage() {
 
   return (
     <>
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 shadow-sm">
+      <div className="min-h-screen bg-gray-50">
+        {/* Header */}
+        <div className="bg-white border-b border-gray-200 shadow-sm">
+          <div className="max-w-7xl mx-auto px-6 py-8">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-3xl font-semibold text-gray-900 mb-2">Data Sheets Management</h1>
+                <p className="text-gray-600">จัดการแบบสอบถามและข้อมูลผู้ป่วยทั้งหมดในระบบ</p>
+              </div>
+              <div className="hidden md:block">
+                <div className="flex items-center space-x-2 text-sm text-gray-500">
+                  <span className="w-2 h-2 bg-green-400 rounded-full"></span>
+                  <span>ระบบพร้อมใช้งาน</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div className="max-w-7xl mx-auto px-6 py-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-semibold text-gray-900 mb-2">ระบบจัดการแบบสอบถาม</h1>
-              <p className="text-gray-600">จัดการแบบสอบถามและข้อมูลผู้ป่วยทั้งหมดในระบบ</p>
+          
+          {/* Quick Actions */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8 flex justify-between">
+            
+            <div className="flex items-center space-x-2">
+              <Link
+                href="/pages/papers/check-in"
+                className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+              >
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+                Check-In (ผู้ป่วยใหม่)
+              </Link>
             </div>
-            <div className="hidden md:block">
-              <div className="flex items-center space-x-2 text-sm text-gray-500">
-                <span className="w-2 h-2 bg-green-400 rounded-full"></span>
-                <span>ระบบพร้อมใช้งาน</span>
-              </div>
+      
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={handleLogout}
+                className="inline-flex items-center px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+              >
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+                ออกจากระบบ
+              </button>
             </div>
           </div>
-        </div>
-      </div>
 
-      <div className="max-w-7xl mx-auto px-6 py-8">
-        {/* Quick Actions */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
-          <h2 className="text-xl font-semibold mb-4 text-gray-900">เพิ่มผู้ป่วยใหม่</h2>
-          <Link
-            href="/pages/papers/check-in"
-            className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-          >
-            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-            </svg>
-            Check-In (ผู้ป่วยใหม่)
-          </Link>
-        </div>
-
-        {patients.length > 0 ? (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-            {/* Search and Header */}
-            <div className="p-6 border-b border-gray-200">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div>
-                  <h2 className="text-xl font-semibold text-gray-900">รายชื่อผู้ป่วย</h2>
-                  <p className="text-sm text-gray-600">ทั้งหมด {filteredPatients.length} คน</p>
-                </div>
-                <div className="relative max-w-md">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
+          {patients.length > 0 ? (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+              {/* Search and Header */}
+              <div className="p-6 border-b border-gray-200">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div>
+                    <h2 className="text-xl font-semibold text-gray-900">รายชื่อผู้ป่วย</h2>
+                    <p className="text-sm text-gray-600">ทั้งหมด {filteredPatients.length} คน</p>
                   </div>
-                  <input
-                    type="text"
-                    placeholder="ค้นหา ID, ชื่อ, นามสกุล, HN..."
-                    value={searchTerm}
-                    onChange={(e) => {
-                      setSearchTerm(e.target.value);
-                      setCurrentPage(1);
-                    }}
-                    className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                  />
+                  <div className="relative max-w-md">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      </svg>
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="ค้นหา ID, ชื่อ, นามสกุล, HN..."
+                      value={searchTerm}
+                      onChange={(e) => {
+                        setSearchTerm(e.target.value);
+                        setCurrentPage(1);
+                      }}
+                      className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Table */}
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        ข้อมูลผู้ป่วย
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        คะแนนแบบประเมิน
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        ความเสี่ยง
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        อาการ
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        อื่นๆ
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        การดำเนินการ
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {paginatedPatients.map((patient) => (
+                      <tr key={patient.id} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-6 py-4">
+                          <div className="flex items-center">
+                            <div className="flex-shrink-0 h-12 w-12 bg-blue-100 rounded-full flex items-center justify-center">
+                              <svg className="h-6 w-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                              </svg>
+                            </div>
+                            <div className="ml-4">
+                              <div className="text-sm font-medium text-gray-900">
+                                {patient.first_name} {patient.last_name}
+                              </div>
+                              <div className="text-sm text-gray-500">
+                                {patient.thaiid ? `ID: ${patient.thaiid}` : 'ไม่มีเลขบัตรประชาชน'}
+                              </div>
+                              <div className="text-xs text-gray-500 mt-1 space-y-1">
+                                <div>อายุ: {patient.age} ปี • จังหวัด: {patient.province} • เพศ: {patient.gender}</div>
+                                <div>HN: {patient.hn_number || '-'} • วันที่: {formatDate(patient.collection_date)}</div>
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex flex-wrap">
+                            {Object.entries(assessmentLabels).map(([key, label]) =>
+                              renderScoreIndicator(
+                                patient.risk_factors?.[key as keyof typeof assessmentLabels] ?? null,
+                                key as keyof typeof assessmentLabels
+                              )
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          {patient.prediction_risk !== null && patient.prediction_risk !== undefined ? (
+                            <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getRiskBadgeColor(patient.prediction_risk)}`}>
+                              {patient.prediction_risk ? 'เสี่ยง' : 'ไม่เสี่ยง'}
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-500">
+                              ยังไม่ประเมิน
+                            </span>
+                          )}
+                        </td>
+                        <td className="text-sm px-6 py-4">
+                          {patient.condition || '-'}
+                        </td>
+                        <td className="text-sm px-6 py-4">
+                          {patient.other || '-'}
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex flex-col gap-2">
+                            <button
+                              onClick={() => openEditModal(patient)}
+                              className="inline-flex items-center justify-center px-3 py-2 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700 transition-colors"
+                            >
+                              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z" />
+                              </svg>
+                              เพิ่ม/แก้ไข
+                            </button>
+                            <Link
+                              href={`/pages/papers/assessment?patient_thaiid=${patient.thaiid}`}
+                              className="inline-flex items-center justify-center px-3 py-2 bg-emerald-600 text-white rounded-lg text-sm hover:bg-emerald-700 transition-colors"
+                            >
+                              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                              </svg>
+                              เริ่มทำแบบทดสอบ
+                            </Link>
+                            <button
+                              onClick={() => handleDeletePatient(patient.id, `${patient.first_name} ${patient.last_name}`)}
+                              className="inline-flex items-center justify-center px-3 py-2 bg-red-100 text-red-700 rounded-lg text-sm hover:bg-red-200 transition-colors"
+                            >
+                              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                              ลบข้อมูล
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination */}
+              <Pagination />
+            </div>
+          ) : (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12">
+              <div className="text-center">
+                <svg className="mx-auto h-16 w-16 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2V9a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2" />
+                </svg>
+                <h3 className="mt-4 text-lg font-medium text-gray-900">ยังไม่มีข้อมูลผู้ป่วย</h3>
+                <p className="mt-1 text-gray-500">เริ่มต้นด้วยการเพิ่มผู้ป่วยใหม่</p>
+                <div className="mt-6">
+                  <Link
+                    href="/pages/papers/check-in"
+                    className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                    เพิ่มผู้ป่วยใหม่
+                  </Link>
                 </div>
               </div>
             </div>
-
-            {/* Table */}
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      ข้อมูลผู้ป่วย
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      คะแนนแบบประเมิน
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      ความเสี่ยง
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      อาการ
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      อื่นๆ
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      การดำเนินการ
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {paginatedPatients.map((patient) => (
-                    <tr key={patient.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center">
-                          <div className="flex-shrink-0 h-12 w-12 bg-blue-100 rounded-full flex items-center justify-center">
-                            <svg className="h-6 w-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                            </svg>
-                          </div>
-                          <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">
-                              {patient.first_name} {patient.last_name} 
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              {patient.thaiid ? `ID: ${patient.thaiid}` : 'ไม่มีเลขบัตรประชาชน'}
-                            </div>
-                            <div className="text-xs text-gray-500 mt-1 space-y-1">
-                              <div>อายุ: {patient.age} ปี • จังหวัด: {patient.province} • เพศ: {patient.gender}</div>
-                              <div>HN: {patient.hn_number || '-'} • วันที่: {formatDate(patient.collection_date)}</div>
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex flex-wrap">
-                          {Object.entries(assessmentLabels).map(([key, label]) => 
-                            renderScoreIndicator(
-                              patient.risk_factors?.[key as keyof typeof assessmentLabels] ?? null, 
-                              key as keyof typeof assessmentLabels
-                            )
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        {patient.prediction_risk !== null && patient.prediction_risk !== undefined ? (
-                          <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getRiskBadgeColor(patient.prediction_risk)}`}>
-                            {patient.prediction_risk ? 'เสี่ยง' : 'ไม่เสี่ยง'}
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-500">
-                            ยังไม่ประเมิน
-                          </span>
-                        )}
-                      </td>
-                      <td className="text-sm px-6 py-4">
-                        {patient.condition || '-'}
-                      </td>
-                      <td className="text-sm px-6 py-4">
-                        {patient.other || '-'}
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex flex-col gap-2">
-                          <button
-                            onClick={() => openEditModal(patient)}
-                            className="inline-flex items-center justify-center px-3 py-2 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700 transition-colors"
-                          >
-                            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z" />
-                            </svg>
-                            เพิ่ม/แก้ไข
-                          </button>
-                          <Link
-                            href={`/pages/papers/assessment?patient_thaiid=${patient.thaiid}`}
-                            className="inline-flex items-center justify-center px-3 py-2 bg-emerald-600 text-white rounded-lg text-sm hover:bg-emerald-700 transition-colors"
-                          >
-                            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                            </svg>
-                            เริ่มทำแบบทดสอบ
-                          </Link>
-                          <button 
-                            onClick={() => handleDeletePatient(patient.id, `${patient.first_name} ${patient.last_name}`)}
-                            className="inline-flex items-center justify-center px-3 py-2 bg-red-100 text-red-700 rounded-lg text-sm hover:bg-red-200 transition-colors"
-                          >
-                            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                            ลบข้อมูล
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Pagination */}
-            <Pagination />
-          </div>
-        ) : (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12">
-            <div className="text-center">
-              <svg className="mx-auto h-16 w-16 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2V9a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2" />
-              </svg>
-              <h3 className="mt-4 text-lg font-medium text-gray-900">ยังไม่มีข้อมูลผู้ป่วย</h3>
-              <p className="mt-1 text-gray-500">เริ่มต้นด้วยการเพิ่มผู้ป่วยใหม่</p>
-              <div className="mt-6">
-                <Link
-                  href="/pages/papers/check-in"
-                  className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                  </svg>
-                  เพิ่มผู้ป่วยใหม่
-                </Link>
-              </div>
-            </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
-    </div>
       {isEditOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
           <div className="w-full max-w-lg bg-white rounded-xl shadow-lg">
