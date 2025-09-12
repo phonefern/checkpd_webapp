@@ -106,7 +106,7 @@ export default function PapersPage() {
       const { data: patientData, error: patientError } = await supabase
         .from('pd_screenings')
         .select('id, thaiid, first_name, last_name, gender, age, province, collection_date, hn_number, condition, other')
-        .eq('user_id', session.user.id)
+        // .eq('user_id', session.user.id)
         .order('created_at', { ascending: false });
 
       if (patientError) {
