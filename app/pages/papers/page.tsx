@@ -31,10 +31,10 @@ interface PatientData {
 }
 
 const assessmentLabels = {
-  rome4_score: 'ROME IV',
-  epworth_score: 'Epworth',
   hamd_score: 'HAM-D',
-  sleep_score: 'Sleep',
+  rome4_score: 'ROME IV',
+  sleep_score: 'RBD',
+  epworth_score: 'Epworth',
   smell_score: 'Smell',
   mds_score: 'MDS',
   moca_score: 'MoCA',
