@@ -1,5 +1,5 @@
 "use client";
-
+// pages/papers.tsx
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { supabase } from '@/lib/supabase';
@@ -336,8 +336,8 @@ export default function PapersPage() {
     return (
       <div
         className={`inline-flex items-center justify-center min-w-[2.5rem] h-10 px-2 rounded-lg text-sm font-medium mr-2 mb-2 transition-all duration-200 ${status === 'completed'
-            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
-            : 'bg-slate-50 text-slate-500 border border-slate-200 hover:bg-slate-100'
+          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
+          : 'bg-slate-50 text-slate-500 border border-slate-200 hover:bg-slate-100'
           }`}
         title={`${label}: ${description}\nคะแนน: ${score !== null ? score : 'ยังไม่ทำแบบทดสอบ'}`}
       >
@@ -411,8 +411,8 @@ export default function PapersPage() {
                   key={page}
                   onClick={() => setCurrentPage(page)}
                   className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 ${currentPage === page
-                      ? 'z-10 bg-blue-600 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600'
-                      : 'text-gray-900'
+                    ? 'z-10 bg-blue-600 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600'
+                    : 'text-gray-900'
                     }`}
                 >
                   {page}
@@ -509,10 +509,10 @@ export default function PapersPage() {
         </div>
 
         <div className="max-w-7xl mx-auto px-6 py-8">
-          
+
           {/* Quick Actions */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8 flex justify-between">
-            
+
             <div className="flex items-center space-x-2">
               <Link
                 href="/pages/papers/check-in"
@@ -524,7 +524,7 @@ export default function PapersPage() {
                 Check-In (ผู้ป่วยใหม่)
               </Link>
             </div>
-      
+
             <div className="flex items-center space-x-2">
               <button
                 onClick={handleLogout}
@@ -672,6 +672,13 @@ export default function PapersPage() {
                               </svg>
                               ลบข้อมูล
                             </button>
+                            <button
+                              onClick={() => window.open(`/api/generate-pdf?thaiid=${patient.thaiid}`, "_blank")}
+                              className="inline-flex items-center justify-center px-3 py-2 bg-gray-200 rounded-lg text-sm"
+                            >
+                              พิมพ์เอกสาร
+                            </button>
+
                           </div>
                         </td>
                       </tr>
