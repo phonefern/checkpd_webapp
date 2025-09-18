@@ -1,9 +1,12 @@
 // app/api/generate-pdf/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import puppeteer from "puppeteer";
+// import puppeteer from "puppeteer";
+import { chromium } from "playwright-core";
 import fs from "fs";
 import path from "path";
 import { supabaseServer as supabase } from "@/lib/supabase-server";
+
+export const runtime = "nodejs"; // บังคับ runtime เป็น Node.js
 
 // โหลดฟอนต์ THSarabun จากไฟล์ในโปรเจกต์ (เก็บใน /public หรือ /fonts ก็ได้)
 const fontPath = path.join(process.cwd(), "fonts", "thsarabunnew-webfont.woff");
@@ -103,7 +106,6 @@ export async function GET(req: NextRequest) {
             margin-right: 5px;
             vertical-align: top;
             margin-top: 1px;
-            text-align: center;
             line-height: 10px;
         }
         .checkbox.checked {
@@ -405,22 +407,12 @@ export async function GET(req: NextRequest) {
   `;
 
     // แปลง HTML → PDF
-    const browser = await puppeteer.launch({
-        headless: true,
-        args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    const browser = await chromium.launch({
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
     });
     const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: "networkidle0" });
-    const pdfBuffer = await page.pdf({
-        format: "A4",
-        printBackground: true,
-        margin: {
-            top: '30px',
-            right: '30px',
-            bottom: '30px',
-            left: '30px'
-        }
-    });
+    await page.setContent(html, { waitUntil: "networkidle" });
+    const pdfBuffer = await page.pdf({ format: "A4" });
     await browser.close();
 
     return new Response(Buffer.from(pdfBuffer), {

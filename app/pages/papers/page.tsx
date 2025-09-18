@@ -717,6 +717,7 @@ export default function PapersPage() {
                               ลบข้อมูล
                             </button>
                             <button
+                              //  onClick={() => window.open(`/pages/api?thaiid=${patient.thaiid}`, "_blank")}
                               onClick={() => window.open(`/api/generate-pdf?thaiid=${patient.thaiid}`, "_blank")}
                               className="inline-flex items-center justify-center px-3 py-2 bg-gray-200 rounded-lg text-sm"
                             >
