@@ -52,6 +52,9 @@ const assessmentDescriptions = {
   tmse_score: 'แบบทดสอบการทำงานของสมอง'
 };
 
+
+
+
 export default function PapersPage() {
   const [patients, setPatients] = useState<PatientData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -66,6 +69,17 @@ export default function PapersPage() {
   const [isCustomOther, setIsCustomOther] = useState<boolean>(false);
   const [selectedOtherCategory, setSelectedOtherCategory] = useState<string>('');
   const [selectedOtherDiagnosis, setSelectedOtherDiagnosis] = useState<string>('');
+
+  const [editScores, setEditScores] = useState({
+    rome4_score: null as number | null,
+    epworth_score: null as number | null,
+    hamd_score: null as number | null,
+    sleep_score: null as number | null,
+    smell_score: null as number | null,
+    mds_score: null as number | null,
+    moca_score: null as number | null,
+    tmse_score: null as number | null,
+  });
 
   const conditionOptions = useMemo(
     () => ['Prodromal', 'Other diagnosis', 'Control', 'PD'],
@@ -216,8 +230,19 @@ export default function PapersPage() {
   const openEditModal = (patient: PatientData) => {
     setEditingPatient(patient);
     setEditCondition(patient.condition || '');
+
+    setEditScores({
+      rome4_score: patient.risk_factors?.rome4_score || null,
+      epworth_score: patient.risk_factors?.epworth_score || null,
+      hamd_score: patient.risk_factors?.hamd_score || null,
+      sleep_score: patient.risk_factors?.sleep_score || null,
+      smell_score: patient.risk_factors?.smell_score || null,
+      mds_score: patient.risk_factors?.mds_score || null,
+      moca_score: patient.risk_factors?.moca_score || null,
+      tmse_score: patient.risk_factors?.tmse_score || null,
+    });
     const initialOther = patient.other || '-';
-    // Determine if initialOther matches any diagnosis in JSON
+
     const match = (otherDiagnosisData as { category: string; diagnosis: string[] }[]).find(cat =>
       cat.diagnosis.includes(initialOther)
     );
@@ -252,6 +277,8 @@ export default function PapersPage() {
     if (!editingPatient) return;
     try {
       setLoading(true);
+
+      // --- บันทึก condition/other ใน pd_screenings ---
       let finalOther = '-';
       if (isCustomOther) {
         finalOther = editOther.trim() || '-';
@@ -262,26 +289,43 @@ export default function PapersPage() {
       } else {
         finalOther = selectedOtherDiagnosis || '-';
       }
-      const { error: updateError } = await supabase
+
+      const { error: updateScreeningError } = await supabase
         .from('pd_screenings')
-        .update({ condition: editCondition || null, other: finalOther || null })
+        .update({
+          condition: editCondition || null,
+          other: finalOther || null,
+        })
         .eq('id', editingPatient.id);
 
-      if (updateError) {
-        console.error('Error updating patient:', updateError);
-        setError('ไม่สามารถบันทึกข้อมูลได้');
-        return;
-      }
+      if (updateScreeningError) throw updateScreeningError;
 
-      setPatients(prev => prev.map(p => p.id === editingPatient.id ? { ...p, condition: editCondition || undefined, other: finalOther || undefined } : p));
+      // --- บันทึก scores ใน risk_factors_test ---
+      const { error: updateRiskError } = await supabase
+        .from('risk_factors_test')
+        .update(editScores)
+        .eq('patient_id', editingPatient.id);
+
+      if (updateRiskError) throw updateRiskError;
+
+      // อัปเดต state ใน frontend
+      setPatients(prev =>
+        prev.map(p =>
+          p.id === editingPatient.id
+            ? { ...p, condition: editCondition || undefined, other: finalOther || undefined, risk_factors: editScores }
+            : p
+        )
+      );
+
       closeEditModal();
     } catch (err) {
-      console.error('Unexpected error during update:', err);
+      console.error('Error during save:', err);
       setError('เกิดข้อผิดพลาดในการบันทึกข้อมูล');
     } finally {
       setLoading(false);
     }
   };
+
 
   const handleDeletePatient = async (patientId: number, patientName: string) => {
     if (!confirm(`คุณแน่ใจหรือไม่ที่จะลบข้อมูลผู้ป่วย "${patientName}" และข้อมูลแบบทดสอบทั้งหมดที่เกี่ยวข้อง?`)) {
@@ -791,6 +835,26 @@ export default function PapersPage() {
                     />
                   )}
                 </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">คะแนนแบบสอบถาม</label>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    {Object.entries(editScores).map(([key, value]) => (
+                      <div key={key}>
+                        <label className="text-xs text-gray-600">{key.replace('_', ' ')}</label>
+                        <input
+                          type="number"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                          value={value ?? ''}
+                          onChange={(e) => setEditScores(prev => ({
+                            ...prev,
+                            [key]: e.target.value === '' ? null : Number(e.target.value)
+                          }))}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
               </div>
             </div>
             <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-end gap-3">

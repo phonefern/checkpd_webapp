@@ -43,7 +43,7 @@ export default function Rome4({ thaiId }: { thaiId?: string }) {
             .from('pd_screenings')
             .select('id, first_name, last_name, thaiid')
             .eq('thaiid', thaiId)
-            .eq('user_id', session.user.id)
+            // .eq('user_id', session.user.id)
             .single();
   
           if (error) {

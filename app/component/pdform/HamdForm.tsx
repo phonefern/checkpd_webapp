@@ -252,7 +252,7 @@ export default function Hamd({ thaiId }: { thaiId?: string }) {
             .from("pd_screenings")
             .select("id, first_name, last_name, thaiid")
             .eq("thaiid", thaiId)
-            .eq("user_id", session.user.id)
+            // .eq("user_id", session.user.id)
             .single();
           if (error) {
             console.error("Error fetching patient info:", error);
