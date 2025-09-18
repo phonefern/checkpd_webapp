@@ -1,7 +1,7 @@
 // app/api/generate-pdf/route.ts
 import { NextRequest, NextResponse } from "next/server";
 // import puppeteer from "puppeteer";
-import { chromium } from "playwright-core";
+import { chromium } from "playwright";
 import fs from "fs";
 import path from "path";
 import { supabaseServer as supabase } from "@/lib/supabase-server";
