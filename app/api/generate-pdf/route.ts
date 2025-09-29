@@ -1,18 +1,25 @@
 // app/api/generate-pdf/route.ts
 import { NextRequest, NextResponse } from "next/server";
-// import puppeteer from "puppeteer";
-import { chromium } from "playwright";
-import fs from "fs";
 import path from "path";
+import fs from "fs";
+import playwright from "playwright-core";
+import chromium from "@sparticuz/chromium";
 import { supabaseServer as supabase } from "@/lib/supabase-server";
 
-export const runtime = "nodejs"; // บังคับ runtime เป็น Node.js
+export const runtime = "nodejs"; // ต้องใช้ Node.js runtime (ไม่ใช่ Edge)
+
 
 // โหลดฟอนต์ THSarabun จากไฟล์ในโปรเจกต์ (เก็บใน /public หรือ /fonts ก็ได้)
 const fontPath = path.join(process.cwd(), "fonts", "thsarabunnew-webfont.woff");
-const fontBase64 = fs.readFileSync(fontPath).toString("base64");
+let fontBase64 = "";
+try {
+  fontBase64 = fs.readFileSync(fontPath).toString("base64");
+} catch (err) {
+  console.error("❌ โหลดฟอนต์ไม่สำเร็จ:", err);
+}
 
 export async function GET(req: NextRequest) {
+  try {
     const thaiid = req.nextUrl.searchParams.get("thaiid");
     if (!thaiid) {
         return NextResponse.json({ error: "กรุณาระบุ thaiid" }, { status: 400 });
@@ -406,20 +413,35 @@ export async function GET(req: NextRequest) {
   </html>
   `;
 
-    // แปลง HTML → PDF
-    const browser = await chromium.launch({
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
-    });
+    // ใช้ playwright-core + @sparticuz/chromium สำหรับ Vercel
+    const browser = await playwright.chromium.launch({
+      args: chromium.args,
+      executablePath: process.env.VERCEL
+        ? await chromium.executablePath() // ใช้ sparticuz บน Vercel
+        : undefined, // local ให้ใช้ chromium ที่ติดมากับ Playwright
+      headless: true,
+});
+
+
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: "networkidle" });
     const pdfBuffer = await page.pdf({ format: "A4" });
     await browser.close();
 
     return new Response(Buffer.from(pdfBuffer), {
-        status: 200,
-        headers: {
-            "Content-Type": "application/pdf",
-            "Content-Disposition": `inline; filename*=UTF-8''${encodeURIComponent(`${thaiid}_${person.first_name}_${person.last_name}.pdf`)}`,
-        },
+      status: 200,
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `inline; filename*=UTF-8''${encodeURIComponent(
+          `${thaiid}_${person.first_name}_${person.last_name}.pdf`
+        )}`,
+      },
     });
+  } catch (err: any) {
+    console.error("❌ PDF generation error:", err);
+    return NextResponse.json(
+      { error: "เกิดข้อผิดพลาดขณะสร้าง PDF", details: err.message || err.toString() },
+      { status: 500 }
+    );
+  }
 }
