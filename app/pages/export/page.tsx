@@ -6,7 +6,6 @@ import { Session } from '@supabase/supabase-js'
 import AuthRedirect from '@/components/AuthRedirect'
 import JSZip from 'jszip'
 
-
 const conditionOptions = [
   { value: '', label: 'All Conditions' },
   { value: 'cdt7', label: 'CDT7' },
@@ -21,8 +20,11 @@ const conditionOptions = [
   { value: 'not_eval', label: 'Not Evaluated' }
 ]
 
+
+
 export type User = {
   id: string
+  record_id?: string
   thaiid: string
   firstname: string
   lastname: string
@@ -46,7 +48,6 @@ const handleLogout = async () => {
     window.location.href = '/login'
   }
 }
-
 const formatToThaiTime = (timestamp: string | undefined) => {
   if (!timestamp) return '-'
   const date = new Date(timestamp)
@@ -63,7 +64,8 @@ const formatToThaiTime = (timestamp: string | undefined) => {
 
 export default function ExportPage() {
   const [session, setSession] = useState<Session | null>(null)
-  const [users, setUsers] = useState<User[]>([])
+  const [users, setUsers] = useState<User[]>([]) // สำหรับแสดงในตาราง (มี pagination)
+  const [allSelectedRecords, setAllSelectedRecords] = useState<User[]>([]) // ✅ records ทั้งหมดเวลาทำ select all
   const [loading, setLoading] = useState(true)
   const [exportLoading, setExportLoading] = useState(false)
   const [searchId, setSearchId] = useState('')
@@ -88,7 +90,7 @@ export default function ExportPage() {
       .select('*', { count: 'exact' })
       .order('timestamp', { ascending: false })
       .range(from, to)
-    
+
     if (searchId.trim()) {
       query = query.or(
         `id.ilike.${likePattern},firstname.ilike.${likePattern},lastname.ilike.${likePattern},recorder.ilike.${likePattern},thaiid.ilike.${likePattern},condition.ilike.${likePattern}`
@@ -138,41 +140,55 @@ export default function ExportPage() {
     }
   }, [currentPage, searchId, startDate, endDate, searchCondition, session])
 
-  // Handle select all checkbox
+  // ✅ Handle select all (fetch ข้อมูลเต็ม)
   useEffect(() => {
-    const fetchAllUserIds = async () => {
-      // Fetch all user IDs (and last_update if needed) matching current filters, no pagination
-      let query = supabase
-        .from('users_history_with_users')
-        .select('id', { count: 'exact' })
-        .order('timestamp', { ascending: false })
-      if (searchId.trim()) {
-        const likePattern = `%${searchId.trim()}%`
-        query = query.or(
-          `id.ilike.${likePattern},firstname.ilike.${likePattern},lastname.ilike.${likePattern},recorder.ilike.${likePattern},thaiid.ilike.${likePattern},condition.ilike.${likePattern}`
-        )
+    const fetchAllRecords = async () => {
+      try {
+        let query = supabase
+          .from('users_history_with_users')
+          .select('*') 
+          .order('timestamp', { ascending: false });
+
+        if (searchId.trim()) {
+          const likePattern = `%${searchId.trim()}%`;
+          query = query.or(
+            `id.ilike.${likePattern},firstname.ilike.${likePattern},lastname.ilike.${likePattern},recorder.ilike.${likePattern},thaiid.ilike.${likePattern},condition.ilike.${likePattern}`
+          );
+        }
+        if (startDate) query = query.gte('timestamp', startDate);
+        if (endDate) {
+          const nextDay = new Date(endDate);
+          nextDay.setDate(nextDay.getDate() + 1);
+          query = query.lt('timestamp', nextDay.toISOString());
+        }
+        if (searchCondition.trim()) {
+          query = query.eq('condition', searchCondition);
+        }
+
+        const { data, error } = await query;
+        
+        if (error) {
+          console.error('Error fetching all records:', error);
+          setError('Failed to fetch all records');
+          setSelectAll(false);
+        } else if (data) {
+          setSelectedUsers(new Set(data.map((u: User) => u.id)));
+          setAllSelectedRecords(data); 
+        }
+      } catch (error) {
+        console.error('Error in select all:', error);
+        setError('Failed to select all records');
+        setSelectAll(false);
       }
-      if (startDate) query = query.gte('timestamp', startDate)
-      if (endDate) {
-        const nextDay = new Date(endDate)
-        nextDay.setDate(nextDay.getDate() + 1)
-        query = query.lt('timestamp', nextDay.toISOString())
-      }
-      if (searchCondition.trim()) {
-        query = query.eq('condition', searchCondition)
-      }
-      // Remove pagination
-      const { data, error } = await query
-      if (!error && data) {
-        setSelectedUsers(new Set(data.map((u: { id: string }) => u.id)))
-      }
-    }
+    };
+
     if (selectAll) {
-      fetchAllUserIds()
+      fetchAllRecords();
     } else {
-      setSelectedUsers(new Set())
+      setSelectedUsers(new Set());
+      setAllSelectedRecords([]);
     }
-  }, [selectAll, searchId, startDate, endDate, searchCondition])
+  }, [selectAll, searchId, startDate, endDate, searchCondition]);
 
   const handleUserSelect = (userId: string) => {
     const newSelected = new Set(selectedUsers)
@@ -183,127 +199,394 @@ export default function ExportPage() {
     }
     setSelectedUsers(newSelected)
   }
+interface WavFile {
+  field: string;
+  downloadUrl: string;
+  metadata: any;
+}
 
-  const handleExport = async () => {
-    if (selectedUsers.size === 0) {
-      setError('Please select at least one record to export')
-      return
+interface ExportRecord {
+  userId: string;
+  recordId: string;
+  firstName: string;
+  lastName: string;
+  lastUpdate: string;
+  data: any;
+  wavFiles: WavFile[];
+}
+
+interface CsvResult {
+  userId: string;
+  recordId: string;
+  firstName: string;
+  lastName: string;
+  lastUpdate: string;
+  csvData: string | null;
+  success: boolean;
+}
+
+const handleExport = async () => {
+  if (selectedUsers.size === 0) {
+    setError('Please select at least one record to export');
+    return;
+  }
+
+  setExportLoading(true);
+  setError('');
+  setSuccess('');
+
+  try {
+    const selectedUserIds = Array.from(selectedUsers);
+    const sourceRecords = selectAll && allSelectedRecords.length > 0 
+      ? allSelectedRecords 
+      : users;
+
+    const exportRecords = selectedUserIds.flatMap(userId => 
+      sourceRecords.filter(record => record.id === userId)
+    );
+
+    console.log('📦 Records to export:', exportRecords.length);
+
+    const exportPromises = exportRecords.map(async (record): Promise<ExportRecord> => {
+      try {
+        const url = `/api/export/${record.id}${record.record_id ? `?record_id=${encodeURIComponent(record.record_id)}` : ''}`;
+        console.log(`🔄 Exporting: ${record.id} - ${record.record_id}`);
+        
+        const res = await fetch(url);
+        
+        if (!res.ok) {
+          const { error } = await res.json();
+          throw new Error(
+            `Failed to export ${record.id} (record: ${record.record_id}): ${error?.message || 'Export failed'}`
+          );
+        }
+
+        const data = await res.json();
+        
+        // ✅ Debug WAV files data
+        console.log(`🎵 WAV files data for ${record.id}:`, {
+          hasWavFiles: !!data.wavFiles,
+          count: data.wavFiles?.length || 0,
+          wavFiles: data.wavFiles || []
+        });
+        
+        return {
+          userId: record.id,
+          recordId: record.record_id || '',
+          firstName: record.firstname,
+          lastName: record.lastname,
+          lastUpdate: record.last_update || record.timestamp || '',
+          data: data,
+          wavFiles: data.wavFiles || []
+        };
+      } catch (error) {
+        console.error(`Export failed for record ${record.record_id}:`, error);
+        throw error;
+      }
+    });
+
+    const results = await Promise.allSettled(exportPromises);
+    const failedExports = results.filter(result => result.status === 'rejected');
+    const successfulExports = results.filter(result => result.status === 'fulfilled') as PromiseFulfilledResult<ExportRecord>[];
+
+    if (failedExports.length > 0) {
+      console.error('❌ Failed exports:', failedExports);
+      setError(`Failed to export ${failedExports.length} records. Check console for details.`);
     }
 
-    setExportLoading(true)
-    setError('')
-    setSuccess('')
+    if (successfulExports.length === 0) {
+      setError('No records were successfully exported');
+      setExportLoading(false);
+      return;
+    }
 
-    try {
-      const selectedUserIds = Array.from(selectedUsers)
-      const exportPromises = selectedUserIds.map(async (userId) => {
-        // Find all user records with this userId (could be more than one if last_update differs)
-        const userRecords = users.filter(u => u.id === userId)
-        // If only one record, export as before
-        if (userRecords.length === 1) {
-          const res = await fetch(`/api/export/${userId}`)
-          if (!res.ok) {
-            const { error } = await res.json()
-            throw new Error(`Failed to export ${userId}: ${error?.message || 'Export failed'}`)
+    console.log('✅ Successful exports:', successfulExports.length);
+
+    // ✅ สร้าง ZIP file
+    const zip = new JSZip();
+    const timestamp = new Date().toISOString().slice(0, 19).replace(/[:\\/]/g, '-');
+    const folderName = `patient_records_export_${timestamp}`;
+
+    // ✅ Download WAV files และเพิ่มลงใน ZIP
+    console.log('🎵 Starting WAV files download...');
+    
+    // ✅ สร้าง array สำหรับเก็บ WAV download promises
+    const allWavDownloadPromises: Promise<{success: boolean, fileName: string, error?: string}>[] = [];
+
+    successfulExports.forEach(({ value }) => {
+      const { userId, recordId, firstName, lastName, lastUpdate, wavFiles } = value;
+      
+      if (!wavFiles || wavFiles.length === 0) {
+        console.log(`📭 No WAV files for ${userId}_${recordId}`);
+        return;
+      }
+
+      const safeLastUpdate = lastUpdate 
+        ? new Date(lastUpdate).toISOString().slice(0, 19).replace(/[:\\/]/g, '-')
+        : 'no-timestamp';
+      
+      const patientFolderName = `${userId}_${safeLastUpdate}_${firstName}_${lastName}`.replace(/\s+/g, '_');
+      
+      console.log(`🎵 Processing ${wavFiles.length} WAV files for ${patientFolderName}`);
+
+      wavFiles.forEach((wavFile: WavFile) => {
+        const downloadPromise = async () => {
+          try {
+            console.log(`⬇️ Downloading WAV: ${wavFile.field} from: ${wavFile.downloadUrl}`);
+            
+            // ✅ ตรวจสอบว่า downloadUrl มีค่า
+            if (!wavFile.downloadUrl) {
+              console.error(`❌ No downloadUrl for ${wavFile.field}`);
+              return { success: false, fileName: `${recordId}_${wavFile.field}.wav`, error: 'No download URL' };
+            }
+
+            const apiUrl = `/api/export/${userId}?record_id=${recordId}&download=${wavFile.field}`;
+            const response = await fetch(apiUrl);
+            
+            if (!response.ok) {
+              throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const blob = await response.blob();
+            
+            // ✅ ตรวจสอบว่าเป็น WAV file จริงๆ
+            if (blob.type && !blob.type.includes('audio') && !blob.type.includes('wav')) {
+              console.warn(`⚠️ Downloaded file may not be WAV: ${blob.type}`);
+            }
+            
+            const fileName = `${recordId}_${wavFile.field}.wav`;
+            
+            // ✅ เพิ่ม WAV file ลงใน ZIP
+            const patientFolder = zip.folder(`${folderName}/${patientFolderName}`);
+            patientFolder?.file(fileName, blob);
+            
+            console.log(`✅ Successfully added WAV: ${fileName} (${blob.size} bytes)`);
+            return { success: true, fileName };
+            
+          } catch (error) {
+            console.error(`❌ Failed to download WAV ${wavFile.field}:`, error);
+            return { 
+              success: false, 
+              fileName: `${recordId}_${wavFile.field}.wav`, 
+              error: error instanceof Error ? error.message : 'Unknown error' 
+            };
           }
-          return { userId, last_update: userRecords[0].last_update, data: await res.json() }
-        } else {
-          // Export each record with unique last_update
-          return Promise.all(userRecords.map(async (user) => {
-            const res = await fetch(`/api/export/${user.id}?last_update=${encodeURIComponent(user.last_update || '')}`)
-            if (!res.ok) {
-              const { error } = await res.json()
-              throw new Error(`Failed to export ${user.id}: ${error?.message || 'Export failed'}`)
-            }
-            return { userId: user.id, last_update: user.last_update, data: await res.json() }
-          }))
-        }
-      })
-      // Flatten results if needed
-      const resultsNested = await Promise.all(exportPromises)
-      const results = resultsNested.flat()
-      // Create virtual folder structure
-      const zip = new JSZip()
-      const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-')
-      const folderName = `patient_records_export_${timestamp}`
-      // Add each patient's data as a separate folder, using userId and last_update for uniqueness
-      results.forEach(({ userId, last_update, data }) => {
-        const safeUpdate = last_update ? String(last_update).replace(/[:\\/]/g, '-') : 'no_update'
-        const patientFolder = zip.folder(`${folderName}/${userId}_${safeUpdate}`)
-        if (data.tests && data.data) {
-          (data.tests as string[]).forEach((testType: string) => {
-            if (data.data[testType]) {
-              patientFolder?.file(
-                `${testType}.json`,
-                JSON.stringify(data.data[testType], null, 2)
-              )
-            }
-          })
-        }
-      })
-      // Add CSV files with demographic data for each selected user record
-      const csvPromises = results.map(async ({ userId, last_update }) => {
-        const { data: demographicData, error } = await supabase
+        };
+        
+        allWavDownloadPromises.push(downloadPromise());
+      });
+    });
+
+    // ✅ รอให้ WAV files download เสร็จทั้งหมด
+    if (allWavDownloadPromises.length > 0) {
+      console.log(`⏳ Waiting for ${allWavDownloadPromises.length} WAV files to download...`);
+      const wavResults = await Promise.allSettled(allWavDownloadPromises);
+      
+      const successfulWavDownloads = wavResults.filter(
+        (result): result is PromiseFulfilledResult<{success: boolean, fileName: string}> => 
+          result.status === 'fulfilled' && result.value.success
+      );
+      
+      const failedWavDownloads = wavResults.filter(
+        (result): result is PromiseFulfilledResult<{success: boolean, fileName: string, error?: string}> => 
+          result.status === 'fulfilled' && !result.value.success
+      );
+      
+      console.log(`✅ Successfully downloaded ${successfulWavDownloads.length} WAV files`);
+      if (failedWavDownloads.length > 0) {
+        console.warn(`⚠️ Failed to download ${failedWavDownloads.length} WAV files:`, 
+          failedWavDownloads.map(f => ({ fileName: f.value.fileName, error: f.value.error }))
+        );
+      }
+    } else {
+      console.log('📭 No WAV files to download');
+    }
+
+    // ✅ เพิ่ม JSON files และ metadata (ส่วนนี้เหมือนเดิม)
+    successfulExports.forEach(({ value }) => {
+      const { userId, recordId, firstName, lastName, lastUpdate, data, wavFiles } = value;
+      
+      const safeLastUpdate = lastUpdate 
+        ? new Date(lastUpdate).toISOString().slice(0, 19).replace(/[:\\/]/g, '-')
+        : 'no-timestamp';
+      
+      const patientFolderName = `${userId}_${safeLastUpdate}_${firstName}_${lastName}`.replace(/\s+/g, '_');
+      
+      console.log(`📁 Creating folder: ${patientFolderName}`);
+      
+      const patientFolder = zip.folder(`${folderName}/${patientFolderName}`);
+      
+      // ✅ เพิ่ม test data JSON files
+      if (data.data && data.tests) {
+        data.tests.forEach((testType: string) => {
+          if (data.data[testType]) {
+            patientFolder?.file(
+              `${recordId}_${testType}.json`,
+              JSON.stringify(data.data[testType], null, 2)
+            );
+          }
+        });
+      }
+
+      // ✅ เพิ่ม WAV metadata files (แม้จะ download ไม่สำเร็จ)
+      if (wavFiles && wavFiles.length > 0) {
+        wavFiles.forEach((wavFile: WavFile) => {
+          const wavMetadata = {
+            field: wavFile.field,
+            recordId: recordId,
+            userId: userId,
+            downloadUrl: wavFile.downloadUrl,
+            metadata: wavFile.metadata,
+            exportTimestamp: new Date().toISOString(),
+            exportStatus: wavFile.downloadUrl ? 'available' : 'no_download_url'
+          };
+          
+          patientFolder?.file(
+            `${recordId}_${wavFile.field}_metadata.json`,
+            JSON.stringify(wavMetadata, null, 2)
+          );
+        });
+      }
+
+      // ✅ เพิ่ม metadata file หลัก
+      patientFolder?.file(
+        `${recordId}_metadata.json`,
+        JSON.stringify({
+          userId,
+          recordId,
+          firstName,
+          lastName,
+          lastUpdate,
+          exportTimestamp: new Date().toISOString(),
+          collection: data.collection,
+          tests: data.tests || [],
+          wavFiles: wavFiles ? wavFiles.map((w: WavFile) => ({
+            field: w.field,
+            hasDownloadUrl: !!w.downloadUrl,
+            exportStatus: w.downloadUrl ? 'exported' : 'no_url'
+          })) : [],
+          dataStructure: data.data ? Object.keys(data.data) : []
+        }, null, 2)
+      );
+    });
+
+    // ✅ CSV Processing - ต้องอยู่ใน folder เดียวกันกับ JSON
+    console.log('📊 Processing CSV files...');
+    const csvPromises = successfulExports.map(async ({ value }): Promise<CsvResult> => {
+      const { userId, recordId, firstName, lastName, lastUpdate } = value;
+      
+      try {
+        // ✅ ใช้ record_id เพื่อดึงข้อมูลที่ถูกต้อง
+        let query = supabase
           .from('user_record_summary_with_users')
           .select('*')
-          .eq('id', userId)
-          .single()
-        if (error) {
-          console.error(`Error fetching demographic data for ${userId}:`, error)
-          return { userId, last_update, csvData: null }
+          .eq('id', userId);
+
+        // ✅ ถ้ามี record_id ให้ใช้ filter เพิ่ม
+        if (recordId) {
+          query = query.eq('record_id', recordId);
         }
+
+        const { data: demographicData, error } = await query.single();
+
+        if (error) throw error;
+
         if (demographicData) {
-          const headers = Object.keys(demographicData)
-          const values = Object.values(demographicData)
+          const headers = Object.keys(demographicData);
+          const values = Object.values(demographicData);
           const csvContent = [
             headers.join(','),
             values.map(value => {
-              if (value === null || value === undefined) return ''
+              if (value === null || value === undefined) return '';
               if (typeof value === 'string' && value.includes(',')) {
-                return `"${value.replace(/"/g, '""')}"`
+                return `"${value.replace(/"/g, '""')}"`;
               }
-              return String(value)
+              return String(value);
             }).join(',')
-          ].join('\n')
-          return { userId, last_update, csvData: csvContent }
+          ].join('\n');
+          
+          return { 
+            userId, 
+            recordId,
+            firstName,
+            lastName,
+            lastUpdate,
+            csvData: csvContent, 
+            success: true 
+          };
         }
-        return { userId, last_update, csvData: null }
-      })
-      const csvResults = await Promise.all(csvPromises)
-      // Add CSV files to the ZIP
-      csvResults.forEach(({ userId, last_update, csvData }) => {
-        if (csvData) {
-          const safeUpdate = last_update ? String(last_update).replace(/[:\\/]/g, '-') : 'no_update'
-          const patientFolder = zip.folder(`${folderName}/${userId}_${safeUpdate}`)
-          patientFolder?.file(
-            `demographic_data.csv`,
-            csvData
-          )
-        }
-      })
+        
+        return { 
+          userId, 
+          recordId,
+          firstName,
+          lastName,
+          lastUpdate,
+          csvData: null, 
+          success: false 
+        };
+      } catch (error) {
+        console.error(`Error fetching CSV data for ${userId}-${recordId}:`, error);
+        return { 
+          userId, 
+          recordId,
+          firstName,
+          lastName,
+          lastUpdate,
+          csvData: null, 
+          success: false 
+        };
+      }
+    });
 
-      // Generate and download ZIP file
-      const content = await zip.generateAsync({ type: 'blob' })
-      const url = URL.createObjectURL(content)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `${folderName}.zip`
-      a.click()
-      URL.revokeObjectURL(url)
+    const csvResults = await Promise.allSettled(csvPromises);
 
-      setSuccess(`Successfully exported ${selectedUsers.size} patient records in ${folderName}.zip`)
-      setSelectedUsers(new Set()) // Clear selection after export
+    // ✅ Add CSV files to ZIP - อยู่ใน folder เดียวกับ JSON
+    csvResults.forEach((result) => {
+      if (result.status === 'fulfilled' && result.value.success && result.value.csvData) {
+        const { userId, recordId, firstName, lastName, lastUpdate, csvData } = result.value;
+        
+        // ✅ ใช้ชื่อ folder เดียวกันกับ JSON files
+        const safeLastUpdate = lastUpdate 
+          ? new Date(lastUpdate).toISOString().slice(0, 19).replace(/[:\\/]/g, '-')
+          : 'no-timestamp';
+        
+        const patientFolderName = `${userId}_${safeLastUpdate}_${firstName}_${lastName}`.replace(/\s+/g, '_');
+        
+        console.log(`📄 Adding CSV to folder: ${patientFolderName}`);
+        
+        const patientFolder = zip.folder(`${folderName}/${patientFolderName}`);
+        patientFolder?.file(`${recordId}_demographic_data.csv`, csvData);
+      }
+    });
 
-    } catch (err) {
-      setError(
-        err && typeof err === 'object' && 'message' in err
-          ? String((err as { message: unknown }).message)
-          : 'Export failed'
-      )
-    } finally {
-      setExportLoading(false)
-    }
+    // ✅ Generate and download ZIP
+    console.log('🗜️ Generating ZIP file...');
+    const content = await zip.generateAsync({ type: 'blob' });
+    const url = URL.createObjectURL(content);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${folderName}.zip`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    setSuccess(`✅ Successfully exported ${successfulExports.length} patient records in ${folderName}.zip`);
+    setSelectedUsers(new Set());
+    setSelectAll(false);
+
+  } catch (err) {
+    console.error('💥 Export error:', err);
+    setError(
+      err && typeof err === 'object' && 'message' in err
+        ? String((err as { message: unknown }).message)
+        : 'Export failed'
+    );
+  } finally {
+    setExportLoading(false);
   }
+};
 
   if (!session) {
     return <AuthRedirect />
