@@ -12,7 +12,7 @@ const assessments = [
     title: "Behavioral / psychiatric domain",
     description: "แบบประเมินระดับความรุนแรงของอาการซึมเศร้า",
     category: "HAM-D",
-    icon: "🧠",
+    icon: "🎭",
     color: "bg-purple-50 hover:bg-purple-100 border-purple-200",
     textColor: "text-purple-700",
     badgeColor: "bg-purple-100 text-purple-800",
@@ -57,6 +57,36 @@ const assessments = [
     textColor: "text-emerald-700",
     badgeColor: "bg-emerald-100 text-emerald-800",
   },
+  {
+    id: "moca",
+    title: "MoCA Test",
+    description: "แบบประเมินความบกพร่องทางสติปัญญา",
+    category: "MoCA",
+    icon: "💡",
+    color: "bg-yellow-50 hover:bg-yellow-100 border-yellow-200",
+    textColor: "text-yellow-700",
+    badgeColor: "bg-yellow-100 text-yellow-800",
+  },
+  {
+    id: "tmse",
+    title: "TMSE Test",
+    description: "แบบประเมินภาวะสมองเสื่อม",
+    category: "TMSE",
+    icon: "🧠",
+    color: "bg-red-50 hover:bg-red-100 border-red-200",
+    textColor: "text-red-700",
+    badgeColor: "bg-red-100 text-red-800",
+  },
+  {
+    id: "mds",
+    title: "MDS Test",
+    description: "แบบประเมินโรคพาร์กินสัน",
+    category: "MDS",
+    icon: "💊",
+    color: "bg-pink-50 hover:bg-pink-100 border-pink-200",
+    textColor: "text-pink-700",
+    badgeColor: "bg-pink-100 text-pink-800",
+  }
 ];
 
 // --- Component ลูกที่ใช้ useSearchParams ---
@@ -157,7 +187,7 @@ function AssessmentContent() {
         </div>
 
         {/* Add New Assessment Placeholder */}
-        <div className="mt-6 p-6 rounded-xl border-2 border-dashed border-gray-300 bg-gray-50">
+        {/* <div className="mt-6 p-6 rounded-xl border-2 border-dashed border-gray-300 bg-gray-50">
           <div className="text-center">
             <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
               <span className="text-gray-500 text-xl">+</span>
@@ -169,7 +199,7 @@ function AssessmentContent() {
               ระบบพร้อมรองรับการเพิ่มแบบประเมินทางการแพทย์เพิ่มเติมในอนาคต
             </p>
           </div>
-        </div>
+        </div> */}
       </div>
     </div>
   );

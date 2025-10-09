@@ -393,15 +393,15 @@ export default function Smell({ thaiId }: { thaiId?: string }) {
 
     if (!showResults) {
         return (
-            <div className="max-w-4xl mx-auto p-8 bg-white min-h-screen">
+            <div className="max-w-4xl mx-auto p-4 sm:p-6 md:p-8 bg-white min-h-screen">
                 {/* Header */}
-                <div className="text-center mb-8">
-                    <h1 className="text-2xl font-bold text-gray-800 mb-6">
+                <div className="text-center mb-6 sm:mb-8">
+                    <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-800 mb-4 sm:mb-6 px-2">
                         แบบทดสอบความสามารถในการดมกลิ่น
                     </h1>
 
-                    <div className="text-left max-w-3xl mx-auto mb-8">
-                        <p className="text-gray-700 text-sm leading-relaxed">
+                    <div className="text-left max-w-3xl mx-auto mb-6 sm:mb-8 px-2">
+                        <p className="text-gray-700 text-xs sm:text-sm leading-relaxed">
                             <strong>คำชี้แจง:</strong> กลิ่นที่ท่านได้กลิ่นดังต่อไปนี้คือกลิ่นใด มี 16 ข้อ จงวงกลมหรือกากบากคำตอบที่ถูกต้อง
                         </p>
                     </div>
@@ -413,53 +413,60 @@ export default function Smell({ thaiId }: { thaiId?: string }) {
                     </div>
                 )}
 
-                {/* Questions in 2x2 grid layout */}
                 <div className="space-y-6">
-                    {Array.from({ length: 8 }, (_, rowIndex) => (
-                        <div key={rowIndex} className="grid grid-cols-2 gap-8">
-                            {QUESTIONS.slice(rowIndex * 2, rowIndex * 2 + 2).map((question) => (
-                                <div key={question.id} className="border border-gray-300 p-4">
-                                    <h3 className="text-lg font-semibold text-gray-800 mb-4 text-center">
-                                        {question.id}. กลิ่นที่ {question.id}
-                                    </h3>
+                {Array.from({ length: 8 }, (_, rowIndex) => (
+                    <div
+                    key={rowIndex}
+                    className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6 sm:gap-8"
+                    >
+                    {QUESTIONS.slice(rowIndex * 2, rowIndex * 2 + 2).map((question) => (
+                        <div
+                        key={question.id}
+                        className="border border-gray-300 p-4 rounded-lg shadow-sm hover:shadow-md transition"
+                        >
+                        <h3 className="text-base sm:text-lg md:text-xl font-semibold text-gray-800 mb-4 text-center">
+                            {question.id}. กลิ่นที่ {question.id}
+                        </h3>
 
-                                    <div className="grid grid-cols-2 gap-2">
-                                        {question.options.map((option) => {
-                                            const isCorrectAnswer = CORRECT_ANSWERS[question.id] === option.value;
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            {question.options.map((option) => {
+                            const isCorrectAnswer =
+                                CORRECT_ANSWERS[question.id] === option.value;
 
-                                            return (
-                                                <label
-                                                    key={option.value}
-                                                    className={`flex items-center p-2 cursor-pointer hover:bg-gray-50 rounded ${answers[question.id] === option.value ? 'bg-blue-50 border-blue-300' : ''
-                                                        }`}
-                                                >
-                                                    <input
-                                                        type="radio"
-                                                        name={`question_${question.id}`}
-                                                        value={option.value}
-                                                        onChange={(e) => handleAnswerChange(question.id, e.target.value)}
-                                                        className="mr-2 text-blue-600"
-                                                        checked={answers[question.id] === option.value}
-                                                        aria-label={`เลือก ${option.label} สำหรับข้อ ${question.id}`}
-                                                    />
-                                                    <span className="text-sm">
-                                                        <strong>{option.value}.</strong>
-                                                        <span className={`ml-1 ${!showResults && isCorrectAnswer ? 'relative' : ''}`}>
-                                                            {option.label}
-                                                            {!showResults && isCorrectAnswer && (
-                                                                <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full opacity-0"></span>
-                                                            )}
-                                                        </span>
-                                                    </span>
-                                                </label>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            ))}
+                            return (
+                                <label
+                                key={option.value}
+                                className={`flex items-center p-2 cursor-pointer rounded-lg border transition-colors duration-150
+                                    ${
+                                    answers[question.id] === option.value
+                                        ? "bg-blue-50 border-blue-400"
+                                        : "border-gray-200 hover:bg-gray-50"
+                                    }`}
+                                >
+                                <input
+                                    type="radio"
+                                    name={`question_${question.id}`}
+                                    value={option.value}
+                                    onChange={(e) =>
+                                    handleAnswerChange(question.id, e.target.value)
+                                    }
+                                    className="mr-2 text-blue-600"
+                                    checked={answers[question.id] === option.value}
+                                />
+                                <span className="text-sm sm:text-base">
+                                    <strong>{option.value}.</strong>{" "}
+                                    <span>{option.label}</span>
+                                </span>
+                                </label>
+                            );
+                            })}
+                        </div>
                         </div>
                     ))}
+                    </div>
+                ))}
                 </div>
+
 
                 {/* Score section */}
                 <div className="mt-8 text-center">

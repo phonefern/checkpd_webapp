@@ -140,7 +140,7 @@ export default function ExportPage() {
     }
   }, [currentPage, searchId, startDate, endDate, searchCondition, session])
 
-  // ✅ Handle select all (fetch ข้อมูลเต็ม)
+  
   useEffect(() => {
     const fetchAllRecords = async () => {
       try {
