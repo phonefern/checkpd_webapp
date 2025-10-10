@@ -21,7 +21,7 @@ const sections = [
 
 export default function MocaForm({ thaiId }: { thaiId?: string }) {
   const router = useRouter();
-  const [answers, setAnswers] = useState<number[]>(Array(10).fill(0));
+  const [answers, setAnswers] = useState<number[]>(Array(11).fill(0));
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitMessage, setSubmitMessage] = useState("");
   const [patientInfo, setPatientInfo] = useState<any>(null);
@@ -62,11 +62,57 @@ export default function MocaForm({ thaiId }: { thaiId?: string }) {
     fetchPatientInfo();
   }, [thaiId]);
 
-  const handleAnswer = (index: number, value: number) => {
+
+
+
+  const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    e.target.select();
+  };
+
+
+  const handleAnswer = (index: number, value: string) => {
+    const maxScore = sections[index].max;
+
+    // If input is empty, treat as 0 immediately
+    if (value === "") {
+      const updated = [...answers];
+      updated[index] = 0;
+      setAnswers(updated);
+      return;
+    }
+
+    // Parse only digits, remove leading zeros, clamp to max
+    let numValue = parseInt(value.replace(/^0+/, "") || "0", 10);
+    numValue = Math.max(0, Math.min(numValue, maxScore));
+
     const updated = [...answers];
-    updated[index] = value;
+    updated[index] = numValue;
     setAnswers(updated);
   };
+
+
+
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, index: number) => {
+    const maxScore = sections[index].max;
+    const currentValue = answers[index] ?? 0;
+
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      const updated = [...answers];
+      updated[index] = Math.min(currentValue + 1, maxScore);
+      setAnswers(updated);
+    }
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      const updated = [...answers];
+      updated[index] = Math.max(currentValue - 1, 0);
+      setAnswers(updated);
+    }
+  };
+
+
 
   const totalScore = answers.reduce((acc, val) => acc + val, 0);
 
@@ -109,7 +155,9 @@ export default function MocaForm({ thaiId }: { thaiId?: string }) {
       } else {
         console.log("Assessment saved successfully");
         setSubmitMessage("บันทึกผลการประเมินเรียบร้อยแล้ว!");
-        setTimeout(() => router.back(), 1200);
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+
+        router.back();
       }
     } catch (err) {
       console.error("Unexpected error:", err);
@@ -154,13 +202,15 @@ export default function MocaForm({ thaiId }: { thaiId?: string }) {
                   <input
                     type="number"
                     min={0}
-                    max={section.max}
-                    value={answers[i] || ""}
-                    onChange={(e) =>
-                      handleAnswer(i, Number(e.target.value) || 0)
-                    }
+                    max={sections[i].max}
+                    value={answers[i] ?? 0}
+                    onChange={(e) => handleAnswer(i, e.target.value)}
+                    onKeyDown={(e) => handleKeyDown(e, i)}
+                    onFocus={handleFocus}
                     className="w-20 border rounded px-2 py-1 text-center"
                   />
+
+
                   <span className="ml-1 text-sm text-gray-500">
                     / {section.max}
                   </span>
@@ -177,9 +227,8 @@ export default function MocaForm({ thaiId }: { thaiId?: string }) {
           <span className="text-blue-600">{totalScore}</span> / 30
         </p>
         <p
-          className={`font-bold text-lg ${
-            totalScore < 26 ? "text-red-600" : "text-green-600"
-          }`}
+          className={`font-bold text-lg ${totalScore < 26 ? "text-red-600" : "text-green-600"
+            }`}
         >
           ผลประเมิน:{" "}
           {totalScore < 26 ? "อาจมีความบกพร่องทางสติปัญญา" : "ปกติ"}
@@ -190,23 +239,27 @@ export default function MocaForm({ thaiId }: { thaiId?: string }) {
         <button
           onClick={handleSubmit}
           disabled={isSubmitting || !thaiId || !patientInfo}
-          className={`px-6 py-2 rounded text-white ${
-            isSubmitting || !thaiId || !patientInfo
-              ? "bg-gray-400 cursor-not-allowed"
-              : "bg-blue-600 hover:bg-blue-700"
-          }`}
+          className={`px-6 py-2 rounded text-white ${isSubmitting || !thaiId || !patientInfo
+            ? "bg-gray-400 cursor-not-allowed"
+            : "bg-blue-600 hover:bg-blue-700"
+            }`}
         >
-          {isSubmitting ? "กำลังบันทึก..." : "ส่งแบบประเมิน"}
+          {isSubmitting  ? "กำลังบันทึก..." : "ส่งแบบประเมิน"} {isSubmitting && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm z-50">
+              <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-600 border-solid mb-4"></div>
+              <p className="text-lg font-semibold text-blue-600">กำลังบันทึกผลการประเมิน...</p>
+            </div>
+          )}
+
         </button>
       </div>
 
       {submitMessage && (
         <div
-          className={`mt-4 p-3 rounded text-center ${
-            submitMessage.includes("เรียบร้อย")
-              ? "bg-green-100 text-green-700"
-              : "bg-red-100 text-red-700"
-          }`}
+          className={`mt-4 p-3 rounded text-center ${submitMessage.includes("เรียบร้อย")
+            ? "bg-green-100 text-green-700"
+            : "bg-red-100 text-red-700"
+            }`}
         >
           {submitMessage}
         </div>

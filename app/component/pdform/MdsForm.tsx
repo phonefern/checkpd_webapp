@@ -138,6 +138,10 @@ export default function MdsUpdrsForm({ thaiId }: { thaiId?: string }) {
     fetchPatientInfo();
   }, [thaiId]);
 
+  const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    e.target.select();
+  };
+
   const handleSubmit = async () => {
     if (!thaiId || !patientInfo) {
       setSubmitMessage("ไม่พบข้อมูลผู้ป่วย");
@@ -208,6 +212,7 @@ export default function MdsUpdrsForm({ thaiId }: { thaiId?: string }) {
                 min={0}
                 max={question.max || 4}
                 value={answers[idx] || ""}
+                onFocus={handleFocus}
                 onChange={(e) => {
                   const value = Number(e.target.value);
                   if (value >= 0 && value <= (question.max || 4)) {
@@ -312,11 +317,10 @@ export default function MdsUpdrsForm({ thaiId }: { thaiId?: string }) {
           <button
             onClick={handleSubmit}
             disabled={isSubmitting || !thaiId || !patientInfo}
-            className={`w-full sm:w-auto px-8 py-3 rounded-lg text-white font-semibold text-base sm:text-lg transition-all ${
-              isSubmitting || !thaiId || !patientInfo
+            className={`w-full sm:w-auto px-8 py-3 rounded-lg text-white font-semibold text-base sm:text-lg transition-all ${isSubmitting || !thaiId || !patientInfo
                 ? "bg-gray-400 cursor-not-allowed"
                 : "bg-blue-600 hover:bg-blue-700 shadow-lg hover:shadow-xl"
-            }`}
+              }`}
           >
             {isSubmitting ? "กำลังบันทึก..." : "ส่งแบบประเมิน"}
           </button>
@@ -324,11 +328,10 @@ export default function MdsUpdrsForm({ thaiId }: { thaiId?: string }) {
 
         {submitMessage && (
           <div
-            className={`mt-4 p-3 rounded-lg text-center text-sm sm:text-base ${
-              submitMessage.includes("เรียบร้อย")
+            className={`mt-4 p-3 rounded-lg text-center text-sm sm:text-base ${submitMessage.includes("เรียบร้อย")
                 ? "bg-green-100 text-green-700 border border-green-300"
                 : "bg-red-100 text-red-700 border border-red-300"
-            }`}
+              }`}
           >
             {submitMessage}
           </div>

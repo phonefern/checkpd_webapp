@@ -86,7 +86,18 @@ const assessments = [
     color: "bg-pink-50 hover:bg-pink-100 border-pink-200",
     textColor: "text-pink-700",
     badgeColor: "bg-pink-100 text-pink-800",
+  },
+  {
+    id: "food",
+    title: "Nutritional Assessment",
+    description: "แบบประเมินพฤติกรรมการรับประทานอาหารไทยตามเกณฑ์อาหารไทย มีดี",
+    category: "Food domain",
+    icon: "🍽️",
+    color: "bg-orange-50 hover:bg-orange-100 border-orange-200",
+    textColor: "text-orange-700",
+    badgeColor: "bg-orange-100 text-orange-800",
   }
+  
 ];
 
 // --- Component ลูกที่ใช้ useSearchParams ---

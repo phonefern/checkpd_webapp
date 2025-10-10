@@ -57,10 +57,47 @@ export default function TmseForm({ thaiId }: { thaiId?: string }) {
     fetchPatientInfo();
   }, [thaiId]);
 
-  const handleAnswer = (index: number, value: number) => {
+  const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    e.target.select();
+  };
+
+  const handleAnswer = (index: number, value: string, maxScore: number) => {
+    const numValue = parseInt(value) || 0;
+
+    // จำกัดค่าให้อยู่ในช่วง 0 ถึง max
+    const clampedValue = Math.max(0, Math.min(numValue, maxScore));
+
     const updated = [...answers];
-    updated[index] = value;
+    updated[index] = clampedValue;
     setAnswers(updated);
+  };
+
+  const handleKeyDown = (
+    e: React.KeyboardEvent<HTMLInputElement>,
+    index: number,
+    maxScore: number
+  ) => {
+    const currentValue = answers[index];
+
+    // ถ้ากด ArrowUp
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      if (currentValue < maxScore) {
+        const updated = [...answers];
+        updated[index] = currentValue + 1;
+        setAnswers(updated);
+      }
+    }
+
+    // ถ้ากด ArrowDown
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      if (currentValue > 0) {
+        const updated = [...answers];
+        updated[index] = currentValue - 1;
+        setAnswers(updated);
+      }
+    }
   };
 
   const totalScore = answers.reduce((a, b) => a + b, 0);
@@ -131,10 +168,12 @@ export default function TmseForm({ thaiId }: { thaiId?: string }) {
                   type="number"
                   min={0}
                   max={section.max}
-                  value={answers[qIndex] || ""}
+                  value={answers[qIndex]}
+                  onFocus={handleFocus}
                   onChange={(e) =>
-                    handleAnswer(qIndex, Number(e.target.value) || 0)
+                    handleAnswer(qIndex, e.target.value, section.max)
                   }
+                  onKeyDown={(e) => handleKeyDown(e, qIndex, section.max)}
                   className="w-20 border rounded px-2 py-1 text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 <span className="text-xs text-gray-500 mt-1">
@@ -176,9 +215,8 @@ export default function TmseForm({ thaiId }: { thaiId?: string }) {
           <span className="text-blue-600">{totalScore}</span> / 30
         </p>
         <p
-          className={`font-bold text-base sm:text-lg ${
-            totalScore < 23 ? "text-red-600" : "text-green-600"
-          }`}
+          className={`font-bold text-base sm:text-lg ${totalScore < 23 ? "text-red-600" : "text-green-600"
+            }`}
         >
           ผลประเมิน:{" "}
           {totalScore < 23 ? "มีแนวโน้มภาวะสมองเสื่อม" : "ปกติ"}
@@ -189,11 +227,10 @@ export default function TmseForm({ thaiId }: { thaiId?: string }) {
         <button
           onClick={handleSubmit}
           disabled={isSubmitting || !thaiId || !patientInfo}
-          className={`w-full sm:w-auto px-6 py-3 rounded text-white font-semibold transition-colors ${
-            isSubmitting || !thaiId || !patientInfo
+          className={`w-full sm:w-auto px-6 py-3 rounded text-white font-semibold transition-colors ${isSubmitting || !thaiId || !patientInfo
               ? "bg-gray-400 cursor-not-allowed"
               : "bg-blue-600 hover:bg-blue-700"
-          }`}
+            }`}
         >
           {isSubmitting ? "กำลังบันทึก..." : "ส่งแบบประเมิน"}
         </button>
@@ -201,11 +238,10 @@ export default function TmseForm({ thaiId }: { thaiId?: string }) {
 
       {submitMessage && (
         <div
-          className={`mt-4 p-3 rounded text-center text-sm sm:text-base ${
-            submitMessage.includes("เรียบร้อย")
+          className={`mt-4 p-3 rounded text-center text-sm sm:text-base ${submitMessage.includes("เรียบร้อย")
               ? "bg-green-100 text-green-700"
               : "bg-red-100 text-red-700"
-          }`}
+            }`}
         >
           {submitMessage}
         </div>

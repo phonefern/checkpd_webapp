@@ -152,7 +152,7 @@ export default function Sleep({ thaiId }: { thaiId?: string }) {
   };
 
   const getScoreInterpretation = (score: number) => {
-    if (score >= 5) {
+    if (score >= 17) {
       return {
         level: "มีความเสี่ยงสูงต่อ RBD",
         color: "text-red-600",

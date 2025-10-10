@@ -76,7 +76,7 @@ export default function EpworthForm({ thaiId }: { thaiId?: string }) {
   if (totalScore >= 7 && totalScore <= 9) {
     interpretation = "มีแนวโน้มง่วงผิดปกติ";
   } else if (totalScore > 9) {
-    interpretation = "ผิดปกติขั้นต้น";
+    interpretation = "ผิดปกติชัดเจน";
   }
 
   const handleSubmit = async () => {
@@ -118,7 +118,9 @@ export default function EpworthForm({ thaiId }: { thaiId?: string }) {
       } else {
         console.log("Assessment saved successfully");
         setSubmitMessage("บันทึกผลการประเมินเรียบร้อยแล้ว!");
-        setTimeout(() => router.back(), 1200);
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+
+        router.back();
       }
     } catch (err) {
       console.error("Unexpected error:", err);
@@ -196,19 +198,24 @@ export default function EpworthForm({ thaiId }: { thaiId?: string }) {
           onClick={handleSubmit}
           disabled={isSubmitting || !thaiId || !patientInfo}
           className={`px-6 py-2 rounded text-white ${isSubmitting || !thaiId || !patientInfo
-              ? "bg-gray-400 cursor-not-allowed"
-              : "bg-blue-600 hover:bg-blue-700"
+            ? "bg-gray-400 cursor-not-allowed"
+            : "bg-blue-600 hover:bg-blue-700"
             }`}
         >
-          {isSubmitting ? "กำลังบันทึก..." : "ส่งแบบประเมิน"}
+          {isSubmitting ? "กำลังบันทึก..." : "ส่งแบบประเมิน"} {isSubmitting && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm z-50">
+              <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-600 border-solid mb-4"></div>
+              <p className="text-lg font-semibold text-blue-600">กำลังบันทึกผลการประเมิน...</p>
+            </div>
+          )}
         </button>
       </div>
 
       {submitMessage && (
         <div
           className={`mt-4 p-3 rounded text-center ${submitMessage.includes("เรียบร้อย")
-              ? "bg-green-100 text-green-700"
-              : "bg-red-100 text-red-700"
+            ? "bg-green-100 text-green-700"
+            : "bg-red-100 text-red-700"
             }`}
         >
           {submitMessage}
