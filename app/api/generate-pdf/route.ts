@@ -22,30 +22,30 @@ export async function GET(req: NextRequest) {
   try {
     const thaiid = req.nextUrl.searchParams.get("thaiid");
     if (!thaiid) {
-        return NextResponse.json({ error: "กรุณาระบุ thaiid" }, { status: 400 });
+      return NextResponse.json({ error: "กรุณาระบุ thaiid" }, { status: 400 });
     }
 
     // ดึงข้อมูลจาก Supabase
     const { data, error } = await supabase
-        .from("pd_screenings")
-        .select("*")
-        .eq("thaiid", thaiid);
-        
+      .from("pd_screenings")
+      .select("*")
+      .eq("thaiid", thaiid);
+
 
     if (error || !data || data.length === 0) {
-        return NextResponse.json({ error: "ไม่พบข้อมูลสำหรับ thaiid: " + thaiid }, { status: 404 });
+      return NextResponse.json({ error: "ไม่พบข้อมูลสำหรับ thaiid: " + thaiid }, { status: 404 });
     }
 
     const person = data[0];
 
     // ขั้นตอนใหม่: ดึงข้อมูลจากตาราง risk_factors_test โดยใช้ thaiid ที่ได้จากข้อมูล person
     const { data: riskFactorsData, error: riskFactorsError } = await supabase
-        .from("risk_factors_test")
-        .select("*")
-        .eq("thaiid", person.thaiid); // ใช้ค่า thaiid ที่ดึงมาแล้วจาก person
+      .from("risk_factors_test")
+      .select("*")
+      .eq("thaiid", person.thaiid); // ใช้ค่า thaiid ที่ดึงมาแล้วจาก person
 
     if (riskFactorsError || !riskFactorsData || riskFactorsData.length === 0) {
-        return NextResponse.json({ error: "ไม่พบข้อมูล risk_factors_test สำหรับ thaiid: " + person.thaiid }, { status: 404 });
+      return NextResponse.json({ error: "ไม่พบข้อมูล risk_factors_test สำหรับ thaiid: " + person.thaiid }, { status: 404 });
     }
 
     const riskFactors = riskFactorsData[0]
@@ -55,17 +55,10 @@ export async function GET(req: NextRequest) {
     const isHealthy = person.condition === 'Control';
     const isOther = person.condition === 'Other diagnosis';
 
-    const pdCheckbox = isPD ? '&#10003;' : '';
-    const pdCheckedClass = isPD ? ' checked' : '';
-
-    const prodromalCheckbox = isProdromal ? '&#10003;' : '';
-    const prodromalCheckedClass = isProdromal ? ' checked' : '';
-
-    const healthyCheckbox = isHealthy ? '&#10003;' : '';
-    const healthyCheckedClass = isHealthy ? ' checked' : '';
-
-    const otherCheckbox = isOther ? '&#10003;' : '';
-    const otherCheckedClass = isOther ? ' checked' : '';
+    const pdCheckedClass = isPD ? 'checked' : '';
+    const prodromalCheckedClass = isProdromal ? 'checked' : '';
+    const healthyCheckedClass = isHealthy ? 'checked' : '';
+    const otherCheckedClass = isOther ? 'checked' : '';
 
     // HTML Template
     const html = `
@@ -106,20 +99,19 @@ export async function GET(req: NextRequest) {
           margin-top: 0.3rem;
         }
         .checkbox {
-            display: inline-block;
-            width: 10px;
-            height: 10px;
-            border: 1px solid #000;
-            margin-right: 5px;
-            vertical-align: top;
-            margin-top: 1px;
-            line-height: 10px;
+          display: inline-block;
+          width: 12px;
+          height: 12px;
+          border: 1px solid #000;
+          margin-right: 5px;
+          vertical-align: middle;
+          text-align: center;
+          line-height: 12px;
+          font-family: DejaVu Sans, Arial, sans-serif;
         }
-        .checkbox.checked {
-            background-color: #fff;
-            color: #000;
-            font-size: 20px; 
-            line-height: 10px;
+        .checkbox.checked::after {
+          content: "✔";
+          font-size: 14px;
         }
         .field {
           border-bottom: 1px dotted #000;
@@ -176,7 +168,7 @@ export async function GET(req: NextRequest) {
       <h2>(Check PD: National Screening Project)</h2>
 
       <div class="section">
-        <div><span class="checkbox${pdCheckedClass}">${pdCheckbox}</span><strong>PD</strong></div>
+        <span class="checkbox ${pdCheckedClass}"></span><strong>PD</strong>
         <div class="indent"><span class="checkbox"></span> Newly diagnosis</div>
         <div class="indent"><span class="checkbox"></span> PD </div>
         <div class="indent2"><span class="checkbox"></span> Disease duration <span class="field"></span> years</div>
@@ -184,7 +176,7 @@ export async function GET(req: NextRequest) {
       </div>
 
       <div class="section">
-        <div><span class="checkbox${prodromalCheckedClass}">${prodromalCheckbox}</span><strong> Prodromal / High risk </strong> กรณีมีข้อใดข้อหนึ่งดังต่อไปนี้ </div>
+        <div><span class="checkbox ${prodromalCheckedClass}"></span><strong> Prodromal / High risk </strong> กรณีมีข้อใดข้อหนึ่งดังต่อไปนี้ </div>
         <div class="indent">
           <span class="checkbox"></span> <span>Suspected RBD</span>: History of acting out of dream or vocalization or RBDQ >/= 17 or PSG confirmed
         </div>
@@ -240,11 +232,11 @@ export async function GET(req: NextRequest) {
       </div>
 
       <div class="section">
-        <div><span class="checkbox${otherCheckedClass}">${otherCheckbox}</span><strong> Other diagnosis </strong><span class="field" style="min-width: 300px;"> ${person.other || ""} </span></div>
+        <div><span class="checkbox ${otherCheckedClass}"></span><strong> Other diagnosis </strong><span class="field" style="min-width: 300px;"> ${person.other || ""} </span></div>
       </div>
 
       <div class="section">
-        <div><span class="checkbox${healthyCheckedClass}">${healthyCheckbox}</span> <strong>Healthy</strong></div>
+        <div><span class="checkbox ${healthyCheckedClass}"></span> <strong>Healthy</strong></div>
       </div>
 
       <div class="numbered-item">
@@ -420,7 +412,7 @@ export async function GET(req: NextRequest) {
         ? await chromium.executablePath() // ใช้ sparticuz บน Vercel
         : undefined, // local ให้ใช้ chromium ที่ติดมากับ Playwright
       headless: true,
-});
+    });
 
 
     const page = await browser.newPage();
