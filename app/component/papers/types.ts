@@ -1,3 +1,5 @@
+//app/component/papers/types.ts
+
 export interface PatientData {
   id: number;
   thaiid?: string;
@@ -11,6 +13,17 @@ export interface PatientData {
   prediction_risk?: boolean | null;
   condition?: string;
   other?: string;
+  weight?: string;
+  height?: string;
+  bmi?: string;
+  waist?: string;
+  chest?: string;
+  neck?: string;
+  hip?: string;
+  bp_supine?: string;
+  pr_supine?: string;
+  bp_upright?: string;
+  pr_upright?: string;
   risk_factors?: {
     rome4_score: number | null;
     epworth_score: number | null;
@@ -21,10 +34,6 @@ export interface PatientData {
     moca_score: number | null;
     tmse_score: number | null;
   };
-  weight?: number | null;
-  height?: number | null;
-  bmi?: number | null;
-  waist?: number | null;
 }
 
 export interface EditScores {

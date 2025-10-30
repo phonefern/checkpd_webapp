@@ -1,6 +1,6 @@
 import { PatientData } from './types';
 import { formatDate } from './utils';
-
+// app/component/papers/PatientHistory.tsx
 interface PatientHistoryProps {
   patient: PatientData;
   onClose: () => void;
@@ -75,6 +75,22 @@ const PatientHistory = ({ patient, onClose }: PatientHistoryProps) => {
               <div className="text-center p-3 bg-gray-50 rounded-lg">
                 <p className="font-medium">รอบเอว</p>
                 <p className="text-lg">{patient.waist || '-'} นิ้ว</p>
+              </div>
+              <div className="text-center p-3 bg-gray-50 rounded-lg">
+                <p className="font-medium">รอบอก</p>
+                <p className="text-lg">{patient.chest || '-'} นิ้ว</p>
+              </div>
+              <div className="text-center p-3 bg-gray-50 rounded-lg">
+                <p className="font-medium">รอบคอ</p>
+                <p className="text-lg">{patient.neck || '-'} นิ้ว</p>
+              </div>
+              <div className="text-center p-3 bg-gray-50 rounded-lg">
+                <p className="font-medium">รอบสะโพก</p>
+                <p className="text-lg">{patient.hip || '-'} นิ้ว</p>
+              </div>
+              <div className="text-center p-3 bg-gray-50 rounded-lg">
+                <p className="font-medium">ความดันโลหิต</p>
+                <p className="text-lg">{patient.bp_supine || '-'} mmHg</p>
               </div>
             </div>
           </div>

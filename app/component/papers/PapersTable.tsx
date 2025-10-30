@@ -5,6 +5,11 @@ import { filterPatients, paginatePatients, formatDate, getRiskBadgeColor } from 
 import { assessmentLabels } from './constants';
 import ScoreIndicator from '@/app/component/papers/ScoreIndicator';
 import Pagination from '@/app/component/papers/Pagination';
+// app/component/papers/PapersTable.tsx
+
+
+
+
 
 interface PapersTableProps {
     patients: PatientData[];
@@ -16,6 +21,7 @@ interface PapersTableProps {
     onEditPatient: (patient: PatientData) => void;
     onDeletePatient: (patientId: number, patientName: string) => void;
     onViewHistory: (patient: PatientData) => void;
+    totalCount?: number;
 }
 
 const PapersTable = ({
@@ -27,7 +33,8 @@ const PapersTable = ({
     itemsPerPage,
     onEditPatient,
     onDeletePatient,
-    onViewHistory
+    onViewHistory,
+    totalCount
 }: PapersTableProps) => {
     const filteredPatients = useMemo(() =>
         filterPatients(patients, searchTerm),
@@ -48,7 +55,7 @@ const PapersTable = ({
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div>
                         <h2 className="text-xl font-semibold text-gray-900">รายชื่อผู้ป่วย</h2>
-                        <p className="text-sm text-gray-600">ทั้งหมด {filteredPatients.length} คน</p>
+                        <p className="text-sm text-gray-600">ทั้งหมด {totalCount} คน</p>
                     </div>
                     <div className="relative max-w-md">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">

@@ -115,15 +115,20 @@ export default function UsersClientPage() {
     province: string | undefined,
     other?: string
   ) => {
+    console.log("Saving:", { id, condition, province, other });
+
     const { error: conditionError } = await supabase
       .from('user_record_summary')
       .update({ condition, other })
       .eq('user_id', id)
 
-    const { error: provinceError } = await supabase
+    const { data, error: provinceError } = await supabase
       .from('users')
       .update({ province: province || null })
       .eq('id', id)
+      .select()
+
+    console.log("Update result:", data, provinceError)
 
     if (conditionError || provinceError) {
       console.error('❌ Failed to update:', { conditionError, provinceError })

@@ -21,6 +21,7 @@ export default function PapersPage() {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [viewingPatient, setViewingPatient] = useState<PatientData | null>(null);
   const [editingPatient, setEditingPatient] = useState<PatientData | null>(null);
+  const [totalCount, setTotalCount] = useState<number>(0);
 
   useEffect(() => {
     fetchPatientData();
@@ -45,10 +46,17 @@ export default function PapersPage() {
       }
 
       // Fetch patient data
-      const { data: patientData, error: patientError } = await supabase
+      const { data: patientData, count, error: patientError } = await supabase
         .from('pd_screenings')
-        .select('id, thaiid, first_name, last_name, gender, age, province, collection_date, hn_number, condition, other')
-        .order('created_at', { ascending: false });
+        .select(
+          'id, thaiid, first_name, last_name, gender, age, province, collection_date, hn_number, condition, other, weight, height, bmi, chest, waist, neck, hip, bp_supine, pr_supine, bp_upright, pr_upright',
+          { count: 'exact' }
+        )
+        .order('created_at', { ascending: false })
+        .range(0, 999);
+
+      setPatients(patientData || []);
+      setTotalCount(count || 0);
 
       if (patientError) throw patientError;
 
@@ -209,6 +217,7 @@ export default function PapersPage() {
             onEditPatient={openEditModal}
             onDeletePatient={handleDeletePatient}
             onViewHistory={handleViewHistory}
+            totalCount={totalCount}
           />
         ) : (
           <EmptyState />

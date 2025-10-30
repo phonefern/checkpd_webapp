@@ -178,16 +178,16 @@ export async function GET(req: NextRequest) {
       <div class="section">
         <div><span class="checkbox ${prodromalCheckedClass}"></span><strong> Prodromal / High risk </strong> กรณีมีข้อใดข้อหนึ่งดังต่อไปนี้ </div>
         <div class="indent">
-          <span class="checkbox"></span> <span>Suspected RBD</span>: History of acting out of dream or vocalization or RBDQ >/= 17 or PSG confirmed
+          <span class="checkbox "></span> <span>Suspected RBD</span>: History of acting out of dream or vocalization or RBDQ >= 17 or PSG confirmed
         </div>
         <div class="sub-question">
-          <span class="checkbox"></span> อายุที่เริ่มมีอาการของนอนละเมอ <span class="field"></span> ปี
+          <span class="checkbox"></span> อายุที่เริ่มมีอาการของนอนละเมอ <span class="field"></span> ปี หรือ มีอาการมานานเท่าไหร่ <span class="field"></span> ปี
         </div>
         <div class="indent">
-          <span class="checkbox"></span> <span>Hyposmia</span>: History ได้กลิ่นลืนลดลง และ Sniffin' stick </= 9 ปี
+          <span class="checkbox"></span> <span>Hyposmia</span>: History ได้กลิ่นลดลง Sniffin stick <= 9 
         </div>
         <div class="indent">
-          <span class="checkbox"></span>อายุที่เริ่มมีอาการจมูกได้กลิ่นลดลง<span class="field"></span> ปี
+          <span class="checkbox"></span>อายุที่เริ่มมีอาการจมูกได้กลิ่นลดลง<span class="field"></span> ปี หรือ มีอาการมานานเท่าไหร่ <span class="field"></span> ปี
         </div>
       </div>
 
@@ -195,7 +195,7 @@ export async function GET(req: NextRequest) {
         <div class="section"> หรือ มีอาการนำ อย่างน้อย 2 ข้อจากอาการดังต่อไปนี้</div>
         
         <div class="indent">
-          <span class="checkbox"></span>Constipation: History ถ่ายอุจจาระ ความถี่นานกว่าวันเว้นวัน หรือต้องใช้ยาระบาย หรือ ลักษณะอุจจาระแข็งขึ้น เรื้อรังในช่วง 3 เดือนที่ผ่านมา เมื่อเทียบกับก่อนหน้า  or ROME IV >/= 2
+          <span class="checkbox"></span>Constipation: History ถ่ายอุจจาระ ความถี่นานกว่าวันเว้นวัน หรือต้องใช้ยาระบาย หรือ ลักษณะอุจจาระแข็งขึ้น เรื้อรังในช่วง 3 เดือนที่ผ่านมา เมื่อเทียบกับก่อนหน้า  or ROME IV >= 2
         </div>
         <div class="sub-question">
           <span class="checkbox"></span> อายุที่เริ่มมีอาการท้องผูก <span class="field"></span> ปี มีอาการท้องผูกมานานเท่าไหร่ <span class="field"></span> ปี
@@ -219,7 +219,7 @@ export async function GET(req: NextRequest) {
           <span class="checkbox"></span>Autonomic dysfunction: มีอาการระบบประสาทอัตโนมัติผิดปกติข้อใดข้อหนึ่ง หน้ามืดหรือเป็นลมหมดสติเวลาเปลี่ยนท่าจากนอนหรือนั่งเป็นยืน, กลั้นปัสสาวะไม่อยู่, อวัยวะเพศไม่แข็งตัว
         </div>
         <div class="sub-question">
-          <span class="checkbox"></span> อายุที่เริ่มมีอาการ ANS dysfunction <span class="field"></span>ปี
+          <span class="checkbox"></span> อายุที่เริ่มมีอาการ ANS dysfunction <span class="field"></span>ปี หรือ มีอาการมานาน <span class="field"></span> ปี
         </div>
 
         <div class="indent">
