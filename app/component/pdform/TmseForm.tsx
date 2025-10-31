@@ -23,7 +23,7 @@ export default function TmseForm({ thaiId }: { thaiId?: string }) {
     { title: "2. Registration (3 คะแนน)", count: 1, max: 3 },
     { title: "3. Attention (5 คะแนน)", count: 1, max: 5 },
     { title: "4. Calculation (3 คะแนน)", count: 1, max: 3 },
-    { title: "5. Language (10 คะแนน)", count: 9, max: 1 },
+    { title: "5. Language (10 คะแนน)", count: 1, max: 10 },
     { title: "6. Recall (3 คะแนน)", count: 1, max: 3 },
   ];
 
@@ -115,6 +115,10 @@ export default function TmseForm({ thaiId }: { thaiId?: string }) {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("ไม่พบ session ผู้ใช้");
 
+      // รวมคะแนน 6 หมวด
+      const orderedAnswers = sections.map((_, i) => Number(answers[i]) || 0);
+      const totalScore = orderedAnswers.reduce((sum, val) => sum + val, 0);
+
       const { error: upsertError } = await supabase
         .from("risk_factors_test")
         .upsert(
@@ -122,8 +126,8 @@ export default function TmseForm({ thaiId }: { thaiId?: string }) {
             user_id: session.user.id,
             patient_id: patientInfo.id,
             thaiid: thaiId,
-            tmse_answer: answers,
-            tmse_score: totalScore,
+            tmse_answer: orderedAnswers, // 👉 [6,3,5,3,10,3]
+            tmse_score: totalScore,      // 👉 30
           },
           { onConflict: "patient_id" }
         );
@@ -142,6 +146,7 @@ export default function TmseForm({ thaiId }: { thaiId?: string }) {
       setIsSubmitting(false);
     }
   };
+
 
   const renderQuestions = () => {
     const elements: React.ReactElement[] = [];
@@ -228,8 +233,8 @@ export default function TmseForm({ thaiId }: { thaiId?: string }) {
           onClick={handleSubmit}
           disabled={isSubmitting || !thaiId || !patientInfo}
           className={`w-full sm:w-auto px-6 py-3 rounded text-white font-semibold transition-colors ${isSubmitting || !thaiId || !patientInfo
-              ? "bg-gray-400 cursor-not-allowed"
-              : "bg-blue-600 hover:bg-blue-700"
+            ? "bg-gray-400 cursor-not-allowed"
+            : "bg-blue-600 hover:bg-blue-700"
             }`}
         >
           {isSubmitting ? "กำลังบันทึก..." : "ส่งแบบประเมิน"}
@@ -239,8 +244,8 @@ export default function TmseForm({ thaiId }: { thaiId?: string }) {
       {submitMessage && (
         <div
           className={`mt-4 p-3 rounded text-center text-sm sm:text-base ${submitMessage.includes("เรียบร้อย")
-              ? "bg-green-100 text-green-700"
-              : "bg-red-100 text-red-700"
+            ? "bg-green-100 text-green-700"
+            : "bg-red-100 text-red-700"
             }`}
         >
           {submitMessage}

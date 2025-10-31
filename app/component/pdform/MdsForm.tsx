@@ -108,6 +108,13 @@ export default function MdsUpdrsForm({ thaiId }: { thaiId?: string }) {
 
   const totalScore = [...p1, ...p2, ...p3, ...p4].reduce((a, b) => a + b, 0);
 
+  const partScores = [
+    p1.reduce((a, b) => a + b, 0),
+    p2.reduce((a, b) => a + b, 0),
+    p3.reduce((a, b) => a + b, 0),
+    p4.reduce((a, b) => a + b, 0),
+  ];
+
   useEffect(() => {
     if (!thaiId) {
       setSubmitMessage("ไม่พบข้อมูลผู้ป่วย กรุณาเลือกผู้ป่วยก่อนทำแบบประเมิน");
@@ -167,6 +174,7 @@ export default function MdsUpdrsForm({ thaiId }: { thaiId?: string }) {
             mds_answer_p3: p3,
             mds_answer_p4: p4,
             mds_score: totalScore,
+            mds_answer: partScores,
           },
           { onConflict: "patient_id" }
         );
@@ -318,8 +326,8 @@ export default function MdsUpdrsForm({ thaiId }: { thaiId?: string }) {
             onClick={handleSubmit}
             disabled={isSubmitting || !thaiId || !patientInfo}
             className={`w-full sm:w-auto px-8 py-3 rounded-lg text-white font-semibold text-base sm:text-lg transition-all ${isSubmitting || !thaiId || !patientInfo
-                ? "bg-gray-400 cursor-not-allowed"
-                : "bg-blue-600 hover:bg-blue-700 shadow-lg hover:shadow-xl"
+              ? "bg-gray-400 cursor-not-allowed"
+              : "bg-blue-600 hover:bg-blue-700 shadow-lg hover:shadow-xl"
               }`}
           >
             {isSubmitting ? "กำลังบันทึก..." : "ส่งแบบประเมิน"}
@@ -329,8 +337,8 @@ export default function MdsUpdrsForm({ thaiId }: { thaiId?: string }) {
         {submitMessage && (
           <div
             className={`mt-4 p-3 rounded-lg text-center text-sm sm:text-base ${submitMessage.includes("เรียบร้อย")
-                ? "bg-green-100 text-green-700 border border-green-300"
-                : "bg-red-100 text-red-700 border border-red-300"
+              ? "bg-green-100 text-green-700 border border-green-300"
+              : "bg-red-100 text-red-700 border border-red-300"
               }`}
           >
             {submitMessage}

@@ -287,9 +287,17 @@ export default function Smell({ thaiId }: { thaiId?: string }) {
                 throw new Error("ไม่พบ session ผู้ใช้");
             }
 
-            // Prepare answers in ordered array format
-            const orderedAnswers = QUESTIONS.map(q => answers[q.id] || "");
-            const totalScore = calculateScore();
+            // แปลงคำตอบเป็น 0/1
+            const orderedAnswers = QUESTIONS.map(q => {
+                const ans = answers[q.id];
+                if (!ans) return 0 as 0 | 1;
+                return CORRECT_ANSWERS[q.id] === ans ? 1 : 0;
+            });
+
+            // รวมคะแนน
+            const totalScore = orderedAnswers.reduce<number>((sum, val) => sum + val, 0);
+
+
 
             // Validate data before sending
             console.log("Validating data before save:", {
@@ -414,57 +422,56 @@ export default function Smell({ thaiId }: { thaiId?: string }) {
                 )}
 
                 <div className="space-y-6">
-                {Array.from({ length: 8 }, (_, rowIndex) => (
-                    <div
-                    key={rowIndex}
-                    className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6 sm:gap-8"
-                    >
-                    {QUESTIONS.slice(rowIndex * 2, rowIndex * 2 + 2).map((question) => (
+                    {Array.from({ length: 8 }, (_, rowIndex) => (
                         <div
-                        key={question.id}
-                        className="border border-gray-300 p-4 rounded-lg shadow-sm hover:shadow-md transition"
+                            key={rowIndex}
+                            className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6 sm:gap-8"
                         >
-                        <h3 className="text-base sm:text-lg md:text-xl font-semibold text-gray-800 mb-4 text-center">
-                            {question.id}. กลิ่นที่ {question.id}
-                        </h3>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                            {question.options.map((option) => {
-                            const isCorrectAnswer =
-                                CORRECT_ANSWERS[question.id] === option.value;
-
-                            return (
-                                <label
-                                key={option.value}
-                                className={`flex items-center p-2 cursor-pointer rounded-lg border transition-colors duration-150
-                                    ${
-                                    answers[question.id] === option.value
-                                        ? "bg-blue-50 border-blue-400"
-                                        : "border-gray-200 hover:bg-gray-50"
-                                    }`}
+                            {QUESTIONS.slice(rowIndex * 2, rowIndex * 2 + 2).map((question) => (
+                                <div
+                                    key={question.id}
+                                    className="border border-gray-300 p-4 rounded-lg shadow-sm hover:shadow-md transition"
                                 >
-                                <input
-                                    type="radio"
-                                    name={`question_${question.id}`}
-                                    value={option.value}
-                                    onChange={(e) =>
-                                    handleAnswerChange(question.id, e.target.value)
-                                    }
-                                    className="mr-2 text-blue-600"
-                                    checked={answers[question.id] === option.value}
-                                />
-                                <span className="text-sm sm:text-base">
-                                    <strong>{option.value}.</strong>{" "}
-                                    <span>{option.label}</span>
-                                </span>
-                                </label>
-                            );
-                            })}
-                        </div>
+                                    <h3 className="text-base sm:text-lg md:text-xl font-semibold text-gray-800 mb-4 text-center">
+                                        {question.id}. กลิ่นที่ {question.id}
+                                    </h3>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                        {question.options.map((option) => {
+                                            const isCorrectAnswer =
+                                                CORRECT_ANSWERS[question.id] === option.value;
+
+                                            return (
+                                                <label
+                                                    key={option.value}
+                                                    className={`flex items-center p-2 cursor-pointer rounded-lg border transition-colors duration-150
+                                    ${answers[question.id] === option.value
+                                                            ? "bg-blue-50 border-blue-400"
+                                                            : "border-gray-200 hover:bg-gray-50"
+                                                        }`}
+                                                >
+                                                    <input
+                                                        type="radio"
+                                                        name={`question_${question.id}`}
+                                                        value={option.value}
+                                                        onChange={(e) =>
+                                                            handleAnswerChange(question.id, e.target.value)
+                                                        }
+                                                        className="mr-2 text-blue-600"
+                                                        checked={answers[question.id] === option.value}
+                                                    />
+                                                    <span className="text-sm sm:text-base">
+                                                        <strong>{option.value}.</strong>{" "}
+                                                        <span>{option.label}</span>
+                                                    </span>
+                                                </label>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            ))}
                         </div>
                     ))}
-                    </div>
-                ))}
                 </div>
 
 
@@ -497,8 +504,8 @@ export default function Smell({ thaiId }: { thaiId?: string }) {
                         onClick={handleSubmit}
                         disabled={!isComplete || isSubmitting}
                         className={`px-8 py-3 rounded-lg font-semibold transition-colors ${isComplete && !isSubmitting
-                                ? "bg-blue-600 text-white hover:bg-blue-700"
-                                : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                            ? "bg-blue-600 text-white hover:bg-blue-700"
+                            : "bg-gray-300 text-gray-500 cursor-not-allowed"
                             }`}
                         aria-label={isComplete ? "ดูผลการทดสอบ" : "กรุณาตอบคำถามให้ครบก่อน"}
                     >
