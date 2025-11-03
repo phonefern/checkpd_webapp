@@ -210,144 +210,85 @@ export default function Sleep({ thaiId }: { thaiId?: string }) {
     setIsSubmitting(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error("ไม่พบ session ผู้ใช้");
-      }
+      if (!session) throw new Error("ไม่พบ session ผู้ใช้");
 
-      // Prepare answers in ordered array format
-      const orderedAnswers = questions.map(q => ({
-        answer: answers[q.id] || "",
-        frequency: frequencyAnswers[q.id] || 0
-      }));
-
-      // Also prepare a simpler format as fallback
-      const simpleAnswers = questions.map(q => {
-        const answer = answers[q.id] || "";
-        // Convert string answers to integers: yes=1, no=0, unknown=0
-        return answer === "yes" ? 1 : 0;
+      // ✅ 1. คำนวณคะแนนจาก answer (ตอบใช่)
+      const sleepAnswerScores = questions.map(q => {
+        const answer = answers[q.id];
+        if (answer === "yes") {
+          if ((q.id >= 1 && q.id <= 5) || q.id === 13) return 1;
+          if (q.id >= 6 && q.id <= 12) return 2;
+        }
+        return 0;
       });
-      const simpleFrequencies = questions.map(q => frequencyAnswers[q.id] || 0);
 
-      // Validate data before sending
-      console.log("Validating data before save:", {
+      // ✅ 2. คำนวณคะแนนจาก frequency (ตามความถี่)
+      const sleepFrequencyScores = questions.map(q => {
+        const freq = frequencyAnswers[q.id];
+        if (!freq) return 0;
+
+        if ((q.id >= 1 && q.id <= 5) || q.id === 13) {
+          if (freq === 1) return 1;
+          if (freq === 2) return 2;
+          if (freq === 3) return 3;
+          if (freq === 4) return 4;
+        } else if (q.id >= 6 && q.id <= 12) {
+          if (freq === 1) return 2;
+          if (freq === 2) return 4;
+          if (freq === 3) return 6;
+          if (freq === 4) return 8;
+        }
+        return 0;
+      });
+
+      // ✅ 3. รวมคะแนนทั้งหมดเป็น sleep_score
+      const sleepScore = sleepAnswerScores.reduce<number>((a, b) => a + b, 0) +
+        sleepFrequencyScores.reduce<number>((a, b) => a + b, 0);
+
+      console.log("จะบันทึกข้อมูล:", {
         thaiId,
-        patientInfo: patientInfo ? { id: patientInfo.id, name: `${patientInfo.first_name} ${patientInfo.last_name}` } : null,
-        orderedAnswers,
-        score: calculateScore(),
-        answersCount: Object.keys(answers).length,
-        frequencyAnswersCount: Object.keys(frequencyAnswers).length
+        sleep_answer: sleepAnswerScores,
+        sleep_frequency: sleepFrequencyScores,
+        sleep_score: sleepScore,
       });
 
-      // Additional validation
-      if (!thaiId) {
-        throw new Error("ไม่พบ Thai ID");
-      }
-      if (!patientInfo || !patientInfo.id) {
-        throw new Error("ไม่พบข้อมูลผู้ป่วย");
-      }
-      if (!session.user || !session.user.id) {
-        throw new Error("ไม่พบข้อมูลผู้ใช้");
-      }
-
+      // ✅ 4. ตรวจว่ามี record เดิมไหม
       const { data: existingRows } = await supabase
         .from("risk_factors_test")
         .select("id")
         .eq("user_id", session.user.id)
         .eq("thaiid", thaiId);
 
-      const existingRecord = existingRows && existingRows.length > 0 ? existingRows[0] : null;
+      const existingRecord = existingRows?.length ? existingRows[0] : null;
 
-      let dbError: any = null;
-      let useSimpleFormat = false;
+      const payload = {
+        user_id: session.user.id,
+        patient_id: patientInfo.id,
+        thaiid: thaiId,
+        sleep_answer: sleepAnswerScores,
+        sleep_frequency: sleepFrequencyScores,
+        sleep_score: sleepScore
+      };
 
-      try {
-        if (existingRecord) {
-          console.log("Updating existing record with data:", {
-            sleep_answer: orderedAnswers,
-            sleep_score: calculateScore(),
-            patient_id: patientInfo.id,
-            user_id: session.user.id,
-            thaiid: thaiId,
-          });
-          const { error: updateError } = await supabase
-            .from("risk_factors_test")
-            .update({
-              sleep_answer: orderedAnswers,
-              sleep_score: calculateScore(),
-              patient_id: patientInfo.id,
-              user_id: session.user.id,
-              thaiid: thaiId,
-            })
-            .eq("id", existingRecord.id);
-          dbError = updateError;
-        } else {
-          console.log("Inserting new record with data:", {
-            user_id: session.user.id,
-            patient_id: patientInfo.id,
-            thaiid: thaiId,
-            sleep_answer: orderedAnswers,
-            sleep_score: calculateScore(),
-          });
-          const { error: insertError } = await supabase
-            .from("risk_factors_test")
-            .insert([{
-              user_id: session.user.id,
-              patient_id: patientInfo.id,
-              thaiid: thaiId,
-              sleep_answer: orderedAnswers,
-              sleep_score: calculateScore(),
-            }]);
-          dbError = insertError;
-        }
-      } catch (dbOperationError) {
-        console.error("Database operation failed:", dbOperationError);
-        dbError = dbOperationError;
-      }
-
-      // If complex format failed, try simple format
-      if (dbError) {
-        console.log("Trying simple format as fallback...");
-        try {
-          if (existingRecord) {
-            const { error: updateError } = await supabase
-              .from("risk_factors_test")
-              .update({
-                sleep_answer: simpleAnswers,
-                sleep_frequency: simpleFrequencies,
-                sleep_score: calculateScore(),
-                patient_id: patientInfo.id,
-                user_id: session.user.id,
-                thaiid: thaiId,
-              })
-              .eq("id", existingRecord.id);
-            dbError = updateError;
-          } else {
-            const { error: insertError } = await supabase
-              .from("risk_factors_test")
-              .insert([{
-                user_id: session.user.id,
-                patient_id: patientInfo.id,
-                thaiid: thaiId,
-                sleep_answer: simpleAnswers,
-                sleep_frequency: simpleFrequencies,
-                sleep_score: calculateScore(),
-              }]);
-            dbError = insertError;
-          }
-          useSimpleFormat = true;
-        } catch (fallbackError) {
-          console.error("Fallback format also failed:", fallbackError);
-          dbError = fallbackError;
-        }
-      }
-
-      if (dbError) {
-        console.error("Error saving RBD assessment:", dbError);
-        const errorMessage = dbError.message || dbError.details || JSON.stringify(dbError) || "ไม่ทราบสาเหตุ";
-        setSubmitMessage(`เกิดข้อผิดพลาด: ${errorMessage}`);
+      let dbError;
+      if (existingRecord) {
+        const { error } = await supabase
+          .from("risk_factors_test")
+          .update(payload)
+          .eq("id", existingRecord.id);
+        dbError = error;
       } else {
-        const formatUsed = useSimpleFormat ? " (ใช้รูปแบบข้อมูลแบบง่าย)" : "";
-        setSubmitMessage(`บันทึกผลการประเมินเรียบร้อยแล้ว!${formatUsed}`);
+        const { error } = await supabase
+          .from("risk_factors_test")
+          .insert([payload]);
+        dbError = error;
+      }
+
+      if (dbError) {
+        console.error("Error saving:", dbError);
+        setSubmitMessage(`เกิดข้อผิดพลาด: ${dbError.message}`);
+      } else {
+        setSubmitMessage("บันทึกผลการประเมินเรียบร้อยแล้ว");
         setShowResults(true);
       }
     } catch (err) {
@@ -357,6 +298,7 @@ export default function Sleep({ thaiId }: { thaiId?: string }) {
       setIsSubmitting(false);
     }
   };
+
 
   const handleReset = () => {
     setAnswers({});
@@ -477,8 +419,8 @@ export default function Sleep({ thaiId }: { thaiId?: string }) {
             onClick={handleSubmit}
             disabled={!isComplete || isSubmitting}
             className={`px-8 py-3 rounded-lg font-semibold transition-colors ${isComplete && !isSubmitting
-                ? "bg-blue-600 text-white hover:bg-blue-700"
-                : "bg-gray-300 text-gray-500 cursor-not-allowed"
+              ? "bg-blue-600 text-white hover:bg-blue-700"
+              : "bg-gray-300 text-gray-500 cursor-not-allowed"
               }`}
           >
             {isSubmitting ? "กำลังบันทึก..." : "ดูผลประเมิน"}
@@ -525,7 +467,7 @@ export default function Sleep({ thaiId }: { thaiId?: string }) {
                   </span>
                   <div className="text-right">
                     <span className={`text-sm font-medium ${answer === "yes" ? "text-green-600" :
-                        answer === "no" ? "text-red-600" : "text-gray-600"
+                      answer === "no" ? "text-red-600" : "text-gray-600"
                       }`}>
                       {answer === "yes" ? "ใช่" : answer === "no" ? "ไม่ใช่" : "ไม่ทราบ"}
                     </span>

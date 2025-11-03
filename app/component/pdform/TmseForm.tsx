@@ -102,6 +102,22 @@ export default function TmseForm({ thaiId }: { thaiId?: string }) {
 
   const totalScore = answers.reduce((a, b) => a + b, 0);
 
+  const calculateSectionScores = (): number[] => {
+    const sectionScores: number[] = [];
+    let index = 0;
+
+    sections.forEach(section => {
+      // นับจำนวนข้อในหมวดนี้ (section.count)
+      const slice = answers.slice(index, index + section.count);
+      const sum = slice.reduce((a, b) => a + b, 0);
+      sectionScores.push(sum);
+      index += section.count;
+    });
+
+    return sectionScores;
+  };
+
+
   const handleSubmit = async () => {
     if (!thaiId || !patientInfo) {
       setSubmitMessage("ไม่พบข้อมูลผู้ป่วย");
@@ -115,9 +131,10 @@ export default function TmseForm({ thaiId }: { thaiId?: string }) {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("ไม่พบ session ผู้ใช้");
 
-      // รวมคะแนน 6 หมวด
-      const orderedAnswers = sections.map((_, i) => Number(answers[i]) || 0);
-      const totalScore = orderedAnswers.reduce((sum, val) => sum + val, 0);
+      
+      const sectionScores = calculateSectionScores(); 
+      const totalScore = sectionScores.reduce((sum, val) => sum + val, 0);
+
 
       const { error: upsertError } = await supabase
         .from("risk_factors_test")
@@ -126,8 +143,8 @@ export default function TmseForm({ thaiId }: { thaiId?: string }) {
             user_id: session.user.id,
             patient_id: patientInfo.id,
             thaiid: thaiId,
-            tmse_answer: orderedAnswers, // 👉 [6,3,5,3,10,3]
-            tmse_score: totalScore,      // 👉 30
+            tmse_answer: sectionScores, 
+            tmse_score: totalScore,
           },
           { onConflict: "patient_id" }
         );
