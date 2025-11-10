@@ -1,11 +1,12 @@
 import { useState, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { supabase } from '@/lib/supabase';
 import { PatientData, EditScores } from './types';
 import { conditionOptions } from './constants';
 import otherDiagnosisData from '@/app/component/questions/other_diagnosis_dropdown.json';
 import ProdromalDetailsModal from "./ProdromalDetailsModal";
 import PDDetailsModal from './PDDetailsModal';
-
+//app/component/papers/EditModal.tsx
 interface EditModalProps {
     patient: PatientData;
     onClose: () => void;
@@ -147,29 +148,29 @@ const EditModal = ({ patient, onClose, onSave }: EditModalProps) => {
                             onChange={(e) => {
                                 const newCondition = e.target.value;
 
-                                
+
                                 setEditCondition(newCondition);
 
-                                
+
                                 if (newCondition === 'Prodromal') {
                                     setShowProdromalModal(true);
                                 } else if (newCondition === 'PD') {
                                     setShowPDModal(true);
                                 }
 
-                                
-                                (async () => {
-                                    try {
-                                        if (patient.condition === 'Prodromal' && newCondition !== 'Prodromal') {
-                                            await supabase.from('pd_prodromal_details').delete().eq('screening_id', patient.id);
-                                        }
-                                        if (patient.condition === 'PD' && newCondition !== 'PD') {
-                                            await supabase.from('pd_pd_details').delete().eq('screening_id', patient.id);
-                                        }
-                                    } catch (err) {
-                                        console.error('Error clearing condition data:', err);
-                                    }
-                                })();
+
+                                // (async () => {
+                                //     try {
+                                //         if (patient.condition === 'Prodromal' && newCondition !== 'Prodromal') {
+                                //             await supabase.from('pd_prodromal_details').delete().eq('screening_id', patient.id);
+                                //         }
+                                //         if (patient.condition === 'PD' && newCondition !== 'PD') {
+                                //             await supabase.from('pd_pd_details').delete().eq('screening_id', patient.id);
+                                //         }
+                                //     } catch (err) {
+                                //         console.error('Error clearing condition data:', err);
+                                //     }
+                                // })();
                             }}
                         >
                             <option value="">-</option>
@@ -181,12 +182,15 @@ const EditModal = ({ patient, onClose, onSave }: EditModalProps) => {
 
                     </div>
 
+        
                     {showProdromalModal && (
                         <ProdromalDetailsModal
                             patientId={patient.id}
+                            patient={patient}
                             onClose={() => setShowProdromalModal(false)}
                         />
                     )}
+
 
                     {showPDModal && (
                         <PDDetailsModal
@@ -239,32 +243,45 @@ const EditModal = ({ patient, onClose, onSave }: EditModalProps) => {
                             </div>
                             {isCustomOther && (
                                 <input
+                                    id="other-custom"
+                                    name="other_custom"
                                     type="text"
                                     className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                     placeholder="ระบุค่า Other (Custom)"
                                     value={editOther}
                                     onChange={(e) => setEditOther(e.target.value)}
                                 />
+
                             )}
                         </div>
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">คะแนนแบบสอบถาม</label>
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                            {Object.entries(editScores).map(([key, value]) => (
-                                <div key={key}>
-                                    <label className="text-xs text-gray-600">{key.replace('_', ' ')}</label>
-                                    <input
-                                        type="number"
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                        value={value ?? ''}
-                                        onChange={(e) => setEditScores(prev => ({
-                                            ...prev,
-                                            [key]: e.target.value === '' ? null : Number(e.target.value)
-                                        }))}
-                                    />
-                                </div>
-                            ))}
+                            {Object.entries(editScores).map(([key, value]) => {
+                                const inputId = `edit-score-${key}`;
+                                return (
+                                    <div key={key}>
+                                        <label htmlFor={inputId} className="text-xs text-gray-600">
+                                            {key.replace('_', ' ')}
+                                        </label>
+                                        <input
+                                            id={inputId}
+                                            name={key}
+                                            type="number"
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                            value={value ?? ''}
+                                            onChange={(e) =>
+                                                setEditScores((prev) => ({
+                                                    ...prev,
+                                                    [key]: e.target.value === '' ? null : Number(e.target.value),
+                                                }))
+                                            }
+                                        />
+                                    </div>
+                                );
+                            })}
+
                         </div>
                     </div>
                 </div>

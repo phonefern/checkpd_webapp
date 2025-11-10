@@ -1,56 +1,72 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
+import { PatientData, EditScores } from './types';
 
 interface ProdromalDetailsModalProps {
   patientId: number;
+  patient: PatientData;
   onClose: () => void;
 }
 
 interface ProdromalData {
-  suspected_rbd?: boolean;
+  suspected_rbd: boolean;
   rbd_years?: string;
   rbd_duration?: string;
-  rbd_score?: string;
 
-  hyposmia?: boolean;
+  hyposmia: boolean;
   hyposmia_years?: string;
   hyposmia_duration?: string;
-  sniffin_score?: string;
 
-  constipation?: boolean;
+  constipation: boolean;
   constipation_years?: string;
   constipation_duration?: string;
-  rome_score?: string;
 
-  depression?: boolean;
+  depression: boolean;
   depression_years?: string;
   depression_duration?: string;
-  hamd_score?: string;
 
-  eds?: boolean;
+  eds: boolean;
   eds_years?: string;
   eds_duration?: string;
-  ess_score?: string;
 
-  autonomic_dysfunction?: boolean;
+  autonomic_dysfunction: boolean;
   autonomic_years?: string;
   autonomic_duration?: string;
-  ans_score?: string;
 
-  mild_parkinson_sign?: boolean;
-  updrs_score?: string;
+  mild_parkinson_sign: boolean;
 
-  family_history?: boolean;
+  family_history: boolean;
   family_relation?: string;
 
   other_diagnosis?: string;
 }
 
-const ProdromalDetailsModal = ({ patientId, onClose }: ProdromalDetailsModalProps) => {
+const ProdromalDetailsModal = ({ patientId, patient, onClose }: ProdromalDetailsModalProps) => {
   const [loading, setLoading] = useState(false);
-  const [form, setForm] = useState<ProdromalData>({});
+  const [form, setForm] = useState<ProdromalData>({
+    suspected_rbd: false,
+    hyposmia: false,
+    constipation: false,
+    depression: false,
+    eds: false,
+    autonomic_dysfunction: false,
+    mild_parkinson_sign: false,
+    family_history: false,
+  });
 
-  // โหลดข้อมูลเดิมจาก database
+  const [editScores, setEditScores] = useState<EditScores>({
+    rome4_score: patient.risk_factors?.rome4_score || null,
+    epworth_score: patient.risk_factors?.epworth_score || null,
+    hamd_score: patient.risk_factors?.hamd_score || null,
+    sleep_score: patient.risk_factors?.sleep_score || null,
+    smell_score: patient.risk_factors?.smell_score || null,
+    mds_score: patient.risk_factors?.mds_score || null,
+    moca_score: patient.risk_factors?.moca_score || null,
+    tmse_score: patient.risk_factors?.tmse_score || null,
+  });
+
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
   useEffect(() => {
     const fetchDetails = async () => {
       const { data, error } = await supabase
@@ -59,19 +75,82 @@ const ProdromalDetailsModal = ({ patientId, onClose }: ProdromalDetailsModalProp
         .eq("screening_id", patientId)
         .maybeSingle();
 
-      if (data) setForm(data);
+      if (data) setForm((prev) => ({ ...prev, ...data }));
       if (error && error.code !== "PGRST116") console.error(error);
     };
     fetchDetails();
   }, [patientId]);
 
-  const handleChange = (key: keyof ProdromalData, value: any) => {
-    setForm((prev) => ({ ...prev, [key]: value }));
+
+  const handleFormChange = (key: keyof ProdromalData, value: any) => {
+    setForm(prev => ({ ...prev, [key]: value }));
+
+    if (errors[key]) {
+      setErrors(prev => ({ ...prev, [key]: "" }));
+    }
+  };
+
+
+  const handleScoreChange = (key: keyof EditScores, value: string) => {
+
+    const cleanValue = value.replace(/[^0-9.]/g, "");
+    setEditScores(prev => ({
+      ...prev,
+      [key]: cleanValue === "" ? null : Number(cleanValue)
+    }));
+
+
+    if (errors[key]) {
+      setErrors(prev => ({ ...prev, [key]: "" }));
+    }
+  };
+
+
+  const validateForm = (): boolean => {
+    const newErrors: Record<string, string> = {};
+
+
+    const yearFields = [
+      'rbd_years', 'rbd_duration', 'hyposmia_years', 'hyposmia_duration',
+      'constipation_years', 'constipation_duration', 'depression_years', 'depression_duration',
+      'eds_years', 'eds_duration', 'autonomic_years', 'autonomic_duration'
+    ];
+
+    yearFields.forEach(field => {
+      const value = form[field as keyof ProdromalData];
+      // Validate only when the stored value is a string (avoid boolean values from checkboxes)
+      if (typeof value === 'string' && value !== "" && !/^\d*\.?\d*$/.test(value)) {
+        newErrors[field] = 'กรุณากรอกตัวเลขเท่านั้น';
+      }
+    });
+
+    // Validate other_diagnosis - ต้องเป็นตัวอักษรเท่านั้น
+    if (form.other_diagnosis && !/^[a-zA-Zก-๙\s]*$/.test(form.other_diagnosis)) {
+      newErrors.other_diagnosis = 'กรุณากรอกตัวอักษรเท่านั้น';
+    }
+
+    // Validate family_relation - ต้องเป็นตัวอักษรเท่านั้น
+    if (form.family_relation && !/^[a-zA-Zก-๙\s]*$/.test(form.family_relation)) {
+      newErrors.family_relation = 'กรุณากรอกตัวอักษรเท่านั้น';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   const handleSave = async () => {
+    if (!validateForm()) {
+      alert("❌ กรุณากรอกข้อมูลให้ถูกต้องก่อนบันทึก");
+      return;
+    }
+
     setLoading(true);
     try {
+      const cleanForm = { ...form } as Record<string, any>;
+      Object.keys(cleanForm).forEach((k) => {
+        if (typeof cleanForm[k] === "boolean") cleanForm[k] = !!cleanForm[k];
+      });
+
       const { data: existing } = await supabase
         .from("pd_prodromal_details")
         .select("id")
@@ -79,15 +158,16 @@ const ProdromalDetailsModal = ({ patientId, onClose }: ProdromalDetailsModalProp
         .maybeSingle();
 
       if (existing) {
-        await supabase
-          .from("pd_prodromal_details")
-          .update(form)
-          .eq("screening_id", patientId);
+        await supabase.from("pd_prodromal_details").update(cleanForm).eq("screening_id", patientId);
       } else {
-        await supabase
-          .from("pd_prodromal_details")
-          .insert([{ screening_id: patientId, ...form }]);
+        await supabase.from("pd_prodromal_details").insert([{ screening_id: patientId, ...cleanForm }]);
       }
+
+      // update scores (ในตาราง risk_factors)
+      await supabase
+        .from("pd_risk_factors")
+        .update(editScores)
+        .eq("screening_id", patientId);
 
       alert("✅ บันทึกข้อมูลสำเร็จ");
       onClose();
@@ -99,45 +179,103 @@ const ProdromalDetailsModal = ({ patientId, onClose }: ProdromalDetailsModalProp
     }
   };
 
-  const Input = ({
-    label,
-    name,
-    type = "text",
-    placeholder,
-  }: {
-    label: string;
-    name: keyof ProdromalData;
-    type?: string;
-    placeholder?: string;
-  }) => (
-    <div>
-      <label className="block text-xs text-gray-600 mb-1">{label}</label>
-      <input
-        type={type}
-        value={String(form[name] ?? "")}
-        onChange={(e) => handleChange(name, e.target.value)}
-        placeholder={placeholder}
-        className="w-full border rounded-lg px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-      />
-    </div>
-  );
+  const YearInput = ({ label, name }: { label: string; name: keyof ProdromalData }) => {
+    const inputId = `year-input-${name}`;
+    return (
+      <div>
+        <label
+          htmlFor={inputId}
+          className="block text-xs text-gray-600 mb-1"
+        >
+          {label}
+        </label>
+        <input
+          id={inputId}
+          name={name}
+          type="text"
+          // inputMode="decimal"
+          value={form[name] === undefined || form[name] === null ? "" : String(form[name])}
+          onChange={(e) => {
+            const cleanValue = e.target.value.replace(/[^0-9.]/g, "");
+            handleFormChange(name, cleanValue === "" ? "" : cleanValue);
+          }}
+          className={`w-full border rounded-lg px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${errors[name] ? 'border-red-500' : ''
+            }`}
+          placeholder="ตัวเลขเท่านั้น"
+        />
+        {errors[name] && <p className="text-red-500 text-xs mt-1">{errors[name]}</p>}
+      </div>
+    );
+  };
 
-  const CheckBox = ({
-    label,
-    name,
-  }: {
-    label: string;
-    name: keyof ProdromalData;
-  }) => (
-    <label className="flex items-center gap-2 text-sm text-gray-700">
-      <input
-        type="checkbox"
-        checked={!!form[name]}
-        onChange={(e) => handleChange(name, e.target.checked)}
-      />
-      {label}
-    </label>
-  );
+
+  const TextInput = ({ label, name }: { label: string; name: keyof ProdromalData }) => {
+    const inputId = `text-input-${name}`;
+    return (
+      <div>
+        <label htmlFor={inputId} className="block text-xs text-gray-600 mb-1">
+          {label}
+        </label>
+        <input
+          id={inputId}
+          name={name}
+          type="text"
+          value={String(form[name] ?? "")}
+          onChange={(e) => {
+            const cleanValue = e.target.value.replace(/[^a-zA-Zก-๙\s]/g, "");
+            handleFormChange(name, cleanValue);
+          }}
+          className={`w-full border rounded-lg px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${errors[name] ? 'border-red-500' : ''
+            }`}
+          placeholder="ตัวอักษรเท่านั้น"
+        />
+        {errors[name] && <p className="text-red-500 text-xs mt-1">{errors[name]}</p>}
+      </div>
+    );
+  };
+
+
+  const ScoreInput = ({ label, name }: { label: string; name: keyof EditScores }) => {
+    const inputId = `score-input-${name}`;
+    return (
+      <div>
+        <label htmlFor={inputId} className="block text-xs text-gray-600 mb-1">
+          {label}
+        </label>
+        <input
+          id={inputId}
+          name={name}
+          type="text"
+          inputMode="decimal"
+          value={editScores[name] ?? ""}
+          onChange={(e) => handleScoreChange(name, e.target.value)}
+          className={`w-full border rounded-lg px-2 py-1 focus:ring-2 focus:ring-green-500 focus:border-green-500 ${errors[name] ? 'border-red-500' : ''
+            }`}
+          placeholder="ตัวเลขเท่านั้น"
+        />
+        {errors[name] && <p className="text-red-500 text-xs mt-1">{errors[name]}</p>}
+      </div>
+    );
+  };
+
+
+  const CheckBox = ({ label, name }: { label: string; name: keyof ProdromalData }) => {
+    const inputId = `checkbox-${name}`;
+    return (
+      <div className="flex items-center gap-2 text-sm text-gray-700">
+        <input
+          id={inputId}
+          name={name}
+          type="checkbox"
+          checked={!!form[name]}
+          onChange={(e) => handleFormChange(name, e.target.checked)}
+          className="w-4 h-4"
+        />
+        <label htmlFor={inputId}>{label}</label>
+      </div>
+    );
+  };
+
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
@@ -147,116 +285,109 @@ const ProdromalDetailsModal = ({ patientId, onClose }: ProdromalDetailsModalProp
           <h3 className="text-lg font-semibold text-gray-900">
             รายละเอียดเพิ่มเติม (Prodromal)
           </h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 text-xl"
+          >
             ✕
           </button>
         </div>
 
         {/* Body */}
         <div className="p-6 space-y-6">
-
-          {/* 1️⃣ Suspected RBD */}
           <section>
             <h4 className="font-semibold text-gray-800 mb-2">Suspected RBD</h4>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
               <CheckBox label="มีอาการละเมอ" name="suspected_rbd" />
-              <Input label="ระยะเวลา (ปี)" name="rbd_years" />
-              <Input label="ละเมอมานาน (ปี)" name="rbd_duration" />
-              <Input label="RBD Score" name="rbd_score" />
+              <YearInput label="อายุเริ่มมีอาการ (ปี)" name="rbd_years" />
+              <YearInput label="ระยะเวลามีอาการ (ปี)" name="rbd_duration" />
+
             </div>
           </section>
 
-          {/* 2️⃣ Hyposmia */}
           <section>
             <h4 className="font-semibold text-gray-800 mb-2">Hyposmia</h4>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              <CheckBox label="มีอาการกลิ่นลดลง" name="hyposmia" />
-              <Input label="เริ่มมีอาการ (ปี)" name="hyposmia_years" />
-              <Input label="ระยะเวลามีอาการ (ปี)" name="hyposmia_duration" />
-              <Input label="Sniffin’s Score" name="sniffin_score" />
+              <CheckBox label="กลิ่นลดลง" name="hyposmia" />
+              <YearInput label="อายุเริ่มมีอาการ (ปี)" name="hyposmia_years" />
+              <YearInput label="ระยะเวลามีอาการ (ปี)" name="hyposmia_duration" />
+
             </div>
           </section>
 
-          {/* 3️⃣ Constipation */}
           <section>
             <h4 className="font-semibold text-gray-800 mb-2">Constipation</h4>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              <CheckBox label="มีอาการท้องผูก" name="constipation" />
-              <Input label="เริ่มมีอาการ (ปี)" name="constipation_years" />
-              <Input label="ระยะเวลามีอาการ (ปี)" name="constipation_duration" />
-              <Input label="ROME IV Score" name="rome_score" />
+              <CheckBox label="ท้องผูก" name="constipation" />
+              <YearInput label="อายุเริ่มมีอาการ (ปี)" name="constipation_years" />
+              <YearInput label="ระยะเวลามีอาการ (ปี)" name="constipation_duration" />
+
             </div>
           </section>
 
-          {/* 4️⃣ Depression */}
           <section>
             <h4 className="font-semibold text-gray-800 mb-2">Depression</h4>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              <CheckBox label="มีภาวะซึมเศร้า" name="depression" />
-              <Input label="เริ่มมีอาการ (ปี)" name="depression_years" />
-              <Input label="ระยะเวลามีอาการ (ปี)" name="depression_duration" />
-              <Input label="HAM-D Score" name="hamd_score" />
+              <CheckBox label="ภาวะซึมเศร้า" name="depression" />
+              <YearInput label="อายุเริ่มมีอาการ (ปี)" name="depression_years" />
+              <YearInput label="ระยะเวลามีอาการ (ปี)" name="depression_duration" />
+
             </div>
           </section>
 
-          {/* 5️⃣ EDS */}
           <section>
-            <h4 className="font-semibold text-gray-800 mb-2">
-              Excessive Daytime Sleepiness (EDS)
-            </h4>
+            <h4 className="font-semibold text-gray-800 mb-2">EDS</h4>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              <CheckBox label="ง่วงนอนตอนกลางวัน" name="eds" />
-              <Input label="เริ่มมีอาการ (ปี)" name="eds_years" />
-              <Input label="ระยะเวลามีอาการ (ปี)" name="eds_duration" />
-              <Input label="ESS Score" name="ess_score" />
+              <CheckBox label="ง่วงตอนกลางวัน" name="eds" />
+              <YearInput label="อายุเริ่มมีอาการ (ปี)" name="eds_years" />
+              <YearInput label="ระยะเวลามีอาการ (ปี)" name="eds_duration" />
+
             </div>
           </section>
 
-          {/* 6️⃣ Autonomic Dysfunction */}
           <section>
             <h4 className="font-semibold text-gray-800 mb-2">Autonomic Dysfunction</h4>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
               <CheckBox label="มีภาวะ ANS dysfunction" name="autonomic_dysfunction" />
-              <Input label="เริ่มมีอาการ (ปี)" name="autonomic_years" />
-              <Input label="ระยะเวลามีอาการ (ปี)" name="autonomic_duration" />
-              <Input label="ANS Score" name="ans_score" />
+              <YearInput label="เริ่มมีอาการ (ปี)" name="autonomic_years" />
+              <YearInput label="ระยะเวลามีอาการ (ปี)" name="autonomic_duration" />
             </div>
           </section>
 
-          {/* 7️⃣ Mild Parkinsonian Sign */}
           <section>
             <h4 className="font-semibold text-gray-800 mb-2">Mild Parkinsonian Sign</h4>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
               <CheckBox label="พบอาการ Parkinsonian" name="mild_parkinson_sign" />
-              <Input label="UPDRS Score" name="updrs_score" />
+
             </div>
           </section>
 
-          {/* 8️⃣ Family History */}
           <section>
             <h4 className="font-semibold text-gray-800 mb-2">Family History</h4>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
               <CheckBox label="มีประวัติครอบครัว PD" name="family_history" />
-              <Input label="ความสัมพันธ์ (เช่น พ่อ แม่ พี่ น้อง)" name="family_relation" />
+              <TextInput label="ความสัมพันธ์ (เช่น พ่อ แม่ พี่ น้อง)" name="family_relation" />
             </div>
           </section>
 
-          {/* 9️⃣ Other Diagnosis */}
           <section>
             <h4 className="font-semibold text-gray-800 mb-2">Other Diagnosis</h4>
-            <Input label="การวินิจฉัยอื่น ๆ" name="other_diagnosis" />
+            <TextInput label="การวินิจฉัยอื่น ๆ" name="other_diagnosis" />
           </section>
         </div>
 
         {/* Footer */}
         <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
-          <button onClick={onClose} className="px-4 py-2 bg-gray-100 rounded-lg">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+          >
             ยกเลิก
           </button>
           <button
             onClick={handleSave}
             disabled={loading}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
           >
             {loading ? "กำลังบันทึก..." : "บันทึก"}
           </button>

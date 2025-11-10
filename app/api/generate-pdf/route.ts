@@ -110,9 +110,11 @@ export async function GET(req: NextRequest) {
           font-family: DejaVu Sans, Arial, sans-serif;
         }
         .checkbox.checked::after {
-          content: "✔";
+          content: "\\2714";
           font-size: 14px;
+          font-family: 'THSarabunPSK', sans-serif;
         }
+
         .field {
           border-bottom: 1px dotted #000;
           display: inline-block;
@@ -223,7 +225,7 @@ export async function GET(req: NextRequest) {
         </div>
 
         <div class="indent">
-          <span class="checkbox"></span>Mild parkinsonian sign: (UPDRS part III > 3 โดยไม่รวม postural and kinetic tremor หรือ total UPDRS > 6 โดยยังไม่เข้า criteria การวินิจฉัยพาร์กินสัน และไม่นับคะแนนจาก potential confounder เช่นโรคข้อ เป็นต้น) 
+          <span class="checkbox"></span>Mild parkinsonian sign: (UPDRS part III > 3 โดยไม่รวม postural and kinetic tremor หรือ total UPDRS > 6 โดยยังไม่เข้า criteria การวินิจฉัยพาร์กินสัน และไม่นับคะแนนจาก potential confounder
         </div>
 
         <div class="indent">

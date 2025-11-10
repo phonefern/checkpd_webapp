@@ -28,6 +28,10 @@ export default function MdsUpdrsForm({ thaiId }: { thaiId?: string }) {
   const [p3, setP3] = useState<number[]>(Array(33).fill(0));
   const [p4, setP4] = useState<number[]>(Array(6).fill(0));
 
+  const [dyskinesiaPresent, setDyskinesiaPresent] = useState<string>('');
+  const [dyskinesiaInterfere, setDyskinesiaInterfere] = useState<string>('');
+
+
   const part1Questions: Question[] = [
     { id: "1.1", label: "Cognitive impairment" },
     { id: "1.2", label: "Hallucinations and psychosis" },
@@ -175,6 +179,8 @@ export default function MdsUpdrsForm({ thaiId }: { thaiId?: string }) {
             mds_answer_p4: p4,
             mds_score: totalScore,
             mds_answer: partScores,
+            mds_q_dyskinesia_present: dyskinesiaPresent === "yes",
+            mds_q_dyskinesia_interfere: dyskinesiaInterfere === "yes",
           },
           { onConflict: "patient_id" }
         );
@@ -282,6 +288,48 @@ export default function MdsUpdrsForm({ thaiId }: { thaiId?: string }) {
           setP3
         )}
 
+        {/* ===== เพิ่มสองคำถาม Yes/No ===== */}
+        <div className="border rounded-lg p-4 mb-6 bg-white shadow-sm">
+
+
+          <div className="space-y-4">
+            {/* Q1: Dyskinesia present */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 p-2 hover:bg-gray-50 rounded">
+              <label className="flex-1 text-sm text-gray-700">
+                <span className="font-semibold text-blue-600">Q D1:</span>{" "}
+                Were dyskinesias present?
+              </label>
+              <select
+                value={dyskinesiaPresent}
+                onChange={(e) => setDyskinesiaPresent(e.target.value)}
+                className="border border-gray-300 rounded py-2 px-3 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              >
+                <option value="">Select</option>
+                <option value="yes">Yes</option>
+                <option value="no">No</option>
+              </select>
+            </div>
+
+            {/* Q2: Interfere with rating */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 p-2 hover:bg-gray-50 rounded">
+              <label className="flex-1 text-sm text-gray-700">
+                <span className="font-semibold text-blue-600">Q D2:</span>{" "}
+                Did these movements interfere with rating?
+              </label>
+              <select
+                value={dyskinesiaInterfere}
+                onChange={(e) => setDyskinesiaInterfere(e.target.value)}
+                className="border border-gray-300 rounded py-2 px-3 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              >
+                <option value="">Select</option>
+                <option value="yes">Yes</option>
+                <option value="no">No</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+
         {renderPart(
           "Part IV: Motor Complications",
           part4Questions,
@@ -311,6 +359,7 @@ export default function MdsUpdrsForm({ thaiId }: { thaiId?: string }) {
                 <div className="bg-white rounded px-2 py-1">
                   <span className="text-gray-600">Part III:</span>{" "}
                   <span className="font-semibold">{p3.reduce((a, b) => a + b, 0)}</span>
+
                 </div>
                 <div className="bg-white rounded px-2 py-1">
                   <span className="text-gray-600">Part IV:</span>{" "}
