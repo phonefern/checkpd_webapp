@@ -75,7 +75,7 @@ const ProdromalDetailsModal = ({ patientId, patient, onClose }: ProdromalDetails
         .eq("screening_id", patientId)
         .maybeSingle();
 
-      if (data) setForm((prev) => ({ ...prev, ...data }));
+      // if (data) setForm((prev) => ({ ...prev, ...data }));
       if (error && error.code !== "PGRST116") console.error(error);
     };
     fetchDetails();
