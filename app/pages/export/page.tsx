@@ -8,16 +8,11 @@ import JSZip from 'jszip'
 
 const conditionOptions = [
   { value: '', label: 'All Conditions' },
-  { value: 'cdt7', label: 'CDT7' },
-  { value: 'ctrl', label: 'Control' },
-  { value: 'pd', label: 'PD' },
-  { value: 'pdm', label: 'PDM' },
-  { value: 'pksm', label: 'PKSM' },
-  { value: 'other', label: 'Other' },
-  { value: 'nodiag', label: 'No Diagnosis' },
-  { value: 'normal_check', label: 'Normal Check' },
+  { value: 'ctrl', label: 'ctrl' },
+  { value: 'pd', label: 'pd' },
+  { value: 'pdm', label: 'pdm' },
+  { value: 'other', label: 'other' },
   { value: 'Not specified', label: 'Not specified' },
-  { value: 'not_eval', label: 'Not Evaluated' }
 ]
 
 

@@ -7,7 +7,7 @@ import AuthRedirect from '@/components/AuthRedirect'
 import UserTable from '@/app/component/users/UserTable'
 import Pagination from '@/app/component/users/Pagination'
 import SearchFilters from '@/app/component/users/SearchFilters'
-import { User, conditionOptions, provinceOptions, formatToThaiTime } from '@/app/types/user'
+import { User } from '@/app/types/user'
 
 const handleLogout = async () => {
   const { error } = await supabase.auth.signOut()
@@ -29,6 +29,9 @@ export default function UsersClientPage() {
   const [totalCount, setTotalCount] = useState(0)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [searchCondition, setSearchCondition] = useState('')
+  const [searchRisk, setSearchRisk] = useState('')
+  const [searchOther, setSearchOther] = useState('')
+  const [otherOptions, setOtherOptions] = useState<string[]>([])
   const itemsPerPage = 50
 
   const fetchUsers = async () => {
@@ -57,6 +60,18 @@ export default function UsersClientPage() {
 
     if (searchCondition.trim()) {
       query = query.eq('condition', searchCondition)
+    }
+
+    if (searchRisk.trim()) {
+      if (searchRisk === 'null') {
+        query = query.is('prediction_risk', null)
+      } else {
+        query = query.eq('prediction_risk', searchRisk === 'true')
+      }
+    }
+
+    if (searchOther.trim()) {
+      query = query.eq('other', searchOther)
     }
 
     const { data, error, count } = await query
@@ -89,7 +104,35 @@ export default function UsersClientPage() {
     if (session) {
       fetchUsers()
     }
-  }, [currentPage, searchId, startDate, endDate, searchCondition, session])
+  }, [currentPage, searchId, startDate, endDate, searchCondition, searchRisk, searchOther, session])
+
+  useEffect(() => {
+    if (!session) return
+
+    const loadOtherOptions = async () => {
+      const { data, error } = await supabase
+        .from('user_record_summary_with_users')
+        .select('other')
+        .order('other', { ascending: true })
+
+      if (error) {
+        console.error('❌ Error loading other options:', error)
+        return
+      }
+
+      const options = Array.from(
+        new Set(
+          (data ?? [])
+            .map(({ other }) => (typeof other === 'string' ? other.trim() : ''))
+            .filter((value) => value.length > 0)
+        )
+      )
+
+      setOtherOptions(options)
+    }
+
+    loadOtherOptions()
+  }, [session])
 
   const handleConditionChange = (id: string, value: string) => {
     setUsers((prev) =>
@@ -164,6 +207,11 @@ export default function UsersClientPage() {
         setCurrentPage={setCurrentPage}
         searchCondition={searchCondition}
         setSearchCondition={setSearchCondition}
+        searchRisk={searchRisk}
+        setSearchRisk={setSearchRisk}
+        searchOther={searchOther}
+        setSearchOther={setSearchOther}
+        otherOptions={otherOptions}
         startDate={startDate}
         setStartDate={setStartDate}
         endDate={endDate}

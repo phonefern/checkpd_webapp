@@ -17,6 +17,14 @@ export type User = {
     other?: string
   }
   
+  export const riskOptions = [
+    { value: true, label: 'High Risk' },
+    { value: false, label: 'Low Risk' },
+    { value: null, label: 'No Data' },
+  ]
+
+  
+
   export const conditionOptions = [
     { value: 'null', label: 'Not specified' },
     { value: 'ctrl', label: 'ctrl' },
