@@ -55,10 +55,13 @@ export async function GET(req: NextRequest) {
     const isHealthy = person.condition === 'Control';
     const isOther = person.condition === 'Other diagnosis';
 
-    const pdCheckedClass = isPD ? 'checked' : '';
-    const prodromalCheckedClass = isProdromal ? 'checked' : '';
-    const healthyCheckedClass = isHealthy ? 'checked' : '';
-    const otherCheckedClass = isOther ? 'checked' : '';
+    // Helper function to create checkbox HTML with checkmark character
+    const createCheckbox = (checked: boolean): string => {
+      if (checked) {
+        return '<span class="checkbox checked">✓</span>';
+      }
+      return '<span class="checkbox"></span>';
+    };
 
     // HTML Template
     const html = `
@@ -107,12 +110,19 @@ export async function GET(req: NextRequest) {
           vertical-align: middle;
           text-align: center;
           line-height: 12px;
-          font-family: DejaVu Sans, Arial, sans-serif;
+          position: relative;
+          font-family: Arial, 'DejaVu Sans', 'Liberation Sans', sans-serif;
+          font-size: 10px;
         }
-        .checkbox.checked::after {
-          content: "\\2714";
-          font-size: 14px;
-          font-family: 'THSarabunPSK', sans-serif;
+        .checkbox.checked {
+          font-family: Arial, 'DejaVu Sans', 'Liberation Sans', sans-serif;
+          font-weight: bold;
+          color: #000;
+          font-size: 11px;
+          line-height: 12px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
         }
 
         .field {
@@ -170,26 +180,26 @@ export async function GET(req: NextRequest) {
       <h2>(Check PD: National Screening Project)</h2>
 
       <div class="section">
-        <span class="checkbox ${pdCheckedClass}"></span><strong>PD</strong>
-        <div class="indent"><span class="checkbox"></span> Newly diagnosis</div>
-        <div class="indent"><span class="checkbox"></span> PD </div>
-        <div class="indent2"><span class="checkbox"></span> Disease duration <span class="field"></span> years</div>
-        <div class="indent2"><span class="checkbox"></span> H&Y <span class="field"></span></div>
+        ${createCheckbox(isPD)}<strong>PD</strong>
+        <div class="indent">${createCheckbox(false)} Newly diagnosis</div>
+        <div class="indent">${createCheckbox(false)} PD </div>
+        <div class="indent2">${createCheckbox(false)} Disease duration <span class="field"></span> years</div>
+        <div class="indent2">${createCheckbox(false)} H&Y <span class="field"></span></div>
       </div>
 
       <div class="section">
-        <div><span class="checkbox ${prodromalCheckedClass}"></span><strong> Prodromal / High risk </strong> กรณีมีข้อใดข้อหนึ่งดังต่อไปนี้ </div>
+        <div>${createCheckbox(isProdromal)}<strong> Prodromal / High risk </strong> กรณีมีข้อใดข้อหนึ่งดังต่อไปนี้ </div>
         <div class="indent">
-          <span class="checkbox "></span> <span>Suspected RBD</span>: History of acting out of dream or vocalization or RBDQ >= 17 or PSG confirmed
+          ${createCheckbox(false)} <span>Suspected RBD</span>: History of acting out of dream or vocalization or RBDQ >= 17 or PSG confirmed
         </div>
         <div class="sub-question">
-          <span class="checkbox"></span> อายุที่เริ่มมีอาการของนอนละเมอ <span class="field"></span> ปี หรือ มีอาการมานานเท่าไหร่ <span class="field"></span> ปี
+          ${createCheckbox(false)} อายุที่เริ่มมีอาการของนอนละเมอ <span class="field"></span> ปี หรือ มีอาการมานานเท่าไหร่ <span class="field"></span> ปี
         </div>
         <div class="indent">
-          <span class="checkbox"></span> <span>Hyposmia</span>: History ได้กลิ่นลดลง Sniffin stick <= 9 
+          ${createCheckbox(false)} <span>Hyposmia</span>: History ได้กลิ่นลดลง Sniffin stick <= 9 
         </div>
         <div class="indent">
-          <span class="checkbox"></span>อายุที่เริ่มมีอาการจมูกได้กลิ่นลดลง<span class="field"></span> ปี หรือ มีอาการมานานเท่าไหร่ <span class="field"></span> ปี
+          ${createCheckbox(false)}อายุที่เริ่มมีอาการจมูกได้กลิ่นลดลง<span class="field"></span> ปี หรือ มีอาการมานานเท่าไหร่ <span class="field"></span> ปี
         </div>
       </div>
 
@@ -197,48 +207,48 @@ export async function GET(req: NextRequest) {
         <div class="section"> หรือ มีอาการนำ อย่างน้อย 2 ข้อจากอาการดังต่อไปนี้</div>
         
         <div class="indent">
-          <span class="checkbox"></span>Constipation: History ถ่ายอุจจาระ ความถี่นานกว่าวันเว้นวัน หรือต้องใช้ยาระบาย หรือ ลักษณะอุจจาระแข็งขึ้น เรื้อรังในช่วง 3 เดือนที่ผ่านมา เมื่อเทียบกับก่อนหน้า  or ROME IV >= 2
+          ${createCheckbox(false)}Constipation: History ถ่ายอุจจาระ ความถี่นานกว่าวันเว้นวัน หรือต้องใช้ยาระบาย หรือ ลักษณะอุจจาระแข็งขึ้น เรื้อรังในช่วง 3 เดือนที่ผ่านมา เมื่อเทียบกับก่อนหน้า  or ROME IV >= 2
         </div>
         <div class="sub-question">
-          <span class="checkbox"></span> อายุที่เริ่มมีอาการท้องผูก <span class="field"></span> ปี มีอาการท้องผูกมานานเท่าไหร่ <span class="field"></span> ปี
+          ${createCheckbox(false)} อายุที่เริ่มมีอาการท้องผูก <span class="field"></span> ปี มีอาการท้องผูกมานานเท่าไหร่ <span class="field"></span> ปี
         </div>
 
         <div class="indent">
-          <span class="checkbox"></span>Depression: ประวัติการได้รับการวินิจฉัยและรักษา หรือ HAM-D ตั้งแต่ 13 คะแนนขึ้นไป
+          ${createCheckbox(false)}Depression: ประวัติการได้รับการวินิจฉัยและรักษา หรือ HAM-D ตั้งแต่ 13 คะแนนขึ้นไป
         </div>
         <div class="sub-question">
-          <span class="checkbox"></span> อายุที่เริ่มมีอาการซึมเศร้า <span class="field"></span> ปี มีอาการซึมเศร้ามานานเท่าไหร่ <span class="field"></span> ปี
+          ${createCheckbox(false)} อายุที่เริ่มมีอาการซึมเศร้า <span class="field"></span> ปี มีอาการซึมเศร้ามานานเท่าไหร่ <span class="field"></span> ปี
         </div>
 
         <div class="indent">
-          <span class="checkbox"></span>Excessive daytime sleepiness: ง่วงนอนมากผิดปกติในช่วงกลางวัน หรือ ESS ตั้งแต่ 10 คะแนน โดยที่กลางคืนนอนหลับได้ปกติ หรือไม่มีอาการกรนหยุดหายใจ
+          ${createCheckbox(false)}Excessive daytime sleepiness: ง่วงนอนมากผิดปกติในช่วงกลางวัน หรือ ESS ตั้งแต่ 10 คะแนน โดยที่กลางคืนนอนหลับได้ปกติ หรือไม่มีอาการกรนหยุดหายใจ
         </div>
         <div class="sub-question">
-          <span class="checkbox"></span> อายุที่เริ่มมีอาการ EDS <span class="field"></span> ปี หรือ มีอาการ EDS มานานเท่าไหร่ <span class="field"></span> ปี
+          ${createCheckbox(false)} อายุที่เริ่มมีอาการ EDS <span class="field"></span> ปี หรือ มีอาการ EDS มานานเท่าไหร่ <span class="field"></span> ปี
         </div>
 
         <div class="indent">
-          <span class="checkbox"></span>Autonomic dysfunction: มีอาการระบบประสาทอัตโนมัติผิดปกติข้อใดข้อหนึ่ง หน้ามืดหรือเป็นลมหมดสติเวลาเปลี่ยนท่าจากนอนหรือนั่งเป็นยืน, กลั้นปัสสาวะไม่อยู่, อวัยวะเพศไม่แข็งตัว
+          ${createCheckbox(false)}Autonomic dysfunction: มีอาการระบบประสาทอัตโนมัติผิดปกติข้อใดข้อหนึ่ง หน้ามืดหรือเป็นลมหมดสติเวลาเปลี่ยนท่าจากนอนหรือนั่งเป็นยืน, กลั้นปัสสาวะไม่อยู่, อวัยวะเพศไม่แข็งตัว
         </div>
         <div class="sub-question">
-          <span class="checkbox"></span> อายุที่เริ่มมีอาการ ANS dysfunction <span class="field"></span>ปี หรือ มีอาการมานาน <span class="field"></span> ปี
+          ${createCheckbox(false)} อายุที่เริ่มมีอาการ ANS dysfunction <span class="field"></span>ปี หรือ มีอาการมานาน <span class="field"></span> ปี
         </div>
 
         <div class="indent">
-          <span class="checkbox"></span>Mild parkinsonian sign: (UPDRS part III > 3 โดยไม่รวม postural and kinetic tremor หรือ total UPDRS > 6 โดยยังไม่เข้า criteria การวินิจฉัยพาร์กินสัน และไม่นับคะแนนจาก potential confounder
+          ${createCheckbox(false)}Mild parkinsonian sign: (UPDRS part III > 3 โดยไม่รวม postural and kinetic tremor หรือ total UPDRS > 6 โดยยังไม่เข้า criteria การวินิจฉัยพาร์กินสัน และไม่นับคะแนนจาก potential confounder
         </div>
 
         <div class="indent">
-          <span class="checkbox"></span>Family history of PD (First degree): ประวัติญาติสายตรงเป็นพาร์กินสัน
+          ${createCheckbox(false)}Family history of PD (First degree): ประวัติญาติสายตรงเป็นพาร์กินสัน
         </div>
       </div>
 
       <div class="section">
-        <div><span class="checkbox ${otherCheckedClass}"></span><strong> Other diagnosis </strong><span class="field" style="min-width: 300px;"> ${person.other || ""} </span></div>
+        <div>${createCheckbox(isOther)}<strong> Other diagnosis </strong><span class="field" style="min-width: 300px;"> ${person.other || ""} </span></div>
       </div>
 
       <div class="section">
-        <div><span class="checkbox ${healthyCheckedClass}"></span> <strong>Healthy</strong></div>
+        <div>${createCheckbox(isHealthy)} <strong>Healthy</strong></div>
       </div>
 
       <div class="numbered-item">
@@ -281,70 +291,70 @@ export async function GET(req: NextRequest) {
       <div class="page-break">
         <div class="numbered-item-2">
           <strong>7. Check PD application</strong>
-          <div class="indent"><span class="checkbox"></span> Demographic</div>
-          <div class="indent"><span class="checkbox"></span> 20- questions questionnaire</div>
-          <div class="indent"><span class="checkbox"></span> Voice analysis</div>
-          <div class="indent"><span class="checkbox"></span> Tremor test</div>
-          <div class="indent"><span class="checkbox"></span> Finger tapping test</div>
-          <div class="indent"><span class="checkbox"></span> Pinch to size test</div>
-          <div class="indent"><span class="checkbox"></span> Gait and balance testing</div>
+          <div class="indent">${createCheckbox(false)} Demographic</div>
+          <div class="indent">${createCheckbox(false)} 20- questions questionnaire</div>
+          <div class="indent">${createCheckbox(false)} Voice analysis</div>
+          <div class="indent">${createCheckbox(false)} Tremor test</div>
+          <div class="indent">${createCheckbox(false)} Finger tapping test</div>
+          <div class="indent">${createCheckbox(false)} Pinch to size test</div>
+          <div class="indent">${createCheckbox(false)} Gait and balance testing</div>
         </div>
 
         <div class="numbered-item-2">
           <strong>8. MDS UPDRS</strong>
-          <div class="indent"><span class="checkbox"></span> Part I <span class="field"></span> คะแนน</div>
-          <div class="indent"><span class="checkbox"></span> Part II <span class="field"></span> คะแนน</div>
-          <div class="indent"><span class="checkbox"></span> Part III <span class="field"></span> คะแนน</div>
-          <div class="indent"><span class="checkbox"></span> Part IV <span class="field"></span> คะแนน</div>
+          <div class="indent">${createCheckbox(false)} Part I <span class="field"></span> คะแนน</div>
+          <div class="indent">${createCheckbox(false)} Part II <span class="field"></span> คะแนน</div>
+          <div class="indent">${createCheckbox(false)} Part III <span class="field"></span> คะแนน</div>
+          <div class="indent">${createCheckbox(false)} Part IV <span class="field"></span> คะแนน</div>
           <div style="margin-top: 10px;">Total MDS-UPDRS <span class="field"></span> คะแนน</div>
         </div>
 
         <div class="numbered-item-2">
           <strong>9. Cognitive test</strong>
-          <div class="indent"><span class="checkbox"></span> MoCA <span class="field">${riskFactors.moca_score || ""}</span> คะแนน or</div>
-          <div class="indent"><span class="checkbox"></span> TMSE <span class="field">${riskFactors.tmse_score || ""}</span> คะแนน</div>
+          <div class="indent">${createCheckbox(false)} MoCA <span class="field">${riskFactors.moca_score || ""}</span> คะแนน or</div>
+          <div class="indent">${createCheckbox(false)} TMSE <span class="field">${riskFactors.tmse_score || ""}</span> คะแนน</div>
         </div>
 
         <div class="numbered-item-2">
           <strong>10. Smell test</strong>
-          <div class="indent"><span class="checkbox"></span> Thai smell test <span class="field"></span> คะแนน or</div>
-          <div class="indent"><span class="checkbox"></span> Sniffin stick test <span class="field">${riskFactors.smell_score || ""}</span> คะแนน</div>
+          <div class="indent">${createCheckbox(false)} Thai smell test <span class="field"></span> คะแนน or</div>
+          <div class="indent">${createCheckbox(false)} Sniffin stick test <span class="field">${riskFactors.smell_score || ""}</span> คะแนน</div>
         </div>
 
         <div class="numbered-item-2">
           <strong>11. Color discrimination testing</strong>
           <div class="indent">
-            <span class="checkbox"></span> Yes (Paper)
+            ${createCheckbox(false)} Yes (Paper)
             <div style="margin-left: 40px;">
               Right eye 1 <span class="field"></span> คะแนน &nbsp;&nbsp;&nbsp; Right eye 2 <span class="field"></span> คะแนน<br>
               Left eye 1 <span class="field"></span> คะแนน &nbsp;&nbsp;&nbsp;&nbsp; Left eye 2 <span class="field"></span> คะแนน
             </div>
           </div>
           <div class="indent">
-            <span class="checkbox"></span> Yes (Application)
+            ${createCheckbox(false)} Yes (Application)
             <div style="margin-left: 40px;">
               Right eye 1 <span class="field"></span> คะแนน &nbsp;&nbsp;&nbsp; Right eye 2 <span class="field"></span> คะแนน<br>
               Left eye 1 <span class="field"></span> คะแนน &nbsp;&nbsp;&nbsp;&nbsp; Left eye 2 <span class="field"></span> คะแนน
             </div>
           </div>
-          <div class="indent"><span class="checkbox"></span> No</div>
+          <div class="indent">${createCheckbox(false)} No</div>
         </div>
 
         <div class="numbered-item-2">
           <strong>12. Contrast discrimination testing</strong>
           <div class="indent">
-            <span class="checkbox"></span> Yes (Manual)
+            ${createCheckbox(false)} Yes (Manual)
             <div style="margin-left: 40px;">
               Right eye <span class="field"></span> คะแนน &nbsp;&nbsp;&nbsp; Left eye <span class="field"></span> คะแนน
             </div>
           </div>
           <div class="indent">
-            <span class="checkbox"></span> Yes (Application)
+            ${createCheckbox(false)} Yes (Application)
             <div style="margin-left: 40px;">
               Right eye <span class="field"></span> คะแนน &nbsp;&nbsp;&nbsp; Left eye <span class="field"></span> คะแนน
             </div>
           </div>
-          <div class="indent"><span class="checkbox"></span> No</div>
+          <div class="indent">${createCheckbox(false)} No</div>
         </div>
       </div>
 
@@ -362,24 +372,24 @@ export async function GET(req: NextRequest) {
 
         <div class="numbered-item-2">
           <strong>14. Sleep domain</strong>
-          <div class="indent"><span class="checkbox"></span> RBD Questionnaire <span class="field">${riskFactors.sleep_score || ""}</span> คะแนน</div>
-          <div class="indent"><span class="checkbox"></span> Epworth Sleepiness Scale <span class="field">${riskFactors.epworth_score || ""}</span> คะแนน</div>
+          <div class="indent">${createCheckbox(false)} RBD Questionnaire <span class="field">${riskFactors.sleep_score || ""}</span> คะแนน</div>
+          <div class="indent">${createCheckbox(false)} Epworth Sleepiness Scale <span class="field">${riskFactors.epworth_score || ""}</span> คะแนน</div>
           <div class="indent">
-            <span class="checkbox"></span> Further PSG (RBD montage) request
+            ${createCheckbox(false)} Further PSG (RBD montage) request
             <div style="margin-left: 40px; margin-top: 0.5rem;">
-              <span class="checkbox"></span> Yes at <span class="field"></span> <span class="checkbox"></span> No
+              ${createCheckbox(false)} Yes at <span class="field"></span> ${createCheckbox(false)} No
             </div>
           </div>
         </div>
 
         <div class="numbered-item-2">
           <strong>15. Behavioral/ psychiatric domain</strong>
-          <div class="indent"><span class="checkbox"></span> HAM-D <span class="field">${riskFactors.hamd_score || ""}</span> คะแนน</div>
+          <div class="indent">${createCheckbox(false)} HAM-D <span class="field">${riskFactors.hamd_score || ""}</span> คะแนน</div>
         </div>
 
         <div class="numbered-item-2">
           <strong>16. Constipation</strong>
-          <div class="indent"><span class="checkbox"></span> ROME IV <span class="field">${riskFactors.rome4_score || ""}</span> คะแนน</div>
+          <div class="indent">${createCheckbox(false)} ROME IV <span class="field">${riskFactors.rome4_score || ""}</span> คะแนน</div>
         </div>
 
         <div class="numbered-item-2">
@@ -392,14 +402,14 @@ export async function GET(req: NextRequest) {
 
         <div class="numbered-item-2">
           <strong>19. Blood test</strong>
-          <div class="indent"><span class="checkbox"></span> Genetic test: GP2</div>
-          <div class="indent"><span class="checkbox"></span> +/- เก็บเลือดไว้ก่อน further blood test เช่น Serum RT-QuIC</div>
+          <div class="indent">${createCheckbox(false)} Genetic test: GP2</div>
+          <div class="indent">${createCheckbox(false)} +/- เก็บเลือดไว้ก่อน further blood test เช่น Serum RT-QuIC</div>
         </div>
 
         <div class="numbered-item-2">
           <strong>20. Further FDOPA PET scan request</strong>
           <div class="indent">
-            <span class="checkbox"></span> Yes at <span class="field"></span> <span class="checkbox"></span> No
+            ${createCheckbox(false)} Yes at <span class="field"></span> ${createCheckbox(false)} No
           </div>
         </div>
       </div>
