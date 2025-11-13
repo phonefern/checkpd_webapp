@@ -36,9 +36,20 @@ const PapersTable = ({
     onViewHistory,
     totalCount
 }: PapersTableProps) => {
-    const filteredPatients = useMemo(() =>
-        filterPatients(patients, searchTerm),
-        [patients, searchTerm]
+    const [conditionFilter, setConditionFilter] = useState("");
+    const [otherFilter, setOtherFilter] = useState("");
+    const [fromDate, setFromDate] = useState("");
+    const [toDate, setToDate] = useState("");
+
+    const filteredPatients = useMemo(
+        () =>
+            filterPatients(patients, searchTerm, {
+                condition: conditionFilter,
+                other: otherFilter,
+                fromDate,
+                toDate
+            }),
+        [patients, searchTerm, conditionFilter, otherFilter, fromDate, toDate]
     );
 
     const paginatedPatients = useMemo(() =>
@@ -52,27 +63,96 @@ const PapersTable = ({
         <div className="bg-white rounded-xl shadow-sm border border-gray-200">
             {/* Search and Header */}
             <div className="p-6 border-b border-gray-200">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                    <div>
-                        <h2 className="text-xl font-semibold text-gray-900">รายชื่อผู้ป่วย</h2>
-                        <p className="text-sm text-gray-600">ทั้งหมด {totalCount} คน</p>
-                    </div>
-                    <div className="relative max-w-md">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                            </svg>
+                <div className="flex flex-col gap-6">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                        <div>
+                            <h2 className="text-xl font-semibold text-gray-900">รายชื่อผู้ป่วย</h2>
+                            <p className="text-sm text-gray-600">ทั้งหมด {totalCount} คน</p>
                         </div>
-                        <input
-                            type="text"
-                            placeholder="ค้นหา ID, ชื่อ, นามสกุล, HN..."
-                            value={searchTerm}
-                            onChange={(e) => {
-                                onSearchChange(e.target.value);
+                        <div className="relative w-full sm:max-w-md">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                </svg>
+                            </div>
+                            <input
+                                type="text"
+                                placeholder="ค้นหา ID, ชื่อ, นามสกุล, HN..."
+                                value={searchTerm}
+                                onChange={(e) => {
+                                    onSearchChange(e.target.value);
+                                    onPageChange(1);
+                                }}
+                                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                            />
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Condition</label>
+                            <input
+                                type="text"
+                                value={conditionFilter}
+                                onChange={(e) => {
+                                    setConditionFilter(e.target.value);
+                                    onPageChange(1);
+                                }}
+                                placeholder="กรอกอาการ"
+                                className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Other</label>
+                            <input
+                                type="text"
+                                value={otherFilter}
+                                onChange={(e) => {
+                                    setOtherFilter(e.target.value);
+                                    onPageChange(1);
+                                }}
+                                placeholder="กรอกข้อมูลอื่นๆ"
+                                className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">From Date</label>
+                            <input
+                                type="date"
+                                value={fromDate}
+                                onChange={(e) => {
+                                    setFromDate(e.target.value);
+                                    onPageChange(1);
+                                }}
+                                className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">To Date</label>
+                            <input
+                                type="date"
+                                value={toDate}
+                                onChange={(e) => {
+                                    setToDate(e.target.value);
+                                    onPageChange(1);
+                                }}
+                                className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                            />
+                        </div>
+                    </div>
+                    <div className="flex justify-end">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setConditionFilter("");
+                                setOtherFilter("");
+                                setFromDate("");
+                                setToDate("");
                                 onPageChange(1);
                             }}
-                            className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                        />
+                            className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                        >
+                            ล้างตัวกรอง
+                        </button>
                     </div>
                 </div>
             </div>
