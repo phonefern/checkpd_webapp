@@ -203,9 +203,10 @@ export default function UsersClientPage() {
     id: string,
     condition: string | null,
     province: string | undefined,
-    other?: string
+    other?: string,
+    area?: string
   ) => {
-    console.log("Saving:", { id, condition, province, other });
+    console.log("Saving:", { id, condition, province, other, area });
 
     const { error: conditionError } = await supabase
       .from('user_record_summary')
@@ -214,7 +215,7 @@ export default function UsersClientPage() {
 
     const { data, error: provinceError } = await supabase
       .from('users')
-      .update({ province: province || null })
+      .update({ province: province || null, area: area || null })
       .eq('id', id)
       .select()
 

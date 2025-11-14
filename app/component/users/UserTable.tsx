@@ -12,7 +12,7 @@ interface UserTableProps {
   handleProvinceChange: (id: string, value: string) => void
   handleOtherChange: (id: string, value: string) => void
   handleAreaChange: (id: string, value: string) => void
-  handleSave: (id: string, condition: string | null, province: string | undefined, other?: string) => void
+  handleSave: (id: string, condition: string | null, province: string | undefined, other?: string, area?: string) => void
   setEditingId: (id: string | null) => void
 }
 
@@ -135,7 +135,7 @@ export default function UserTable({
                   {editingId === user.id ? (
                     <div className="flex items-center justify-end space-x-2">
                       <button
-                        onClick={() => handleSave(user.id, user.condition, user.province, user.other)}
+                        onClick={() => handleSave(user.id, user.condition, user.province, user.other, user.area)}
                         className="px-3 py-1.5 rounded-lg bg-green-500 text-white hover:bg-green-600 transition"
                       >
                         Save
