@@ -1,6 +1,6 @@
 'use client'
 
-import { conditionOptions, riskOptions } from '@/app/types/user'
+import { conditionOptions, riskOptions, sourceOptions, provinceOptions } from '@/app/types/user'
 
 interface SearchFiltersProps {
   searchId: string
@@ -13,6 +13,13 @@ interface SearchFiltersProps {
   searchOther: string
   setSearchOther: (value: string) => void
   otherOptions: string[]
+  searchArea: string
+  setSearchArea: (value: string) => void
+  areaOptions: string[]
+  searchSource: string
+  setSearchSource: (value: string) => void
+  searchProvince: string
+  setSearchProvince: (value: string) => void
   startDate: string
   setStartDate: (value: string) => void
   endDate: string
@@ -34,6 +41,13 @@ export default function SearchFilters({
   searchOther,
   setSearchOther,
   otherOptions,
+  searchArea,
+  setSearchArea,
+  areaOptions,
+  searchSource,
+  setSearchSource,
+  searchProvince,
+  setSearchProvince,
   startDate,
   setStartDate,
   endDate,
@@ -58,6 +72,42 @@ export default function SearchFilters({
             }}
             className="w-full border border-gray-300 p-2 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Source</label>
+          <select
+            value={searchSource}
+            onChange={(e) => {
+              setSearchSource(e.target.value)
+              setCurrentPage(1)
+            }}
+            className="w-full border border-gray-300 p-2 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            {sourceOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Province</label>
+          <select
+            value={searchProvince}
+            onChange={(e) => {
+              setSearchProvince(e.target.value)
+              setCurrentPage(1)
+            }}
+            className="w-full border border-gray-300 p-2 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            {provinceOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div>
@@ -117,6 +167,26 @@ export default function SearchFilters({
               </option>
             ))}
           </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Area</label>
+          <select
+            value={searchArea}
+            onChange={(e) => {
+              setSearchArea(e.target.value)
+              setCurrentPage(1)
+            }}
+            className="w-full border border-gray-300 p-2 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="">All Areas</option>
+            {areaOptions.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+
         </div>
 
         <div>

@@ -32,6 +32,10 @@ export default function UsersClientPage() {
   const [searchRisk, setSearchRisk] = useState('')
   const [searchOther, setSearchOther] = useState('')
   const [otherOptions, setOtherOptions] = useState<string[]>([])
+  const [searchArea, setSearchArea] = useState('')
+  const [areaOptions, setAreaOptions] = useState<string[]>([])
+  const [searchSource, setSearchSource] = useState('')
+  const [searchProvince, setSearchProvince] = useState('')
   const itemsPerPage = 50
 
   const fetchUsers = async () => {
@@ -44,7 +48,7 @@ export default function UsersClientPage() {
       .select('*', { count: 'exact' })
       .order('timestamp', { ascending: false })
       .range(from, to)
-    
+
     if (searchId.trim()) {
       query = query.or(
         `id.ilike.${likePattern},firstname.ilike.${likePattern},lastname.ilike.${likePattern},recorder.ilike.${likePattern},thaiid.ilike.${likePattern}`
@@ -72,6 +76,18 @@ export default function UsersClientPage() {
 
     if (searchOther.trim()) {
       query = query.eq('other', searchOther)
+    }
+
+    if (searchArea.trim()) {
+      query = query.eq('area', searchArea)
+    }
+
+    if (searchSource.trim()) {
+      query = query.eq('source', searchSource)
+    }
+
+    if (searchProvince.trim()) {
+      query = query.eq('province', searchProvince)
     }
 
     const { data, error, count } = await query
@@ -104,7 +120,7 @@ export default function UsersClientPage() {
     if (session) {
       fetchUsers()
     }
-  }, [currentPage, searchId, startDate, endDate, searchCondition, searchRisk, searchOther, session])
+  }, [currentPage, searchId, startDate, endDate, searchCondition, searchRisk, searchOther, searchArea, searchSource, searchProvince, session])
 
   useEffect(() => {
     if (!session) return
@@ -131,8 +147,33 @@ export default function UsersClientPage() {
       setOtherOptions(options)
     }
 
+    const loadAreaOptions = async () => {
+      const { data, error } = await supabase
+        .from('user_record_summary_with_users')
+        .select('area')
+        .order('area', { ascending: true })
+
+      if (error) {
+        console.error('❌ Error loading area options:', error)
+        return
+      }
+
+      const options = Array.from(
+        new Set(
+          (data ?? [])
+            .map(({ area }) => (typeof area === 'string' ? area.trim() : ''))
+            .filter((value) => value.length > 0)
+        )
+      )
+
+      setAreaOptions(options)
+    }
+
     loadOtherOptions()
+    loadAreaOptions()
   }, [session])
+
+
 
   const handleConditionChange = (id: string, value: string) => {
     setUsers((prev) =>
@@ -149,6 +190,12 @@ export default function UsersClientPage() {
   const handleOtherChange = (id: string, value: string) => {
     setUsers((prev) =>
       prev.map((user) => (user.id === id ? { ...user, other: value } : user))
+    )
+  }
+
+  const handleAreaChange = (id: string, value: string) => {
+    setUsers((prev) =>
+      prev.map((user) => (user.id === id ? { ...user, area: value } : user))
     )
   }
 
@@ -212,6 +259,13 @@ export default function UsersClientPage() {
         searchOther={searchOther}
         setSearchOther={setSearchOther}
         otherOptions={otherOptions}
+        searchArea={searchArea}
+        setSearchArea={setSearchArea}
+        areaOptions={areaOptions}
+        searchSource={searchSource}
+        setSearchSource={setSearchSource}
+        searchProvince={searchProvince}
+        setSearchProvince={setSearchProvince}
         startDate={startDate}
         setStartDate={setStartDate}
         endDate={endDate}
@@ -236,6 +290,7 @@ export default function UsersClientPage() {
             handleConditionChange={handleConditionChange}
             handleProvinceChange={handleProvinceChange}
             handleOtherChange={handleOtherChange}
+            handleAreaChange={handleAreaChange}
             handleSave={handleSave}
             setEditingId={setEditingId}
           />

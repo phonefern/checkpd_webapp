@@ -15,6 +15,7 @@ export type User = {
     last_update?: string
     record_id?: string
     other?: string
+    area?: string
   }
   
   export const riskOptions = [
@@ -23,7 +24,12 @@ export type User = {
     { value: null, label: 'No Data' },
   ]
 
-  
+  export const sourceOptions = [
+    { value: '', label: 'All Sources' },
+    { value: 'user', label: 'User' },
+    { value: 'staff', label: 'Staff' },
+
+  ]
 
   export const conditionOptions = [
     { value: 'null', label: 'Not specified' },
@@ -33,7 +39,7 @@ export type User = {
     { value: 'pksm', label: 'pksm' },
     { value: 'other', label: 'other' },
 
-
+  
 
   ]
 
