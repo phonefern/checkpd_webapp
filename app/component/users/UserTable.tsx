@@ -148,14 +148,28 @@ export default function UserTable({
                       </button>
                     </div>
                   ) : (
-                    <button
-                      onClick={() => setEditingId(user.id)}
-                      className="px-3 py-1.5 rounded-lg bg-blue-500 text-white hover:bg-blue-600 transition shadow-sm"
-                    >
-                      Edit
-                    </button>
+                    <div className="flex items-center justify-end space-x-2">
+
+                      
+                      <button
+                        onClick={() => setEditingId(user.id)}
+                        className="px-3 py-1.5 rounded-lg bg-blue-500 text-white hover:bg-blue-600 transition shadow-sm"
+                      >
+                        Edit
+                      </button>
+
+                      
+                      <button
+                        onClick={() => window.open(`/api/pdf/${user.id}?record_id=${user.record_id}`, '_blank')}
+                        className="px-3 py-1.5 rounded-lg bg-purple-500 text-white hover:bg-purple-600 transition shadow-sm"
+                      >
+                        Print
+                      </button>
+
+                    </div>
                   )}
                 </td>
+
 
 
               </tr>
