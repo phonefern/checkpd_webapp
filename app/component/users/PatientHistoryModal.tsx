@@ -58,6 +58,19 @@ interface ScreeningRecord {
   pr_upright?: string
 }
 
+type RiskFactors = NonNullable<PatientData['risk_factors']>
+
+const DEFAULT_RISK_FACTORS: RiskFactors = {
+  rome4_score: null,
+  epworth_score: null,
+  hamd_score: null,
+  sleep_score: null,
+  smell_score: null,
+  mds_score: null,
+  moca_score: null,
+  tmse_score: null,
+}
+
 export default function PatientHistoryModal({ thaiid, userData, onClose }: PatientHistoryModalProps) {
   const [loading, setLoading] = useState(true)
   const [screeningRecords, setScreeningRecords] = useState<ScreeningRecord[]>([])
@@ -68,9 +81,6 @@ export default function PatientHistoryModal({ thaiid, userData, onClose }: Patie
 
   useEffect(() => {
     fetchPatientData()
-  }, [thaiid])
-
-  useEffect(() => {
     loadUserHistory()
   }, [thaiid])
 
@@ -152,6 +162,17 @@ export default function PatientHistoryModal({ thaiid, userData, onClose }: Patie
     }
   }
 
+  const normalizeRiskFactors = (payload: Partial<RiskFactors> | null): RiskFactors => ({
+    rome4_score: payload?.rome4_score ?? null,
+    epworth_score: payload?.epworth_score ?? null,
+    hamd_score: payload?.hamd_score ?? null,
+    sleep_score: payload?.sleep_score ?? null,
+    smell_score: payload?.smell_score ?? null,
+    mds_score: payload?.mds_score ?? null,
+    moca_score: payload?.moca_score ?? null,
+    tmse_score: payload?.tmse_score ?? null,
+  })
+
   const loadPatientData = async (collectionDate: string) => {
     try {
       setLoading(true)
@@ -175,6 +196,8 @@ export default function PatientHistoryModal({ thaiid, userData, onClose }: Patie
       if (riskError && riskError.code !== 'PGRST116') {
         console.error('Error fetching risk factors:', riskError)
       }
+
+      const riskFactors = normalizeRiskFactors(riskFactorsData ?? null)
 
       // Merge all data into PatientData format
       const patientData: PatientData = {
@@ -201,25 +224,7 @@ export default function PatientHistoryModal({ thaiid, userData, onClose }: Patie
         pr_supine: selectedRecord.pr_supine,
         bp_upright: selectedRecord.bp_upright,
         pr_upright: selectedRecord.pr_upright,
-        risk_factors: riskFactorsData ? {
-          rome4_score: riskFactorsData.rome4_score,
-          epworth_score: riskFactorsData.epworth_score,
-          hamd_score: riskFactorsData.hamd_score,
-          sleep_score: riskFactorsData.sleep_score,
-          smell_score: riskFactorsData.smell_score,
-          mds_score: riskFactorsData.mds_score,
-          moca_score: riskFactorsData.moca_score,
-          tmse_score: riskFactorsData.tmse_score,
-        } : {
-          rome4_score: null,
-          epworth_score: null,
-          hamd_score: null,
-          sleep_score: null,
-          smell_score: null,
-          mds_score: null,
-          moca_score: null,
-          tmse_score: null,
-        }
+        risk_factors: riskFactors,
       }
 
       setCurrentPatient(patientData)
@@ -231,15 +236,15 @@ export default function PatientHistoryModal({ thaiid, userData, onClose }: Patie
     }
   }
 
-  // Function to format Hz values with proper unit
-  const formatHzValue = (value: number | null): string => {
-    if (value === null) return '-'
+
+  const formatHzValue = (value?: number | null): string => {
+    if (value === null || typeof value === 'undefined') return '-'
     return `${value.toFixed(2)} Hz`
   }
 
-  // --- Tremor Severity (4–6 Hz = PD typical) ---
-  const getTremorSeverity = (hz: number | null): { text: string, color: string } => {
-    if (hz === null)
+
+  const getTremorSeverity = (hz?: number | null): { text: string, color: string } => {
+    if (hz === null || typeof hz === 'undefined')
       return { text: 'ไม่พบข้อมูล', color: 'text-gray-500' }
 
     if (hz < 3.5)
@@ -258,41 +263,41 @@ export default function PatientHistoryModal({ thaiid, userData, onClose }: Patie
   }
 
 
-const getBalanceScore = (hz: number | null): { text: string, color: string } => {
-  if (hz === null)
-    return { text: 'ไม่พบข้อมูล', color: 'text-gray-500' }
+  const getBalanceScore = (hz?: number | null): { text: string, color: string } => {
+    if (hz === null || typeof hz === 'undefined')
+      return { text: 'ไม่พบข้อมูล', color: 'text-gray-500' }
 
-  if (hz < 0.5)
-    return { text: 'ดีมาก (นิ่ง)', color: 'text-green-600' }
+    if (hz < 0.5)
+      return { text: 'ดีมาก (นิ่ง)', color: 'text-green-600' }
 
-  if (hz < 1.0)
-    return { text: 'ดี', color: 'text-blue-600' }
+    if (hz < 1.0)
+      return { text: 'ดี', color: 'text-blue-600' }
 
-  if (hz < 2.0)
-    return { text: 'ปานกลาง (เริ่มสั่น)', color: 'text-yellow-600' }
+    if (hz < 2.0)
+      return { text: 'ปานกลาง (เริ่มสั่น)', color: 'text-yellow-600' }
 
-  return { text: 'ต้องระวัง (สั่นมากผิดปกติ)', color: 'text-red-600' }
-}
+    return { text: 'ต้องระวัง (สั่นมากผิดปกติ)', color: 'text-red-600' }
+  }
 
-const getGaitScore = (hz: number | null): { text: string, color: string } => {
-  if (hz === null)
-    return { text: 'ไม่พบข้อมูล', color: 'text-gray-500' }
+  const getGaitScore = (hz?: number | null): { text: string, color: string } => {
+    if (hz === null || typeof hz === 'undefined')
+      return { text: 'ไม่พบข้อมูล', color: 'text-gray-500' }
 
-  if (hz > 1.5)
-    return { text: 'ดีมาก (แกว่งแขนดี)', color: 'text-green-600' }
+    if (hz > 1.5)
+      return { text: 'ดีมาก (แกว่งแขนดี)', color: 'text-green-600' }
 
-  if (hz > 1.0)
-    return { text: 'ดี', color: 'text-blue-600' }
+    if (hz > 1.0)
+      return { text: 'ดี', color: 'text-blue-600' }
 
-  if (hz > 0.6)
-    return { text: 'ปานกลาง (แกว่งแขนลดลง)', color: 'text-yellow-600' }
+    if (hz > 0.6)
+      return { text: 'ปานกลาง (แกว่งแขนลดลง)', color: 'text-yellow-600' }
 
-  return { text: 'ต้องระวัง (แกว่งแขนน้อย)', color: 'text-red-600' }
-}
+    return { text: 'ต้องระวัง (แกว่งแขนน้อย)', color: 'text-red-600' }
+  }
 
-  // Function to interpret dualtap score
-  const getDualtapScore = (count: number | null): { text: string, color: string } => {
-    if (count === null)
+
+  const getDualtapScore = (count?: number | null): { text: string, color: string } => {
+    if (count === null || typeof count === 'undefined')
       return { text: 'ไม่พบข้อมูล', color: 'text-gray-500' }
 
     if (count > 30)
@@ -306,6 +311,22 @@ const getGaitScore = (hz: number | null): { text: string, color: string } => {
 
     return { text: 'มีโอกาสช้าผิดปกติ', color: 'text-red-600' }
   }
+
+  const riskFactors = currentPatient?.risk_factors ?? DEFAULT_RISK_FACTORS
+  const tremorRestingHz = userHistory?.tremor_resting_hz ?? null
+  const tremorPosturalHz = userHistory?.tremor_postural_hz ?? null
+  const balanceHz = userHistory?.balance_hz ?? null
+  const gaitHz = userHistory?.gait_hz ?? null
+  const dualLeft = userHistory?.dualtap_left_count ?? null;
+  const dualRight = userHistory?.dualtap_right_count ?? null;
+  const questionnaireScore = userHistory?.questionnaire_total_score ?? null
+  const voiceAhhCompleted = Boolean(userHistory?.voice_ahh_ts)
+  const voiceYplCompleted = Boolean(userHistory?.voice_ypl_ts)
+
+  
+
+
+
 
   if (loading && !currentPatient) {
     return (
@@ -351,37 +372,37 @@ const getGaitScore = (hz: number | null): { text: string, color: string } => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-      <div className="w-full max-w-6xl bg-white rounded-xl shadow-lg max-h-[90vh] overflow-y-auto">
-        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between sticky top-0 bg-white">
+      <div className="w-full max-w-6xl bg-white rounded-lg shadow-2xl max-h-[90vh] overflow-y-auto">
+        <div className="px-6 py-5 border-b border-slate-200 flex items-center justify-between sticky top-0 bg-white z-10">
           <div>
-            <h3 className="text-xl font-bold text-gray-900">
-              ประวัติผู้ป่วย: {userData.firstname} {userData.lastname}
+            <h3 className="text-xl font-bold text-slate-900">
+              Patient Medical Record: {userData.firstname} {userData.lastname}
             </h3>
-            <p className="text-sm text-gray-500 mt-1">รหัสประจำตัวประชาชน: {thaiid}</p>
+            <p className="text-sm text-slate-500 mt-1 font-mono">ID: {thaiid}</p>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-            <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors">
+            <svg className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
               <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
             </svg>
           </button>
         </div>
 
-        <div className="px-6 py-5 space-y-6">
+        <div className="px-6 py-6 space-y-6 bg-slate-50">
           {/* Collection Date Selector */}
           {screeningRecords.length > 1 && (
-            <div className="mb-4 p-4 bg-blue-50 rounded-lg">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                เลือกวันที่เก็บข้อมูล:
+            <div className="p-4 bg-white rounded-lg border border-slate-200 shadow-sm">
+              <label className="block text-sm font-semibold text-slate-700 mb-2">
+                Collection Date:
               </label>
               <select
                 value={selectedCollectionDate}
                 onChange={(e) => setSelectedCollectionDate(e.target.value)}
-                className="block w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="block w-full border border-slate-300 rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-transparent bg-white"
                 disabled={loading}
               >
                 {screeningRecords.map((record) => (
                   <option key={record.id} value={record.collection_date}>
-                    {formatDate(record.collection_date)} {record.collection_date === selectedCollectionDate && '(ล่าสุด)'}
+                    {formatDate(record.collection_date)} {record.collection_date === selectedCollectionDate && '(Latest)'}
                   </option>
                 ))}
               </select>
@@ -390,64 +411,261 @@ const getGaitScore = (hz: number | null): { text: string, color: string } => {
 
           {loading && currentPatient && (
             <div className="flex justify-center items-center h-32">
-              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-slate-500"></div>
             </div>
           )}
 
           {!loading && currentPatient && (
             <>
+              {/* Interpretation Summary */}
+              <div className="bg-gradient-to-r from-slate-50 to-slate-100 border-l-4  p-5 rounded-lg">
+                <h4 className="font-bold text-slate-800 mb-3 text-lg flex items-center gap-2">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Interpretation Summary
+                </h4>
+
+                <div className="bg-white border border-slate-200 rounded-lg p-6 shadow-sm">
+                  <div className="space-y-6">
+
+                    {/* 1. Key Findings */}
+                    <section>
+                      <p className="text-sm font-semibold text-slate-700 mb-2">
+                        1. Key Findings
+                      </p>
+
+                      <ul className="text-sm text-slate-700 space-y-1 list-disc list-inside">
+
+                        {/* Tremor */}
+                        <li>
+                          Resting Tremor:{" "}
+                          <span className="font-semibold">{formatHzValue(tremorRestingHz)}</span>{" "}
+                          {tremorRestingHz !== null && tremorRestingHz > 6 && "(High frequency — PD-range)"}
+                        </li>
+
+                        <li>
+                          Postural Tremor:{" "}
+                          <span className="font-semibold">{formatHzValue(tremorPosturalHz)}</span>{" "}
+                          {tremorPosturalHz !== null && tremorPosturalHz > 5 && "(Elevated postural tremor)"}
+                        </li>
+
+                        {/* Balance */}
+                        <li>
+                          Balance Instability:{" "}
+                          <span className="font-semibold">{formatHzValue(balanceHz)}</span>{" "}
+                          {balanceHz !== null && balanceHz > 5 && "(High instability — abnormal sway)"}
+                        </li>
+
+                        {/* Gait */}
+                        <li>
+                          Gait Arm Swing Frequency:{" "}
+                          <span className="font-semibold">{formatHzValue(gaitHz)}</span>{" "}
+                          {gaitHz !== null && gaitHz < 1.0 && "(Reduced arm swing — gait difficulty)"}
+                        </li>
+
+                        {/* Dual Task Tapping */}
+                        <li>
+                          Dualtap (Left/Right):{" "}
+                          <span className="font-semibold">
+                            {dualLeft !== null ? dualLeft : "-"} / {dualRight !== null ? dualRight : "-"}
+                          </span>{" "}
+                          {(dualLeft !== null && dualLeft < 15) || (dualRight !== null && dualRight < 15)
+                            ? "(Reduced tapping speed — bradykinesia pattern)"
+                            : ""}
+                        </li>
+
+                        {/* Voice Tasks */}
+                        <li>
+                          Voice Tasks:{" "}
+                          <span className="font-semibold">
+                            {userHistory?.voice_ahh_ts ? "Ahh✓" : "Ahh–"},{" "}
+                            {userHistory?.voice_ypl_ts ? "YPL✓" : "YPL–"}
+                          </span>{" "}
+                          {(!userHistory?.voice_ahh_ts || !userHistory?.voice_ypl_ts) &&
+                            "(Incomplete voice task assessment)"}
+                        </li>
+
+                        {/* Cognitive Tests */}
+                        {riskFactors.moca_score !== null && (
+                          <li>
+                            Cognitive Score (MOCA):{" "}
+                            <span className="font-semibold">{riskFactors.moca_score}</span>{" "}
+                            {riskFactors.moca_score < 26 && "(Below normal cognitive threshold)"}
+                          </li>
+                        )}
+
+                        {riskFactors.tmse_score !== null && (
+                          <li>
+                            TMSE Score:{" "}
+                            <span className="font-semibold">{riskFactors.tmse_score}</span>{" "}
+                            {riskFactors.tmse_score < 24 && "(Below normal cognitive range)"}
+                          </li>
+                        )}
+
+                        {/* Smell */}
+                        {riskFactors.smell_score !== null && (
+                          <li>
+                            Smell Score:{" "}
+                            <span className="font-semibold">{riskFactors.smell_score}</span>{" "}
+                            {riskFactors.smell_score < 5 && "(Hyposmia detected — prodromal PD marker)"}
+                          </li>
+                        )}
+
+                        {/* Sleep / Depression / Constipation */}
+                        {riskFactors.epworth_score !== null && (
+                          <li>
+                            Epworth Sleepiness Score:{" "}
+                            <span className="font-semibold">{riskFactors.epworth_score}</span>{" "}
+                            {riskFactors.epworth_score >= 10 && "(Daytime sleepiness)"}
+                          </li>
+                        )}
+
+                        {riskFactors.hamd_score !== null && (
+                          <li>
+                            HAMD Depression Score:{" "}
+                            <span className="font-semibold">{riskFactors.hamd_score}</span>{" "}
+                            {riskFactors.hamd_score >= 8 && "(Mild depressive symptoms)"}
+                          </li>
+                        )}
+
+                        {riskFactors.sleep_score !== null && (
+                          <li>
+                            Sleep Score:{" "}
+                            <span className="font-semibold">{riskFactors.sleep_score}</span>{" "}
+                            {riskFactors.sleep_score >= 2 && "(Sleep disturbance)"}
+                          </li>
+                        )}
+
+                        {riskFactors.rome4_score !== null && (
+                          <li>
+                            ROME IV Constipation Score:{" "}
+                            <span className="font-semibold">{riskFactors.rome4_score}</span>{" "}
+                            {riskFactors.rome4_score >= 2 && "(Constipation — common prodromal PD feature)"}
+                          </li>
+                        )}
+
+                        {/* MDS Motor */}
+                        {riskFactors.mds_score !== null && (
+                          <li>
+                            MDS-UPDRS Screening Score:{" "}
+                            <span className="font-semibold">{riskFactors.mds_score}</span>
+                          </li>
+                        )}
+
+                        {/* Questionnaire */}
+                        {questionnaireScore !== null && (
+                          <li>
+                            Questionnaire Total Score:{" "}
+                            <span className="font-semibold">{questionnaireScore}</span>{" "}
+                            {questionnaireScore < 6 && "(Below screening threshold)"}
+                          </li>
+                        )}
+
+                      </ul>
+                    </section>
+
+
+
+
+
+                    {/* 2. Digital Motor Pattern Classification */}
+                    {userHistory && (
+                      <section>
+                        <p className="text-sm font-semibold text-slate-700 mb-2">
+                          2. Digital Motor Pattern Classification
+                        </p>
+
+                        <p className="text-sm text-slate-700 leading-relaxed">
+                          {tremorRestingHz !== null &&
+                            tremorRestingHz > 5 &&
+                            tremorPosturalHz !== null &&
+                            tremorPosturalHz > 4 ? (
+                            <>
+                              Pattern suggests a <span className="font-semibold">Tremor-Dominant</span>{' '}
+                              motor subtype.
+                            </>
+                          ) : (balanceHz !== null && balanceHz > 6) || (gaitHz !== null && gaitHz < 3) ? (
+                            <>
+                              Pattern shows features of{' '}
+                              <span className="font-semibold">
+                                Postural Instability / Gait Difficulty (PIGD)
+                              </span>{' '}
+                              subtype.
+                            </>
+                          ) : (
+                            <>Digital motor pattern is nonspecific.</>
+                          )}
+                        </p>
+                      </section>
+                    )}
+                  </div>
+                </div>
+
+              </div>
+
               {/* Basic Information */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-white p-4 rounded-lg border border-gray-200">
-                  <h4 className="font-semibold text-gray-700 mb-3 text-lg border-b pb-2">ข้อมูลพื้นฐาน</h4>
-                  <div className="space-y-3 text-sm">
-                    <div className="flex justify-between">
-                      <span className="font-medium text-gray-600">ชื่อ-สกุล:</span>
-                      <span>{currentPatient.first_name} {currentPatient.last_name}</span>
+                <div className="bg-white p-5 rounded-lg border border-slate-200 shadow-sm">
+                  <h4 className="font-bold text-slate-800 mb-4 text-base flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                    Demographics
+                  </h4>
+                  <div className="space-y-3.5 text-sm">
+                    <div className="flex justify-between border-b border-slate-100 pb-2">
+                      <span className="text-slate-600 font-medium">Patient Name</span>
+                      <span className="text-slate-900 font-semibold">{currentPatient.first_name} {currentPatient.last_name}</span>
+                    </div>
+                    <div className="flex justify-between border-b border-slate-100 pb-2">
+                      <span className="text-slate-600 font-medium">Age</span>
+                      <span className="text-slate-900">{currentPatient.age} years</span>
+                    </div>
+                    <div className="flex justify-between border-b border-slate-100 pb-2">
+                      <span className="text-slate-600 font-medium">Sex</span>
+                      <span className="text-slate-900">{currentPatient.gender}</span>
+                    </div>
+                    <div className="flex justify-between border-b border-slate-100 pb-2">
+                      <span className="text-slate-600 font-medium">Province</span>
+                      <span className="text-slate-900">{currentPatient.province}</span>
+                    </div>
+                    <div className="flex justify-between border-b border-slate-100 pb-2">
+                      <span className="text-slate-600 font-medium">Hospital Number</span>
+                      <span className="text-slate-900 font-mono">{currentPatient.hn_number || 'N/A'}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="font-medium text-gray-600">อายุ:</span>
-                      <span>{currentPatient.age} ปี</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="font-medium text-gray-600">เพศ:</span>
-                      <span>{currentPatient.gender}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="font-medium text-gray-600">จังหวัด:</span>
-                      <span>{currentPatient.province}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="font-medium text-gray-600">HN:</span>
-                      <span>{currentPatient.hn_number || '-'}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="font-medium text-gray-600">วันที่เก็บข้อมูล:</span>
-                      <span>{formatDate(currentPatient.collection_date)}</span>
+                      <span className="text-slate-600 font-medium">Collection Date</span>
+                      <span className="text-slate-900">{formatDate(currentPatient.collection_date)}</span>
                     </div>
                   </div>
                 </div>
 
-                <div className="bg-white p-4 rounded-lg border border-gray-200">
-                  <h4 className="font-semibold text-gray-700 mb-3 text-lg border-b pb-2">การวินิจฉัย</h4>
-                  <div className="space-y-3 text-sm">
-                    <div className="flex justify-between">
-                      <span className="font-medium text-gray-600">Condition:</span>
-                      <span>{currentPatient.condition || '-'}</span>
+                <div className="bg-white p-5 rounded-lg border border-slate-200 shadow-sm">
+                  <h4 className="font-bold text-slate-800 mb-4 text-base flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                    </svg>
+                    Clinical Diagnosis
+                  </h4>
+                  <div className="space-y-3.5 text-sm">
+                    <div className="flex justify-between border-b border-slate-100 pb-2">
+                      <span className="text-slate-600 font-medium">Primary Condition</span>
+                      <span className="text-slate-900">{currentPatient.condition || 'N/A'}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="font-medium text-gray-600">Other:</span>
-                      <span>{currentPatient.other || '-'}</span>
+                    <div className="flex justify-between border-b border-slate-100 pb-2">
+                      <span className="text-slate-600 font-medium">Additional Notes</span>
+                      <span className="text-slate-900">{currentPatient.other || 'N/A'}</span>
                     </div>
-                    <div className="flex justify-between items-center">
-                      <span className="font-medium text-gray-600">ความเสี่ยง:</span>
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${currentPatient.prediction_risk === true
-                        ? 'bg-red-100 text-red-700 border border-red-300'
+                    <div className="flex justify-between items-center pt-1">
+                      <span className="text-slate-600 font-medium">Risk Classification</span>
+                      <span className={`px-3 py-1.5 rounded-md text-xs font-bold uppercase tracking-wide ${currentPatient.prediction_risk === true
+                        ? 'bg-red-50 text-red-700 border border-red-200'
                         : currentPatient.prediction_risk === false
-                          ? 'bg-green-100 text-green-700 border border-green-300'
-                          : 'bg-gray-100 text-gray-700 border border-gray-300'
+                          ? 'bg-green-50 text-green-700 border border-green-200'
+                          : 'bg-slate-50 text-slate-700 border border-slate-200'
                         }`}>
-                        {currentPatient.prediction_risk === true ? 'มีความเสี่ยง' : currentPatient.prediction_risk === false ? 'ไม่มีความเสี่ยง' : 'ยังไม่ประเมิน'}
+                        {currentPatient.prediction_risk === true ? 'High Risk' : currentPatient.prediction_risk === false ? 'Low Risk' : 'Pending'}
                       </span>
                     </div>
                   </div>
@@ -455,146 +673,167 @@ const getGaitScore = (hz: number | null): { text: string, color: string } => {
               </div>
 
               {/* Physical Measurements */}
-              <div className="bg-white p-4 rounded-lg border border-gray-200">
-                <h4 className="font-semibold text-gray-700 mb-3 text-lg border-b pb-2">การวัดร่างกาย</h4>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                  <div className="text-center p-3 bg-blue-50 rounded-lg border border-blue-100">
-                    <p className="font-medium text-blue-700">น้ำหนัก</p>
-                    <p className="text-lg font-semibold">{currentPatient.weight || '-'} <span className="text-sm">kg</span></p>
+              <div className="bg-white p-5 rounded-lg border border-slate-200 shadow-sm">
+                <h4 className="font-bold text-slate-800 mb-4 text-base flex items-center gap-2">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                  Anthropometric Measurements
+                </h4>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                  <div className="text-center p-4 bg-slate-50 rounded-md border border-slate-200">
+                    <p className="text-slate-600 font-medium mb-1">Weight</p>
+                    <p className="text-xl font-bold text-slate-900">{currentPatient.weight || '—'}</p>
+                    <p className="text-xs text-slate-500 mt-1">kg</p>
                   </div>
-                  <div className="text-center p-3 bg-blue-50 rounded-lg border border-blue-100">
-                    <p className="font-medium text-blue-700">ส่วนสูง</p>
-                    <p className="text-lg font-semibold">{currentPatient.height || '-'} <span className="text-sm">cm</span></p>
+                  <div className="text-center p-4 bg-slate-50 rounded-md border border-slate-200">
+                    <p className="text-slate-600 font-medium mb-1">Height</p>
+                    <p className="text-xl font-bold text-slate-900">{currentPatient.height || '—'}</p>
+                    <p className="text-xs text-slate-500 mt-1">cm</p>
                   </div>
-                  <div className="text-center p-3 bg-blue-50 rounded-lg border border-blue-100">
-                    <p className="font-medium text-blue-700">BMI</p>
-                    <p className="text-lg font-semibold">{currentPatient.bmi || '-'}</p>
+                  <div className="text-center p-4 bg-slate-50 rounded-md border border-slate-200">
+                    <p className="text-slate-600 font-medium mb-1">BMI</p>
+                    <p className="text-xl font-bold text-slate-900">{currentPatient.bmi || '—'}</p>
+                    <p className="text-xs text-slate-500 mt-1">kg/m²</p>
                   </div>
-                  <div className="text-center p-3 bg-blue-50 rounded-lg border border-blue-100">
-                    <p className="font-medium text-blue-700">รอบเอว</p>
-                    <p className="text-lg font-semibold">{currentPatient.waist || '-'} <span className="text-sm">นิ้ว</span></p>
+                  <div className="text-center p-4 bg-slate-50 rounded-md border border-slate-200">
+                    <p className="text-slate-600 font-medium mb-1">Waist</p>
+                    <p className="text-xl font-bold text-slate-900">{currentPatient.waist || '—'}</p>
+                    <p className="text-xs text-slate-500 mt-1">inches</p>
                   </div>
-                  <div className="text-center p-3 bg-blue-50 rounded-lg border border-blue-100">
-                    <p className="font-medium text-blue-700">รอบอก</p>
-                    <p className="text-lg font-semibold">{currentPatient.chest || '-'} <span className="text-sm">นิ้ว</span></p>
+                  <div className="text-center p-4 bg-slate-50 rounded-md border border-slate-200">
+                    <p className="text-slate-600 font-medium mb-1">Chest</p>
+                    <p className="text-xl font-bold text-slate-900">{currentPatient.chest || '—'}</p>
+                    <p className="text-xs text-slate-500 mt-1">inches</p>
                   </div>
-                  <div className="text-center p-3 bg-blue-50 rounded-lg border border-blue-100">
-                    <p className="font-medium text-blue-700">รอบคอ</p>
-                    <p className="text-lg font-semibold">{currentPatient.neck || '-'} <span className="text-sm">นิ้ว</span></p>
+                  <div className="text-center p-4 bg-slate-50 rounded-md border border-slate-200">
+                    <p className="text-slate-600 font-medium mb-1">Neck</p>
+                    <p className="text-xl font-bold text-slate-900">{currentPatient.neck || '—'}</p>
+                    <p className="text-xs text-slate-500 mt-1">inches</p>
                   </div>
-                  <div className="text-center p-3 bg-blue-50 rounded-lg border border-blue-100">
-                    <p className="font-medium text-blue-700">รอบสะโพก</p>
-                    <p className="text-lg font-semibold">{currentPatient.hip || '-'} <span className="text-sm">นิ้ว</span></p>
+                  <div className="text-center p-4 bg-slate-50 rounded-md border border-slate-200">
+                    <p className="text-slate-600 font-medium mb-1">Hip</p>
+                    <p className="text-xl font-bold text-slate-900">{currentPatient.hip || '—'}</p>
+                    <p className="text-xs text-slate-500 mt-1">inches</p>
                   </div>
-                  <div className="text-center p-3 bg-blue-50 rounded-lg border border-blue-100">
-                    <p className="font-medium text-blue-700">ความดันโลหิต</p>
-                    <p className="text-lg font-semibold">{currentPatient.bp_supine || '-'} <span className="text-sm">mmHg</span></p>
+                  <div className="text-center p-4 bg-slate-50 rounded-md border border-slate-200">
+                    <p className="text-slate-600 font-medium mb-1">Blood Pressure</p>
+                    <p className="text-xl font-bold text-slate-900">{currentPatient.bp_supine || '—'}</p>
+                    <p className="text-xs text-slate-500 mt-1">mmHg</p>
                   </div>
                 </div>
               </div>
 
               {/* Digital Assessment Results */}
               {userHistory && (
-                <div className="bg-white p-4 rounded-lg border border-gray-200">
-                  <h4 className="font-semibold text-gray-700 mb-3 text-lg border-b pb-2">ผลการทดสอบดิจิทัล</h4>
+                <div className="bg-white p-5 rounded-lg border border-slate-200 shadow-sm">
+                  <h4 className="font-bold text-slate-800 mb-4 text-base flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                    </svg>
+                    Digital Biomarker Assessment
+                  </h4>
 
                   {/* Tremor Assessment */}
-                  <div className="mb-6">
-                    <h5 className="font-medium text-gray-700 mb-3 text-md">การประเมินการสั่น (Tremor Assessment)</h5>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="p-3 bg-purple-50 rounded-lg border border-purple-100">
-                        <div className="flex justify-between items-center">
-                          <span className="font-medium text-purple-700">Tremor Resting</span>
-                          <span className="text-lg font-semibold">{formatHzValue(userHistory.tremor_resting_hz)}</span>
+                  <div className="mb-5">
+                    <h5 className="text-slate-700 font-semibold mb-3 text-sm uppercase tracking-wide">Tremor Analysis</h5>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div className="p-4 bg-slate-50 rounded-md border border-slate-200">
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="text-slate-700 font-medium text-sm">Resting Tremor</span>
+                          <span className="text-lg font-bold text-slate-900">{formatHzValue(tremorRestingHz)}</span>
                         </div>
-                        <div className={`text-sm mt-1 ${getTremorSeverity(userHistory.tremor_resting_hz).color}`}>
-                          {getTremorSeverity(userHistory.tremor_resting_hz).text}
+                        <div className={`text-xs font-medium ${getTremorSeverity(tremorRestingHz).color}`}>
+                          {getTremorSeverity(tremorRestingHz).text}
                         </div>
                       </div>
-                      <div className="p-3 bg-purple-50 rounded-lg border border-purple-100">
-                        <div className="flex justify-between items-center">
-                          <span className="font-medium text-purple-700">Tremor Postural</span>
-                          <span className="text-lg font-semibold">{formatHzValue(userHistory.tremor_postural_hz)}</span>
+                      <div className="p-4 bg-slate-50 rounded-md border border-slate-200">
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="text-slate-700 font-medium text-sm">Postural Tremor</span>
+                          <span className="text-lg font-bold text-slate-900">{formatHzValue(tremorPosturalHz)}</span>
                         </div>
-                        <div className={`text-sm mt-1 ${getTremorSeverity(userHistory.tremor_postural_hz).color}`}>
-                          {getTremorSeverity(userHistory.tremor_postural_hz).text}
+                        <div className={`text-xs font-medium ${getTremorSeverity(tremorPosturalHz).color}`}>
+                          {getTremorSeverity(tremorPosturalHz).text}
                         </div>
                       </div>
                     </div>
                   </div>
 
                   {/* Motor Function Assessment */}
-                  <div className="mb-6">
-                    <h5 className="font-medium text-gray-700 mb-3 text-md">การประเมินการเคลื่อนไหว (Motor Function)</h5>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="p-3 bg-green-50 rounded-lg border border-green-100">
-                        <div className="flex justify-between items-center">
-                          <span className="font-medium text-green-700">Balance</span>
-                          <span className="text-lg font-semibold">{formatHzValue(userHistory.balance_hz)}</span>
+                  <div className="mb-5">
+                    <h5 className="text-slate-700 font-semibold mb-3 text-sm uppercase tracking-wide">Motor Function</h5>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div className="p-4 bg-slate-50 rounded-md border border-slate-200">
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="text-slate-700 font-medium text-sm">Balance</span>
+                          <span className="text-lg font-bold text-slate-900">{formatHzValue(balanceHz)}</span>
                         </div>
-                        <div className={`text-sm mt-1 ${getBalanceScore(userHistory.balance_hz).color}`}>
-                          {getBalanceScore(userHistory.balance_hz).text}
+                        <div className={`text-xs font-medium ${getBalanceScore(balanceHz).color}`}>
+                          {getBalanceScore(balanceHz).text}
                         </div>
                       </div>
-                      <div className="p-3 bg-green-50 rounded-lg border border-green-100">
-                        <div className="flex justify-between items-center">
-                          <span className="font-medium text-green-700">Gait</span>
-                          <span className="text-lg font-semibold">{formatHzValue(userHistory.gait_hz)}</span>
+                      <div className="p-4 bg-slate-50 rounded-md border border-slate-200">
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="text-slate-700 font-medium text-sm">Gait Analysis</span>
+                          <span className="text-lg font-bold text-slate-900">{formatHzValue(gaitHz)}</span>
                         </div>
-                        <div className={`text-sm mt-1 ${getGaitScore(userHistory.gait_hz).color}`}>
-                          {getGaitScore(userHistory.gait_hz).text}
+                        <div className={`text-xs font-medium ${getGaitScore(gaitHz).color}`}>
+                          {getGaitScore(gaitHz).text}
                         </div>
                       </div>
                     </div>
                   </div>
 
                   {/* Dualtap Assessment */}
-                  <div className="mb-6">
-                    <h5 className="font-medium text-gray-700 mb-3 text-md">การทดสอบ Dualtap</h5>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="p-3 bg-orange-50 rounded-lg border border-orange-100">
-                        <div className="flex justify-between items-center">
-                          <span className="font-medium text-orange-700">Dualtap Left</span>
-                          <span className="text-lg font-semibold">{userHistory.dualtap_left_count ?? '-'}</span>
+                  <div className="mb-5">
+                    <h5 className="text-slate-700 font-semibold mb-3 text-sm uppercase tracking-wide">Bilateral Finger Tapping</h5>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div className="p-4 bg-slate-50 rounded-md border border-slate-200">
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="text-slate-700 font-medium text-sm">Left Hand</span>
+                          <span className="text-lg font-bold text-slate-900">{dualLeft ?? '—'}</span>
                         </div>
-                        <div className={`text-sm mt-1 ${getDualtapScore(userHistory.dualtap_left_count).color}`}>
-                          {getDualtapScore(userHistory.dualtap_left_count).text}
+                        <div className={`text-xs font-medium ${getDualtapScore(dualLeft).color}`}>
+                          {getDualtapScore(dualLeft).text}
                         </div>
                       </div>
-                      <div className="p-3 bg-orange-50 rounded-lg border border-orange-100">
-                        <div className="flex justify-between items-center">
-                          <span className="font-medium text-orange-700">Dualtap Right</span>
-                          <span className="text-lg font-semibold">{userHistory.dualtap_right_count ?? '-'}</span>
+                      <div className="p-4 bg-slate-50 rounded-md border border-slate-200">
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="text-slate-700 font-medium text-sm">Right Hand</span>
+                          <span className="text-lg font-bold text-slate-900">{dualRight ?? '—'}</span>
                         </div>
-                        <div className={`text-sm mt-1 ${getDualtapScore(userHistory.dualtap_right_count).color}`}>
-                          {getDualtapScore(userHistory.dualtap_right_count).text}
+                        <div className={`text-xs font-medium ${getDualtapScore(dualRight).color}`}>
+                          {getDualtapScore(dualRight).text}
                         </div>
                       </div>
                     </div>
                   </div>
 
                   {/* Other Assessments */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="p-3 bg-indigo-50 rounded-lg border border-indigo-100">
-                      <div className="flex justify-between items-center">
-                        <span className="font-medium text-indigo-700">Questionnaire</span>
-                        <span className="text-lg font-semibold">{userHistory.questionnaire_total_score ?? '-'}</span>
+                  <div>
+                    <h5 className="text-slate-700 font-semibold mb-3 text-sm uppercase tracking-wide">Additional Assessments</h5>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <div className="p-4 bg-slate-50 rounded-md border border-slate-200">
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-700 font-medium text-sm">Questionnaire Score</span>
+                          <span className="text-lg font-bold text-slate-900">{questionnaireScore ?? '—'}</span>
+                        </div>
                       </div>
-                    </div>
-                    <div className="p-3 bg-indigo-50 rounded-lg border border-indigo-100">
-                      <div className="flex justify-between items-center">
-                        <span className="font-medium text-indigo-700">Voice "Ahh"</span>
-                        <span className={`text-sm font-medium ${userHistory.voice_ahh_ts ? 'text-green-600' : 'text-gray-500'}`}>
-                          {userHistory.voice_ahh_ts ? '✓ ทำแล้ว' : 'ยังไม่ได้ทำ'}
-                        </span>
+                      <div className="p-4 bg-slate-50 rounded-md border border-slate-200">
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-700 font-medium text-sm">Voice "Ahh"</span>
+                          <span className={`text-sm font-bold ${voiceAhhCompleted ? 'text-green-600' : 'text-slate-400'}`}>
+                            {voiceAhhCompleted ? '✓ Complete' : '○ Pending'}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                    <div className="p-3 bg-indigo-50 rounded-lg border border-indigo-100">
-                      <div className="flex justify-between items-center">
-                        <span className="font-medium text-indigo-700">Voice "YPL"</span>
-                        <span className={`text-sm font-medium ${userHistory.voice_ypl_ts ? 'text-green-600' : 'text-gray-500'}`}>
-                          {userHistory.voice_ypl_ts ? '✓ ทำแล้ว' : 'ยังไม่ได้ทำ'}
-                        </span>
+                      <div className="p-4 bg-slate-50 rounded-md border border-slate-200">
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-700 font-medium text-sm">Voice "YPL"</span>
+                          <span className={`text-sm font-bold ${voiceYplCompleted ? 'text-green-600' : 'text-slate-400'}`}>
+                            {voiceYplCompleted ? '✓ Complete' : '○ Pending'}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -603,15 +842,20 @@ const getGaitScore = (hz: number | null): { text: string, color: string } => {
 
               {/* Assessment Scores */}
               {currentPatient.risk_factors && (
-                <div className="bg-white p-4 rounded-lg border border-gray-200">
-                  <h4 className="font-semibold text-gray-700 mb-3 text-lg border-b pb-2">คะแนนแบบประเมิน</h4>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {Object.entries(currentPatient.risk_factors).map(([key, value]) => (
-                      <div key={key} className="text-center p-3 bg-amber-50 rounded-lg border border-amber-100">
-                        <p className="font-medium text-amber-700 text-sm">
-                          {key.replace('_score', '').replace('_', ' ').toUpperCase()}
+                <div className="bg-white p-5 rounded-lg border border-slate-200 shadow-sm">
+                  <h4 className="font-bold text-slate-800 mb-4 text-base flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                    </svg>
+                    Risk Factor Scores
+                  </h4>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {Object.entries(riskFactors).map(([key, value]) => (
+                      <div key={key} className="text-center p-4 bg-slate-50 rounded-md border border-slate-200">
+                        <p className="text-slate-600 font-medium text-xs mb-1 uppercase tracking-wide">
+                          {key.replace('_score', '').replace('_', ' ')}
                         </p>
-                        <p className="text-lg font-semibold">{value !== null ? value : '-'}</p>
+                        <p className="text-xl font-bold text-slate-900">{value !== null ? value : '—'}</p>
                       </div>
                     ))}
                   </div>
@@ -621,12 +865,12 @@ const getGaitScore = (hz: number | null): { text: string, color: string } => {
           )}
         </div>
 
-        <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-end gap-3">
+        <div className="px-6 py-5 border-t border-slate-200 flex items-center justify-end gap-3 bg-white">
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+            className="px-5 py-2.5 bg-slate-100 text-slate-700 font-medium rounded-md hover:bg-slate-200 transition-colors"
           >
-            ปิด
+            Close
           </button>
         </div>
       </div>
