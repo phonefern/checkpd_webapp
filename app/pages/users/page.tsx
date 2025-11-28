@@ -7,6 +7,7 @@ import AuthRedirect from '@/components/AuthRedirect'
 import UserTable from '@/app/component/users/UserTable'
 import Pagination from '@/app/component/users/Pagination'
 import SearchFilters from '@/app/component/users/SearchFilters'
+import PatientHistoryModal from '@/app/component/users/PatientHistoryModal'
 import { User } from '@/app/types/user'
 
 const handleLogout = async () => {
@@ -36,6 +37,7 @@ export default function UsersClientPage() {
   const [areaOptions, setAreaOptions] = useState<string[]>([])
   const [searchSource, setSearchSource] = useState('')
   const [searchProvince, setSearchProvince] = useState('')
+  const [viewingUser, setViewingUser] = useState<User | null>(null)
   const itemsPerPage = 50
 
   const fetchUsers = async () => {
@@ -294,6 +296,7 @@ export default function UsersClientPage() {
             handleAreaChange={handleAreaChange}
             handleSave={handleSave}
             setEditingId={setEditingId}
+            onViewDetail={setViewingUser}
           />
 
           <Pagination
@@ -304,6 +307,24 @@ export default function UsersClientPage() {
             setCurrentPage={setCurrentPage}
           />
         </>
+      )}
+
+      {viewingUser && (
+        <PatientHistoryModal
+          thaiid={viewingUser.thaiid}
+          userData={{
+            id: viewingUser.id,
+            firstname: viewingUser.firstname,
+            lastname: viewingUser.lastname,
+            age: viewingUser.age,
+            gender: viewingUser.gender,
+            province: viewingUser.province,
+            prediction_risk: viewingUser.prediction_risk,
+            condition: viewingUser.condition,
+            other: viewingUser.other,
+          }}
+          onClose={() => setViewingUser(null)}
+        />
       )}
     </div>
   )

@@ -14,6 +14,7 @@ interface UserTableProps {
   handleAreaChange: (id: string, value: string) => void
   handleSave: (id: string, condition: string | null, province: string | undefined, other?: string, area?: string) => void
   setEditingId: (id: string | null) => void
+  onViewDetail: (user: User) => void
 }
 
 export default function UserTable({
@@ -26,7 +27,8 @@ export default function UserTable({
   handleOtherChange,
   handleAreaChange,
   handleSave,
-  setEditingId
+  setEditingId,
+  onViewDetail
 }: UserTableProps) {
   return (
     <div className="w-full">
@@ -134,15 +136,19 @@ export default function UserTable({
                 <td className="px-4 py-4 text-right text-sm">
                   {editingId === user.id ? (
                     <div className="flex items-center justify-end space-x-2">
+
+                      {/* SAVE — primary subtle */}
                       <button
                         onClick={() => handleSave(user.id, user.condition, user.province, user.other, user.area)}
-                        className="px-3 py-1.5 rounded-lg bg-green-500 text-white hover:bg-green-600 transition"
+                        className="px-3 py-1.5 rounded-md border border-green-600 text-green-700 hover:bg-green-50 transition"
                       >
                         Save
                       </button>
+
+                      {/* CANCEL — neutral */}
                       <button
                         onClick={() => setEditingId(null)}
-                        className="px-3 py-1.5 rounded-lg bg-gray-200 hover:bg-gray-300 text-gray-700 transition"
+                        className="px-3 py-1.5 rounded-md border border-gray-400 text-gray-700 hover:bg-gray-100 transition"
                       >
                         Cancel
                       </button>
@@ -150,18 +156,26 @@ export default function UserTable({
                   ) : (
                     <div className="flex items-center justify-end space-x-2">
 
-                      
+                      {/* Detail */}
+                      <button
+                        onClick={() => onViewDetail(user)}
+                        className="px-3 py-1.5 rounded-md border border-gray-300 text-gray-800 hover:bg-gray-100 transition"
+                      >
+                        Detail
+                      </button>
+
+                      {/* Edit */}
                       <button
                         onClick={() => setEditingId(user.id)}
-                        className="px-3 py-1.5 rounded-lg bg-blue-500 text-white hover:bg-blue-600 transition shadow-sm"
+                        className="px-3 py-1.5 rounded-md border border-blue-600 text-blue-700 hover:bg-blue-50 transition"
                       >
                         Edit
                       </button>
 
-                      
+                      {/* Print */}
                       <button
                         onClick={() => window.open(`/api/pdf/${user.id}?record_id=${user.record_id}`, '_blank')}
-                        className="px-3 py-1.5 rounded-lg bg-purple-500 text-white hover:bg-purple-600 transition shadow-sm"
+                        className="px-3 py-1.5 rounded-md border border-purple-600 text-purple-700 hover:bg-purple-50 transition"
                       >
                         Print
                       </button>
@@ -169,6 +183,7 @@ export default function UserTable({
                     </div>
                   )}
                 </td>
+
 
 
 
@@ -185,10 +200,16 @@ export default function UserTable({
           <div key={user.id} className="border rounded-xl shadow-sm p-4 bg-white">
             <div className="flex justify-between items-center mb-2">
               <div className="text-sm text-gray-500">#{(currentPage - 1) * itemsPerPage + index + 1}</div>
-              <button
-                onClick={() => setEditingId(user.id)}
-                className="text-blue-600 text-sm"
-              >Edit</button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => onViewDetail(user)}
+                  className="text-green-600 text-sm"
+                >Detail</button>
+                <button
+                  onClick={() => setEditingId(user.id)}
+                  className="text-blue-600 text-sm"
+                >Edit</button>
+              </div>
             </div>
 
             <div className="text-lg font-semibold">{user.firstname} {user.lastname}</div>

@@ -632,9 +632,9 @@ export async function GET(
     const recordData = await processRecordData(recordDoc);
     const rawRecordData = recordDoc.data();
 
-    console.log("tremorpostural DATA:", recordData.tremorpostural?.data);
-    console.log("balance DATA:", recordData.balance?.data);
-    console.log("gaitwalk DATA:", recordData.gaitwalk?.data);
+    // console.log("tremorpostural DATA:", recordData.tremorpostural?.data);
+    // console.log("balance DATA:", recordData.balance?.data);
+    // console.log("gaitwalk DATA:", recordData.gaitwalk?.data);
 
     // ข้อมูลสำหรับ PDF
     const info = {
