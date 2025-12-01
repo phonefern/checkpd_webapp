@@ -1,291 +1,407 @@
 "use client";
 
-// pages/index.tsx
-import { useState, useEffect } from 'react';
-import Head from 'next/head';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
+import { Session } from "@supabase/supabase-js";
+import AuthRedirect from "@/components/AuthRedirect";
+import {
+  Users,
+  // DocumentText,
+  CalendarDays,
+  ArrowRight,
+  UserCircle,
+  Building2,
+  LogOut,
+} from "lucide-react";
 
-interface Achievement {
-  requirement: number;
-  icon: string;
-  label: string;
+interface DashboardStats {
+  totalPatients: number;
+  appointmentsToday: number;
+  patientsWithoutCondition: number;
+  patientsWithoutThaiid: number;
+  averageMdsScore: number;
+  newPatientsThisMonth: number;
 }
 
 export default function Dashboard() {
-  const [score, setScore] = useState(0);
-  const [clicks, setClicks] = useState(0);
-  const [clickEffects, setClickEffects] = useState<Array<{id: number, x: number, y: number, points: number}>>([]);
   const router = useRouter();
+  const [session, setSession] = useState<Session | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState<DashboardStats>({
+    totalPatients: 0,
+    appointmentsToday: 0,
+    patientsWithoutCondition: 0,
+    patientsWithoutThaiid: 0,
+    averageMdsScore: 0,
+    newPatientsThisMonth: 0,
+  });
+  const [currentUser, setCurrentUser] = useState({
+    name: "Admin ChulaPD",
+    role: "ผู้ดูแลระบบ",
+    hospital: "โรงพยาบาลจุฬาลงกรณ์ สภากาชาดไทย",
+  });
 
-  const achievements: Achievement[] = [
-    { requirement: 10, icon: '🥉', label: '10 คะแนน' },
-    { requirement: 50, icon: '🥈', label: '50 คะแนน' },
-    { requirement: 100, icon: '🥇', label: '100 คะแนน' },
-    { requirement: 200, icon: '👑', label: '200 คะแนน' },
+  const menuItems = [
+    {
+      title: "Patient Data Management",
+      subtitle: "จัดการข้อมูลผู้ป่วยในระบบ CheckPD",
+      icon: Users,
+      color: "blue",
+      path: "/pages/users",
+    },
+    {
+      title: "Data Sheets Management",
+      subtitle: "บันทึกและตรวจสอบแบบประเมินผู้ป่วย",
+      // icon: DocumentText,
+      color: "emerald",
+      path: "/pages/papers",
+    }
   ];
 
-  const handleClick = (e: React.MouseEvent) => {
-    // Don't trigger on navigation cards
-    if ((e.target as HTMLElement).closest('.nav-card')) {
-      return;
+  const navigateTo = (path: string) => {
+    router.push(path);
+  };
+
+  const handleLogout = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      console.error("Logout error:", error);
+    } else {
+      window.location.href = "/pages/login";
     }
-    
-    const points = Math.floor(Math.random() * 5) + 1;
-    setScore(prev => prev + points);
-    setClicks(prev => prev + 1);
-    
-    // Create click effect
-    setClickEffects(prev => [
-      ...prev,
-      { id: Date.now(), x: e.clientX, y: e.clientY, points }
-    ]);
   };
 
-  useEffect(() => {
-    // Remove click effects after animation completes
-    const timer = setTimeout(() => {
-      if (clickEffects.length > 0) {
-        setClickEffects(prev => prev.slice(1));
+  // Fetch dashboard statistics
+  const fetchDashboardStats = async () => {
+    try {
+      setLoading(true);
+
+      // Get today's date range
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todayDateStr = today.toISOString().split("T")[0];
+      const todayEnd = new Date(today);
+      todayEnd.setHours(23, 59, 59, 999);
+      const todayEndDateStr = todayEnd.toISOString().split("T")[0];
+
+      // Get first day of current month
+      const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+      const monthStart = firstDayOfMonth.toISOString();
+
+      // Initialize stats
+      let totalPatients = 0;
+      let appointmentsToday = 0;
+      let newPatientsThisMonth = 0;
+      let patientsWithoutCondition = 0;
+      let patientsWithoutThaiid = 0;
+      let averageMdsScore = 0;
+
+      // 1. Total patients count from pd_screenings
+      const { count: totalPatientsCount, error: totalError } = await supabase
+        .from("pd_screenings")
+        .select("*", { count: "exact", head: true });
+
+      if (totalError) {
+        console.error("Error fetching total patients:", totalError);
+      } else {
+        totalPatients = totalPatientsCount || 0;
       }
-    }, 1000);
-    
-    return () => clearTimeout(timer);
-  }, [clickEffects]);
 
-  const navigateTo = (url: string) => {
-    router.push(url);
+      // 2. Appointments today (screening records with collection_date today)
+      const { count: appointmentsTodayCount, error: appointmentsError } =
+        await supabase
+          .from("pd_screenings")
+          .select("*", { count: "exact", head: true })
+          .gte("collection_date", todayDateStr)
+          .lte("collection_date", todayEndDateStr);
+
+      if (appointmentsError) {
+        console.error("Error fetching appointments today:", appointmentsError);
+      } else {
+        appointmentsToday = appointmentsTodayCount || 0;
+      }
+
+      // 3. New patients this month
+      const { count: newPatientsCount, error: newPatientsError } = await supabase
+        .from("pd_screenings")
+        .select("*", { count: "exact", head: true })
+        .gte("created_at", monthStart);
+
+      if (newPatientsError) {
+        console.error("Error fetching new patients:", newPatientsError);
+      } else {
+        newPatientsThisMonth = newPatientsCount || 0;
+      }
+
+      // 4. Patients without condition (condition is null or "ไม่ระบุ")
+      const { count: patientsWithoutConditionNull, error: noConditionNullError } =
+        await supabase
+          .from("pd_screenings")
+          .select("*", { count: "exact", head: true })
+          .is("condition", null);
+
+      const { count: patientsWithoutConditionNotSpecified, error: noConditionNotSpecifiedError } =
+        await supabase
+          .from("pd_screenings")
+          .select("*", { count: "exact", head: true })
+          .eq("condition", "ไม่ระบุ");
+
+      if (noConditionNullError || noConditionNotSpecifiedError) {
+        console.error("Error fetching patients without condition:", noConditionNullError || noConditionNotSpecifiedError);
+      } else {
+        patientsWithoutCondition = (patientsWithoutConditionNull || 0) + (patientsWithoutConditionNotSpecified || 0);
+      }
+
+      // 5. Patients without thaiid (thaiid is null, "-", or "nan")
+      const { data: allScreeningsForThaiid, error: screeningsForThaiidError } =
+        await supabase
+          .from("pd_screenings")
+          .select("thaiid");
+
+      if (screeningsForThaiidError) {
+        console.error("Error fetching screenings for thaiid check:", screeningsForThaiidError);
+      } else {
+        // Count records where thaiid is null, "-", or "nan" (case-insensitive)
+        patientsWithoutThaiid = allScreeningsForThaiid?.filter((s) => {
+          const thaiid = s.thaiid;
+          return (
+            thaiid === null ||
+            thaiid === undefined ||
+            thaiid === "-" ||
+            String(thaiid).toLowerCase() === "nan" ||
+            String(thaiid).trim() === ""
+          );
+        }).length || 0;
+      }
+
+      // 6. Average MDS-UPDRS score
+      const { data: mdsScores, error: mdsError } = await supabase
+        .from("risk_factors_test")
+        .select("mds_score")
+        .not("mds_score", "is", null);
+
+      if (mdsError) {
+        console.error("Error fetching MDS scores:", mdsError);
+      } else {
+        const validScores =
+          mdsScores?.filter((s) => s.mds_score !== null) || [];
+        if (validScores.length > 0) {
+          averageMdsScore =
+            validScores.reduce((sum, s) => sum + (s.mds_score || 0), 0) /
+            validScores.length;
+          averageMdsScore = Math.round(averageMdsScore * 10) / 10;
+        }
+      }
+
+      // Update stats with all collected data
+      setStats({
+        totalPatients,
+        appointmentsToday,
+        patientsWithoutCondition,
+        patientsWithoutThaiid,
+        averageMdsScore,
+        newPatientsThisMonth,
+      });
+    } catch (error) {
+      console.error("Error fetching dashboard stats:", error);
+    } finally {
+      setLoading(false);
+    }
   };
+
+  // Get user session and info
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      if (session?.user) {
+        // Try to get user metadata
+        const userMetadata = session.user.user_metadata;
+        setCurrentUser({
+          name: userMetadata?.name || userMetadata?.full_name || session.user.email?.split("@")[0] || "Admin ChulaPD",
+          role: userMetadata?.role || "ผู้ดูแลระบบ",
+          hospital: userMetadata?.hospital || "โรงพยาบาลจุฬาลงกรณ์ สภากาชาดไทย",
+        });
+      }
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Fetch stats when session is available
+  useEffect(() => {
+    if (session) {
+      fetchDashboardStats();
+    }
+  }, [session]);
+
+  if (!session) {
+    return <AuthRedirect />;
+  }
 
   return (
-    <div 
-      className="min-h-screen relative bg-gradient-to-br from-blue-50 to-indigo-100"
-      onClick={handleClick}
-    >
-      <Head>
-        <title>CheckPD Dashboard</title>
-        <meta name="description" content="ระบบตรวจสอบข้อมูลและประเมินความเสี่ยงโรคพาร์กินสัน" />
-        <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
-      </Head>
-
-      {/* Floating Background Elements */}
-      <div className="floating-circle"></div>
-      <div className="floating-circle"></div>
-      <div className="floating-circle"></div>
-      <div className="floating-circle"></div>
-      
-      {/* Click Effects */}
-      {clickEffects.map(effect => (
-        <div 
-          key={effect.id}
-          className="click-effect"
-          style={{ left: effect.x, top: effect.y }}
-        >
-          +{effect.points}
-        </div>
-      ))}
-      
-      <div className="container mx-auto px-6 py-8 relative z-10">
-        {/* Header */}
-        <div className="text-center mb-12">
-          <h1 className="text-4xl md:text-5xl font-bold text-indigo-800 mb-4">
-            🧠 CheckPD System
-          </h1>
-          <p className="text-lg md:text-xl text-indigo-600 mb-8">
-            ระบบตรวจสอบข้อมูลและประเมินความเสี่ยงโรคพาร์กินสัน
-          </p>
-        </div>
-
-        
-
-        {/* Navigation Cards */}
-        <div className="max-w-6xl mx-auto mb-16">
-          <h2 className="text-2xl md:text-3xl font-bold text-indigo-800 text-center mb-8">
-            เลือกระบบที่ต้องการใช้งาน
-          </h2>
-          
-          <div className="grid md:grid-cols-2 gap-6 md:gap-8">
-            {/* Patient Data Management */}
-            <div 
-              className="nav-card bg-white rounded-3xl p-6 md:p-8 shadow-lg border border-indigo-100 hover:shadow-xl transition-all duration-300 cursor-pointer"
-              onClick={() => navigateTo('/pages/users')}
-            >
-              <div className="text-center">
-                <div className="w-16 h-16 md:w-20 md:h-20 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 md:mb-6 shadow-md">
-                  <svg className="w-8 h-8 md:w-10 md:h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"></path>
-                  </svg>
-                </div>
-                
-                <h3 className="text-xl md:text-2xl font-bold text-gray-800 mb-3 md:mb-4">
-                  Patient Data Management
-                </h3>
-                <p className="text-gray-600 mb-4 md:mb-6 leading-relaxed text-sm md:text-base">
-                  ระบบจัดการข้อมูลผู้ใช้แอป CheckPD<br />
-
+    <>
+      <div className="min-h-screen bg-gray-50">
+        {/* Header Bar - แบบ HIS จริง */}
+        <header className="bg-white border-b border-gray-200 shadow-sm">
+          <div className="px-6 py-4 flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <Building2 className="w-8 h-8 text-blue-700" />
+              <div>
+                <h1 className="text-xl font-semibold text-gray-900">
+                  CheckPD System
+                </h1>
+                <p className="text-sm text-gray-600">
+                  {currentUser.hospital}
                 </p>
-                
-                <div className="flex items-center justify-center space-x-2 text-blue-600">
-                  <span className="font-medium">เข้าสู่ระบบ</span>
-                  <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path>
-                  </svg>
-                </div>
               </div>
             </div>
 
-            {/* Papers Management */}
-            <div 
-              className="nav-card bg-white rounded-3xl p-6 md:p-8 shadow-lg border border-indigo-100 hover:shadow-xl transition-all duration-300 cursor-pointer"
-              onClick={() => navigateTo('/pages/papers')}
-            >
-              <div className="text-center">
-                <div className="w-16 h-16 md:w-20 md:h-20 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4 md:mb-6 shadow-md">
-                  <svg className="w-8 h-8 md:w-10 md:h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                  </svg>
-                </div>
-                
-                <h3 className="text-xl md:text-2xl font-bold text-gray-800 mb-3 md:mb-4">
-                    Data Sheets Management
-                </h3>
-                <p className="text-gray-600 mb-4 md:mb-6 leading-relaxed text-sm md:text-base">
-                  จัดการ Data Sheet ปัจจัยเสี่ยงพาร์กินสัน<br />
-
+            <div className="flex items-center space-x-6">
+              <div className="text-right">
+                <p className="text-sm font-medium text-gray-900">
+                  {currentUser.name}
                 </p>
-                
-                <div className="flex items-center justify-center space-x-2 text-emerald-600">
-                  <span className="font-medium">เข้าสู่ระบบ</span>
-                  <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path>
-                  </svg>
-                </div>
+                <p className="text-xs text-gray-500">{currentUser.role}</p>
+              </div>
+              <div className="flex items-center space-x-3">
+                <UserCircle className="w-10 h-10 text-gray-400" />
+                <button
+                  onClick={handleLogout}
+                  className="text-gray-500 hover:text-gray-700 transition"
+                >
+                  <LogOut className="w-5 h-5" />
+                </button>
               </div>
             </div>
           </div>
-        </div>
+        </header>
 
-        <div className="max-w-2xl mx-auto mb-12">
-      <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
-        <div className="text-center">
-          <div className="flex items-center justify-center mb-4">
-            <div className="w-10 h-10 bg-teal-100 rounded-full flex items-center justify-center mr-3">
-              <span className="text-teal-600 text-lg">🎯</span>
-            </div>
-            <h2 className="text-xl font-semibold text-slate-800">
-              Click Game
+        {/* Main Content */}
+        <main className="max-w-7xl mx-auto px-6 py-12">
+          {/* Welcome Section */}
+          <div className="mb-12">
+            <h2 className="text-3xl font-bold text-gray-900 mb-3">
+              ยินดีต้อนรับสู่ระบบ CheckPD
             </h2>
-          </div>
-          
-          <p className="text-slate-600 text-sm mb-6">
-            คลิกที่ไหนก็ได้เพื่อเก็บคะแนน ก่อนเลือกระบบที่ต้องการ
-          </p>
-          
-          {/* Compact Score Display */}
-          <div className="bg-slate-50 rounded-xl p-4 mb-6 border border-slate-100">
-            <div className="flex items-center justify-center space-x-6">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-teal-600">{score}</div>
-                <div className="text-xs text-slate-500">คะแนน</div>
-              </div>
-              <div className="w-px h-8 bg-slate-300"></div>
-              <div className="text-center">
-                <div className="text-xl font-semibold text-slate-600">{clicks}</div>
-                <div className="text-xs text-slate-500">คลิก</div>
-              </div>
-            </div>
+            <p className="text-lg text-gray-600">
+              ระบบประเมินและติดตามอาการผู้ป่วยโรคพาร์กินสันและ Movement Disorders
+            </p>
           </div>
 
-          {/* Compact Achievement System */}
-          <div className="grid grid-cols-4 gap-2">
-            {achievements.map((achievement, index) => (
-              <div 
+          {/* Menu Cards */}
+          <div className="grid md:grid-cols-3 gap-8">
+            {menuItems.map((item, index) => (
+              <button
                 key={index}
-                className={`p-2 rounded-lg border transition-all duration-300 ${
-                  score >= achievement.requirement 
-                    ? 'bg-teal-50 border-teal-200 shadow-sm' 
-                    : 'bg-slate-50 border-slate-200'
-                }`}
-                title={`เป้าหมาย: ${achievement.requirement} คะแนน`}
+                onClick={() => navigateTo(item.path)}
+                className="group bg-white rounded-xl border border-gray-200 p-8 text-left hover:shadow-lg hover:border-blue-300 transition-all duration-300"
               >
-                <div className={`text-lg mb-1 ${
-                  score >= achievement.requirement ? 'grayscale-0' : 'grayscale opacity-50'
-                }`}>
-                  {achievement.icon}
+                <div className="flex items-start justify-between mb-6">
+                  <div
+                    className={`w-14 h-14 rounded-lg flex items-center justify-center ${
+                      item.color === "blue"
+                        ? "bg-blue-100 text-blue-700"
+                        : item.color === "emerald"
+                        ? "bg-emerald-100 text-emerald-700"
+                        : "bg-purple-100 text-purple-700"
+                    }`}
+                  >
+                    {/* <item.icon className="w-8 h-8" /> */}
+                  </div>
+                  <ArrowRight className="w-6 h-6 text-gray-400 group-hover:text-blue-600 transition" />
                 </div>
-                <div className="text-xs text-slate-600">{achievement.requirement}</div>
-              </div>
+
+                <h3 className="text-xl font-semibold text-gray-900 mb-3">
+                  {item.title}
+                </h3>
+                <p className="text-gray-600 text-sm leading-relaxed">
+                  {item.subtitle}
+                </p>
+              </button>
             ))}
           </div>
 
-          {/* Simple Instruction */}
-          <div className="mt-4 text-xs text-slate-500 bg-slate-50 rounded-lg p-2">
-            💡 คลิกได้ 1-3 คะแนนต่อครั้ง
-          </div>
-        </div>
-      </div>
-    </div>
+          {/* Quick Stats */}
+          {loading ? (
+            <div className="mt-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div
+                  key={i}
+                  className="bg-white rounded-lg border border-gray-200 p-6 animate-pulse"
+                >
+                  <div className="h-4 bg-gray-200 rounded w-24 mb-4"></div>
+                  <div className="h-8 bg-gray-200 rounded w-16 mb-2"></div>
+                  <div className="h-3 bg-gray-200 rounded w-32"></div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="mt-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+              <div className="bg-white rounded-lg border border-gray-200 p-6">
+                <p className="text-sm text-gray-600">ผู้ป่วยทั้งหมด</p>
+                <p className="text-3xl font-bold text-gray-900 mt-2">
+                  {stats.totalPatients.toLocaleString()}
+                </p>
+                <p className="text-xs text-green-600 mt-2">
+                  ↑ {stats.newPatientsThisMonth} คน เดือนนี้
+                </p>
+              </div>
+              <div className="bg-white rounded-lg border border-gray-200 p-6">
+                <p className="text-sm text-gray-600">นัดหมายวันนี้</p>
+                <p className="text-3xl font-bold text-gray-900 mt-2">
+                  {stats.appointmentsToday}
+                </p>
+                <p className="text-xs text-blue-600 mt-2">คลินิกพาร์กินสัน</p>
+              </div>
+              <div className="bg-white rounded-lg border border-gray-200 p-6">
+                <p className="text-sm text-gray-600">ผู้ป่วยที่ไม่มี condition</p>
+                <p className="text-3xl font-bold text-orange-600 mt-2">
+                  {stats.patientsWithoutCondition}
+                </p>
+                <p className="text-xs text-gray-500 mt-2">ยังไม่ได้ระบุ</p>
+              </div>
+              <div className="bg-white rounded-lg border border-gray-200 p-6">
+                <p className="text-sm text-gray-600">ผู้ป่วยที่ไม่มี thaiid</p>
+                <p className="text-3xl font-bold text-red-600 mt-2">
+                  {stats.patientsWithoutThaiid}
+                </p>
+                <p className="text-xs text-gray-500 mt-2">ยังไม่มีเลขบัตรประชาชน</p>
+              </div>
+              <div className="bg-white rounded-lg border border-gray-200 p-6">
+                <p className="text-sm text-gray-600">MDS-UPDRS เฉลี่ย</p>
+                <p className="text-3xl font-bold text-gray-900 mt-2">
+                  {stats.averageMdsScore > 0 ? stats.averageMdsScore : "-"}
+                </p>
+                <p className="text-xs text-gray-500 mt-2">ทั้งหมด</p>
+              </div>
+            </div>
+          )}
+        </main>
 
         {/* Footer */}
-        <div className="text-center mt-12 md:mt-16">
-          <p className="text-indigo-600/70 text-sm md:text-base">
-            Copyright © 2025 ChulaPD. All Rights Reserved.
-          </p>
-        </div>
+        <footer className="bg-white border-t border-gray-200 mt-16">
+          <div className="max-w-7xl mx-auto px-6 py-6 text-center text-sm text-gray-600">
+            <p>
+              Copyright © 2025 ChulaPD • ศูนย์ความเป็นเลิศทางการแพทย์โรคพาร์กินสันฯ โรงพยาบาลจุฬาลงกรณ์ • All Rights Reserved
+            </p>
+          </div>
+        </footer>
       </div>
 
       <style jsx global>{`
+        @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&display=swap');
+        
         body {
-          font-family: 'Kanit', sans-serif;
-          overflow-x: hidden;
-        }
-        
-        .floating-circle {
-          position: absolute;
-          border-radius: 50%;
-          background: rgba(99, 102, 241, 0.1);
-          animation: float 6s ease-in-out infinite;
-          pointer-events: none;
-        }
-        
-        .floating-circle:nth-child(1) { width: 60px; height: 60px; top: 10%; left: 10%; animation-delay: 0s; }
-        .floating-circle:nth-child(2) { width: 90px; height: 90px; top: 20%; right: 10%; animation-delay: 2s; }
-        .floating-circle:nth-child(3) { width: 70px; height: 70px; bottom: 20%; left: 20%; animation-delay: 4s; }
-        .floating-circle:nth-child(4) { width: 50px; height: 50px; bottom: 30%; right: 20%; animation-delay: 1s; }
-        
-        @keyframes float {
-          0%, 100% { transform: translateY(0px) rotate(0deg); }
-          50% { transform: translateY(-15px) rotate(180deg); }
-        }
-        
-        .click-effect {
-          position: fixed;
-          pointer-events: none;
-          color: #0d9488;
-          font-weight: bold;
-          font-size: 1.25rem;
-          z-index: 1000;
-          animation: clickAnimation 1s ease-out forwards;
-        }
-        
-        @keyframes clickAnimation {
-          0% {
-            opacity: 1;
-            transform: scale(0.5) translateY(0);
-          }
-          100% {
-            opacity: 0;
-            transform: scale(1.5) translateY(-40px);
-          }
-        }
-        
-        .nav-card {
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        
-        .nav-card:hover {
-          transform: translateY(-5px) scale(1.01);
+          font-family: 'Sarabun', sans-serif;
         }
       `}</style>
-    </div>
+    </>
   );
 }
