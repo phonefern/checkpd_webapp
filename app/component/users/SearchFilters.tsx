@@ -235,6 +235,13 @@ export default function SearchFilters({
               Export Data
             </button>
           </a>
+          <a href="/pages/storage">
+            <button
+              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
+            >
+              Storage
+            </button>
+          </a>
           <button
             onClick={fetchUsers}
             className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
