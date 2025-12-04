@@ -121,6 +121,7 @@ export type User = {
     { value: 'อุตรดิตถ์', label: 'อุตรดิตถ์' },
     { value: 'อุทัยธานี', label: 'อุทัยธานี' },
     { value: 'อุบลราชธานี', label: 'อุบลราชธานี' },
+    { value: 'พะเยา', label: 'พะเยา' },
     { value: 'อื่นๆ', label: 'อื่นๆ' },
   ]
   
