@@ -1,7 +1,13 @@
-'use client'
-// app/component/users/UserTable.tsx
-import { User, conditionOptions, provinceOptions, formatToThaiTime } from '@/app/types/user'
-import { Pencil, Check, X } from "lucide-react";
+"use client"
+// components/user-table.tsx
+import { type User, conditionOptions, provinceOptions, formatToThaiTime } from "@/app/types/user"
+import { Pencil, Check, X, Printer, Eye } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Card, CardContent, CardHeader } from "@/components/ui/card"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Input } from "@/components/ui/input"
 
 interface UserTableProps {
   users: User[]
@@ -12,7 +18,13 @@ interface UserTableProps {
   handleProvinceChange: (id: string, value: string) => void
   handleOtherChange: (id: string, value: string) => void
   handleAreaChange: (id: string, value: string) => void
-  handleSave: (id: string, condition: string | null, province: string | undefined, other?: string, area?: string) => void
+  handleSave: (
+    id: string,
+    condition: string | null,
+    province: string | undefined,
+    other?: string,
+    area?: string,
+  ) => void
   setEditingId: (id: string | null) => void
   onViewDetail: (user: User) => void
 }
@@ -28,207 +40,270 @@ export default function UserTable({
   handleAreaChange,
   handleSave,
   setEditingId,
-  onViewDetail
+  onViewDetail,
 }: UserTableProps) {
-  return (
-    <div className="w-full">
+  const getConditionBadge = (condition: string | null) => {
+    if (!condition || condition === "Not specified") {
+      return (
+        <Badge variant="outline" className="bg-muted">
+          Not specified
+        </Badge>
+      )
+    }
+    if (condition === "pd" || condition === "pdm") {
+      return (
+        <Badge className="bg-violet-100 text-violet-800 hover:bg-violet-100 dark:bg-violet-900/30 dark:text-violet-300">
+          {condition.toUpperCase()}
+        </Badge>
+      )
+    }
+    if (condition === "ctrl") {
+      return (
+        <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-300">
+          Control
+        </Badge>
+      )
+    }
+    return <Badge variant="secondary">{condition}</Badge>
+  }
 
+  const getRiskBadge = (risk: boolean | null) => {
+    if (risk === true) {
+      return (
+        <Badge variant="destructive" className="bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300">
+          High Risk
+        </Badge>
+      )
+    }
+    if (risk === false) {
+      return (
+        <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-300">
+          Low Risk
+        </Badge>
+      )
+    }
+    return (
+      <Badge variant="outline" className="bg-muted">
+        No Data
+      </Badge>
+    )
+  }
+
+  return (
+    <div className="w-full space-y-4">
       {/* DESKTOP TABLE */}
-      <div className="hidden md:block overflow-x-auto rounded-lg border border-gray-200">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-100">
-            <tr>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">#</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Patient ID</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Name</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Source</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Age/Gender</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Location</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Recorded</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Risk</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Condition</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Other</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Area</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
+      <div className="hidden md:block rounded-lg border border-border bg-card shadow-sm">
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-muted/50 hover:bg-muted/50">
+              <TableHead className="font-semibold">#</TableHead>
+              <TableHead className="font-semibold">Patient ID</TableHead>
+              <TableHead className="font-semibold">Name</TableHead>
+              <TableHead className="font-semibold">Source</TableHead>
+              <TableHead className="font-semibold">Age/Gender</TableHead>
+              <TableHead className="font-semibold">Location</TableHead>
+              <TableHead className="font-semibold">Recorded</TableHead>
+              <TableHead className="font-semibold">Risk</TableHead>
+              <TableHead className="font-semibold">Condition</TableHead>
+              <TableHead className="font-semibold">Other</TableHead>
+              <TableHead className="font-semibold">Area</TableHead>
+              <TableHead className="text-right font-semibold">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {users.map((user, index) => (
-              <tr key={user.id} className="hover:bg-gray-50">
-                <td className="px-4 py-4 text-sm text-gray-500">{(currentPage - 1) * itemsPerPage + index + 1}</td>
-                <td className="px-4 py-4 text-sm">
-                  <div className="font-medium text-gray-900">{user.id}</div>
-                  <div className="text-gray-500">{user.thaiid}</div>
-                </td>
-                <td className="px-4 py-4 text-sm">
-                  <div className="font-medium text-gray-900">{user.firstname} {user.lastname}</div>
-                  <div className="text-gray-500">{user.record_id}</div>
-                </td>
-                <td className="px-4 py-4 text-sm text-gray-900">{user.source || '-'}</td>
-                <td className="px-4 py-4 text-sm">
-                  <div>{user.age} years</div>
-                  <div className="text-gray-500">{user.gender || '-'}</div>
-                </td>
-                <td className="px-4 py-4 text-sm">
+              <TableRow key={user.id} className="hover:bg-muted/30">
+                <TableCell className="text-muted-foreground">{(currentPage - 1) * itemsPerPage + index + 1}</TableCell>
+                <TableCell>
+                  <div className="font-medium text-foreground">{user.id}</div>
+                  <div className="text-xs text-muted-foreground">{user.thaiid}</div>
+                </TableCell>
+                <TableCell>
+                  <div className="font-medium text-foreground">
+                    {user.firstname} {user.lastname}
+                  </div>
+                  <div className="text-xs text-muted-foreground">{user.record_id}</div>
+                </TableCell>
+                <TableCell className="text-foreground">{user.source || "-"}</TableCell>
+                <TableCell>
+                  <div className="text-foreground">{user.age} years</div>
+                  <div className="text-xs text-muted-foreground">{user.gender || "-"}</div>
+                </TableCell>
+                <TableCell>
                   {editingId === user.id ? (
-                    <select
-                      value={user.province || ''}
-                      onChange={(e) => handleProvinceChange(user.id, e.target.value)}
-                      className="block w-full border rounded p-2"
-                    >
-                      {provinceOptions.map((option) => (
-                        <option key={option.value} value={option.value}>{option.label}</option>
-                      ))}
-                    </select>
+                    <Select value={user.province || ""} onValueChange={(value) => handleProvinceChange(user.id, value)}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select province" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {provinceOptions.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   ) : (
                     <>
-                      <div className="text-gray-900">{user.province || '-'}</div>
-                      <div className="text-gray-500">{user.region || '-'}</div>
+                      <div className="text-foreground">{user.province || "-"}</div>
+                      <div className="text-xs text-muted-foreground">{user.region || "-"}</div>
                     </>
                   )}
-                </td>
-                <td className="px-4 py-4 text-sm text-gray-900">{formatToThaiTime(user.timestamp)}</td>
-                <td className="px-4 py-4 text-sm">
-                  {user.prediction_risk === true && (
-                    <span className="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800">High Risk</span>
-                  )}
-                  {user.prediction_risk === false && (
-                    <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">Low Risk</span>
-                  )}
-                  {user.prediction_risk === null && (
-                    <span className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800">No Data</span>
-                  )}
-                </td>
-                <td className="px-4 py-4 text-sm">
+                </TableCell>
+                <TableCell className="text-sm text-foreground">{formatToThaiTime(user.timestamp)}</TableCell>
+                <TableCell>{getRiskBadge(user.prediction_risk)}</TableCell>
+                <TableCell>
                   {editingId === user.id ? (
-                    <select
-                      value={user.condition || ''}
-                      onChange={(e) => handleConditionChange(user.id, e.target.value)}
-                      className="block w-full border rounded p-2"
+                    <Select
+                      value={user.condition || ""}
+                      onValueChange={(value) => handleConditionChange(user.id, value)}
                     >
-                      {conditionOptions.filter(opt => opt.value).map((option) => (
-                        <option key={option.value} value={option.value}>{option.label}</option>
-                      ))}
-                    </select>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select condition" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {conditionOptions
+                          .filter((opt) => opt.value)
+                          .map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
                   ) : (
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${!user.condition || user.condition === 'Not specified' ? 'bg-gray-100 text-gray-800' :
-                      user.condition === 'pd' || user.condition === 'pdm' ? 'bg-purple-100 text-purple-800' :
-                        user.condition === 'ctrl' ? 'bg-green-100 text-green-800' :
-                          'bg-yellow-100 text-yellow-800'
-                      }`}>                      {user.condition || 'Not specified'}
-                    </span>
+                    getConditionBadge(user.condition)
                   )}
-                </td>
-                <td className="px-4 py-4 text-sm">
+                </TableCell>
+                <TableCell>
                   {editingId === user.id ? (
-                    <input type="text" className="w-full border rounded p-2" value={user.other || ''} onChange={(e) => handleOtherChange(user.id, e.target.value)} />
+                    <Input
+                      type="text"
+                      value={user.other || ""}
+                      onChange={(e) => handleOtherChange(user.id, e.target.value)}
+                      className="w-full"
+                    />
                   ) : (
-                    user.other || '-'
+                    <span className="text-foreground">{user.other || "-"}</span>
                   )}
-                </td>
-                <td className="px-4 py-4 text-sm">
+                </TableCell>
+                <TableCell>
                   {editingId === user.id ? (
-                    <input type="text" className="w-full border rounded p-2" value={user.area || ''} onChange={(e) => handleAreaChange(user.id, e.target.value)} />
+                    <Input
+                      type="text"
+                      value={user.area || ""}
+                      onChange={(e) => handleAreaChange(user.id, e.target.value)}
+                      className="w-full"
+                    />
                   ) : (
-                    user.area || '-'
+                    <span className="text-foreground">{user.area || "-"}</span>
                   )}
-                </td>
-                <td className="px-4 py-4 text-right text-sm">
+                </TableCell>
+                <TableCell className="text-right">
                   {editingId === user.id ? (
-                    <div className="flex items-center justify-end space-x-2">
-
-                      {/* SAVE — primary subtle */}
-                      <button
+                    <div className="flex items-center justify-end gap-2">
+                      <Button
+                        size="sm"
+                        variant="default"
                         onClick={() => handleSave(user.id, user.condition, user.province, user.other, user.area)}
-                        className="px-3 py-1.5 rounded-md border border-green-600 text-green-700 hover:bg-green-50 transition"
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white"
                       >
+                        <Check className="mr-1 h-4 w-4" />
                         Save
-                      </button>
-
-                      {/* CANCEL — neutral */}
-                      <button
-                        onClick={() => setEditingId(null)}
-                        className="px-3 py-1.5 rounded-md border border-gray-400 text-gray-700 hover:bg-gray-100 transition"
-                      >
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => setEditingId(null)}>
+                        <X className="mr-1 h-4 w-4" />
                         Cancel
-                      </button>
+                      </Button>
                     </div>
                   ) : (
-                    <div className="flex items-center justify-end space-x-2">
-
-                      {/* Detail */}
-                      <button
-                        onClick={() => onViewDetail(user)}
-                        className="px-3 py-1.5 rounded-md border border-gray-300 text-gray-800 hover:bg-gray-100 transition"
-                      >
+                    <div className="flex items-center justify-end gap-2">
+                      <Button size="sm" variant="outline" onClick={() => onViewDetail(user)}>
+                        <Eye className="mr-1 h-4 w-4" />
                         Detail
-                      </button>
-
-                      {/* Edit */}
-                      <button
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
                         onClick={() => setEditingId(user.id)}
-                        className="px-3 py-1.5 rounded-md border border-blue-600 text-blue-700 hover:bg-blue-50 transition"
+                        className="border-blue-600 text-blue-700 hover:bg-blue-50 dark:border-blue-400 dark:text-blue-400 dark:hover:bg-blue-950"
                       >
+                        <Pencil className="mr-1 h-4 w-4" />
                         Edit
-                      </button>
-
-                      {/* Print */}
-                      <button
-                        onClick={() => window.open(`/api/pdf/${user.id}?record_id=${user.record_id}`, '_blank')}
-                        className="px-3 py-1.5 rounded-md border border-purple-600 text-purple-700 hover:bg-purple-50 transition"
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => window.open(`/api/pdf/${user.id}?record_id=${user.record_id}`, "_blank")}
+                        className="border-violet-600 text-violet-700 hover:bg-violet-50 dark:border-violet-400 dark:text-violet-400 dark:hover:bg-violet-950"
                       >
+                        <Printer className="mr-1 h-4 w-4" />
                         Print
-                      </button>
-
+                      </Button>
                     </div>
                   )}
-                </td>
-
-
-
-
-              </tr>
+                </TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
-
 
       {/* MOBILE CARD VIEW */}
       <div className="md:hidden space-y-4">
         {users.map((user, index) => (
-          <div key={user.id} className="border rounded-xl shadow-sm p-4 bg-white">
-            <div className="flex justify-between items-center mb-2">
-              <div className="text-sm text-gray-500">#{(currentPage - 1) * itemsPerPage + index + 1}</div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => onViewDetail(user)}
-                  className="text-green-600 text-sm"
-                >Detail</button>
-                <button
-                  onClick={() => setEditingId(user.id)}
-                  className="text-blue-600 text-sm"
-                >Edit</button>
+          <Card key={user.id} className="shadow-sm">
+            <CardHeader className="pb-3">
+              <div className="flex justify-between items-start mb-2">
+                <Badge variant="outline" className="text-xs">
+                  #{(currentPage - 1) * itemsPerPage + index + 1}
+                </Badge>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="ghost" onClick={() => onViewDetail(user)} className="h-8 text-xs">
+                    <Eye className="mr-1 h-3 w-3" />
+                    Detail
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setEditingId(user.id)} className="h-8 text-xs">
+                    <Pencil className="mr-1 h-3 w-3" />
+                    Edit
+                  </Button>
+                </div>
               </div>
-            </div>
-
-            <div className="text-lg font-semibold">{user.firstname} {user.lastname}</div>
-            <div className="text-sm text-gray-500 mb-3">ID: {user.id}</div>
-
-            <div className="text-sm mb-1">Age: {user.age}</div>
-            <div className="text-sm mb-1">Gender: {user.gender || '-'}</div>
-            <div className="text-sm mb-1">Province: {user.province || '-'}</div>
-            <div className="text-sm mb-1">Recorded: {formatToThaiTime(user.timestamp)}</div>
-
-            <div className="mt-3">
-              {user.prediction_risk === true && <span className="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800">High Risk</span>}
-              {user.prediction_risk === false && <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">Low Risk</span>}
-              {user.prediction_risk === null && <span className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800">No Data</span>}
-            </div>
-          </div>
+              <div className="space-y-1">
+                <h3 className="font-semibold text-lg text-foreground">
+                  {user.firstname} {user.lastname}
+                </h3>
+                <p className="text-sm text-muted-foreground">ID: {user.id}</p>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div>
+                  <span className="text-muted-foreground">Age:</span>{" "}
+                  <span className="font-medium text-foreground">{user.age}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Gender:</span>{" "}
+                  <span className="font-medium text-foreground">{user.gender || "-"}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Province:</span>{" "}
+                  <span className="font-medium text-foreground">{user.province || "-"}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Source:</span>{" "}
+                  <span className="font-medium text-foreground">{user.source || "-"}</span>
+                </div>
+              </div>
+              <div className="text-xs text-muted-foreground pt-1">Recorded: {formatToThaiTime(user.timestamp)}</div>
+              <div className="flex gap-2 pt-2">
+                {getRiskBadge(user.prediction_risk)}
+                {getConditionBadge(user.condition)}
+              </div>
+            </CardContent>
+          </Card>
         ))}
       </div>
-
     </div>
   )
 }

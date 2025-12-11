@@ -44,7 +44,7 @@ export type User = {
   ]
 
    export const provinceOptions = [
-    { value: '', label: 'เลือกจังหวัด' },
+    { value: 'null', label: 'เลือกจังหวัด' },
     { value: 'กรุงเทพมหานคร', label: 'กรุงเทพมหานคร' },
     { value: 'กระบี่', label: 'กระบี่' },
     { value: 'กาญจนบุรี', label: 'กาญจนบุรี' },
