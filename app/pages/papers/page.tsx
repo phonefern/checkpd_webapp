@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import PapersTable from '@/app/component/papers/PapersTable';
-// import PapersHeader from '@/app/component/papers/PapersHeader';
+
 import LoadingState from '@/app/component/papers/LoadingState';
 import ErrorState from '@/app/component/papers/ErrorState';
 import EmptyState from '@/app/component/papers/EmptyState';
@@ -181,7 +181,6 @@ export default function PapersPage() {
   return (
     <div className="min-h-screen w-full bg-background">
       <div className="flex min-h-screen w-full flex-col space-y-6 px-4 py-6 md:px-8 lg:px-12">
-        {/* <PapersHeader /> */}
 
         <Card className="w-full border-border shadow-sm">
           <CardHeader className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
