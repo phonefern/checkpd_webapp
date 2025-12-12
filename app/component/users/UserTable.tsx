@@ -27,6 +27,7 @@ interface UserTableProps {
   ) => void
   setEditingId: (id: string | null) => void
   onViewDetail: (user: User) => void
+  hasScreeningThaiId: (thaiid: string) => boolean
 }
 
 export default function UserTable({
@@ -41,6 +42,7 @@ export default function UserTable({
   handleSave,
   setEditingId,
   onViewDetail,
+  hasScreeningThaiId,
 }: UserTableProps) {
   const getConditionBadge = (condition: string | null) => {
     if (!condition || condition === "Not specified") {
@@ -218,10 +220,12 @@ export default function UserTable({
                     </div>
                   ) : (
                     <div className="flex items-center justify-end gap-2">
-                      <Button size="sm" variant="outline" onClick={() => onViewDetail(user)}>
-                        <Eye className="mr-1 h-4 w-4" />
-                        Detail
-                      </Button>
+                      {user.thaiid && hasScreeningThaiId(user.thaiid) && (
+                        <Button size="sm" variant="outline" onClick={() => onViewDetail(user)}>
+                          <Eye className="mr-1 h-4 w-4" />
+                          Detail
+                        </Button>
+                      )}
                       <Button
                         size="sm"
                         variant="outline"
@@ -259,10 +263,12 @@ export default function UserTable({
                   #{(currentPage - 1) * itemsPerPage + index + 1}
                 </Badge>
                 <div className="flex gap-2">
-                  <Button size="sm" variant="ghost" onClick={() => onViewDetail(user)} className="h-8 text-xs">
-                    <Eye className="mr-1 h-3 w-3" />
-                    Detail
-                  </Button>
+                  {user.thaiid && hasScreeningThaiId(user.thaiid) && (
+                    <Button size="sm" variant="ghost" onClick={() => onViewDetail(user)} className="h-8 text-xs">
+                      <Eye className="mr-1 h-3 w-3" />
+                      Detail
+                    </Button>
+                  )}
                   <Button size="sm" variant="ghost" onClick={() => setEditingId(user.id)} className="h-8 text-xs">
                     <Pencil className="mr-1 h-3 w-3" />
                     Edit

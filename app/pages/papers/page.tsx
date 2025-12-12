@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import PapersTable from '@/app/component/papers/PapersTable';
-import PapersHeader from '@/app/component/papers/PapersHeader';
+// import PapersHeader from '@/app/component/papers/PapersHeader';
 import LoadingState from '@/app/component/papers/LoadingState';
 import ErrorState from '@/app/component/papers/ErrorState';
 import EmptyState from '@/app/component/papers/EmptyState';
@@ -10,6 +10,10 @@ import { supabase } from '@/lib/supabase';
 import { PatientData } from '@/app/component/papers/types';
 import Link from "next/link";
 import PatientHistory from '@/app/component/papers/PatientHistory';
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { LogOut, Plus } from "lucide-react";
 
 export default function PapersPage() {
   const [patients, setPatients] = useState<PatientData[]>([]);
@@ -175,69 +179,71 @@ export default function PapersPage() {
   if (error) return <ErrorState error={error} onRetry={fetchPatientData} />;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <PapersHeader />
+    <div className="min-h-screen w-full bg-background">
+      <div className="flex min-h-screen w-full flex-col space-y-6 px-4 py-6 md:px-8 lg:px-12">
+        {/* <PapersHeader /> */}
 
-      <div className="max-w-7xl mx-auto px-6 py-8">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8 flex justify-between">
-          {/* Quick Actions */}
-          <div className="flex items-center space-x-2">
-            <Link
-              href="/pages/papers/check-in"
-              className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-            >
-              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-              Check-In (ผู้ป่วยใหม่)
-            </Link>
-          </div>
+        <Card className="w-full border-border shadow-sm">
+          <CardHeader className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="space-y-1">
+              <CardTitle className="text-2xl md:text-3xl">Patient Data Management System</CardTitle>
+              <CardDescription>จัดการข้อมูลผู้ป่วยและแบบทดสอบทั้งหมด</CardDescription>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button asChild size="lg" className="gap-2">
+                <Link href="/pages/papers/check-in">
+                  <Plus className="h-4 w-4" />
+                  Check-In (ผู้ป่วยใหม่)
+                </Link>
+              </Button>
+              <Button variant="destructive" size="lg" className="gap-2" onClick={handleLogout}>
+                <LogOut className="h-4 w-4" />
+                ออกจากระบบ
+              </Button>
+            </div>
+          </CardHeader>
+        </Card>
 
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={handleLogout}
-              className="inline-flex items-center px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
-            >
-              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-              </svg>
-              ออกจากระบบ
-            </button>
-          </div>
-        </div>
+        {/* <Card className="flex-1 overflow-hidden border-border shadow-sm"> */}
+          <CardContent className="h-full p-0">
+            <ScrollArea className="h-full w-full">
+              <div className="p-0">
+                {patients.length > 0 ? (
+                  <PapersTable
+                    patients={patients}
+                    searchTerm={searchTerm}
+                    onSearchChange={setSearchTerm}
+                    currentPage={currentPage}
+                    onPageChange={setCurrentPage}
+                    itemsPerPage={itemsPerPage}
+                    onEditPatient={openEditModal}
+                    onDeletePatient={handleDeletePatient}
+                    onViewHistory={handleViewHistory}
+                    totalCount={totalCount}
+                  />
+                ) : (
+                  <EmptyState />
+                )}
+              </div>
+            </ScrollArea>
+          </CardContent>
+        {/* </Card> */}
 
-        {patients.length > 0 ? (
-          <PapersTable
-            patients={patients}
-            searchTerm={searchTerm}
-            onSearchChange={setSearchTerm}
-            currentPage={currentPage}
-            onPageChange={setCurrentPage}
-            itemsPerPage={itemsPerPage}
-            onEditPatient={openEditModal}
-            onDeletePatient={handleDeletePatient}
-            onViewHistory={handleViewHistory}
-            totalCount={totalCount}
+        {isEditOpen && editingPatient && (
+          <EditModal
+            patient={editingPatient}
+            onClose={closeEditModal}
+            onSave={handleUpdatePatient}
           />
-        ) : (
-          <EmptyState />
+        )}
+
+        {viewingPatient && (
+          <PatientHistory
+            patient={viewingPatient}
+            onClose={() => setViewingPatient(null)}
+          />
         )}
       </div>
-
-      {isEditOpen && editingPatient && (
-        <EditModal
-          patient={editingPatient}
-          onClose={closeEditModal}
-          onSave={handleUpdatePatient}
-        />
-      )}
-
-      {viewingPatient && (
-        <PatientHistory
-          patient={viewingPatient}
-          onClose={() => setViewingPatient(null)}
-        />
-      )}
     </div>
   );
 };

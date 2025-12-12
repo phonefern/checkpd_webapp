@@ -9,6 +9,8 @@ import Pagination from '@/app/component/users/Pagination'
 import SearchFilters from '@/app/component/users/SearchFilters'
 import PatientHistoryModal from '@/app/component/users/PatientHistoryModal'
 import { User } from '@/app/types/user'
+import { Button } from '@/components/ui/button'
+import { LogOut } from 'lucide-react'
 
 const handleLogout = async () => {
   const { error } = await supabase.auth.signOut()
@@ -38,6 +40,7 @@ export default function UsersClientPage() {
   const [searchSource, setSearchSource] = useState('')
   const [searchProvince, setSearchProvince] = useState('')
   const [viewingUser, setViewingUser] = useState<User | null>(null)
+  const [screeningThaiIds, setScreeningThaiIds] = useState<string[]>([])
   const itemsPerPage = 50
 
   const fetchUsers = async () => {
@@ -99,6 +102,24 @@ export default function UsersClientPage() {
     } else {
       setUsers(data || [])
       setTotalCount(count || 0)
+
+      // Determine which users have screening data (pd_screenings) by thaiid
+      const thaiids = (data ?? []).map((u) => u.thaiid).filter((id): id is string => Boolean(id))
+      if (thaiids.length > 0) {
+        const { data: screeningData, error: screeningError } = await supabase
+          .from('pd_screenings')
+          .select('thaiid')
+          .in('thaiid', thaiids)
+
+        if (screeningError) {
+          console.error('❌ Error loading screening thaiids:', screeningError)
+        } else {
+          const uniqueThaiids = Array.from(new Set(screeningData?.map((row) => row.thaiid).filter(Boolean)))
+          setScreeningThaiIds(uniqueThaiids)
+        }
+      } else {
+        setScreeningThaiIds([])
+      }
     }
 
     setLoading(false)
@@ -242,13 +263,13 @@ export default function UsersClientPage() {
   return (
     <div className="max-w-9xl mx-auto bg-white rounded-lg shadow-lg p-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-semibold mb-4 text-gray-900">Patient Data Management System</h1>
-        <button
-          onClick={handleLogout}
-          className="px-5 py-3 bg-red-500 text-white font-medium rounded-lg hover:bg-red-600 transition duration-300"
-        >
-          Sign Out
-        </button>
+        <h1 className="text-3xl font-semibold mb-4 text-gray-900">
+          Patient Data Management System
+        </h1>
+        <Button variant="destructive" size="lg" className="gap-2" onClick={handleLogout}>
+          <LogOut className="h-4 w-4" />
+          ออกจากระบบ
+        </Button>
       </div>
 
       <SearchFilters
@@ -297,6 +318,7 @@ export default function UsersClientPage() {
             handleSave={handleSave}
             setEditingId={setEditingId}
             onViewDetail={setViewingUser}
+            hasScreeningThaiId={(thaiid) => screeningThaiIds.includes(thaiid)}
           />
 
           <Pagination

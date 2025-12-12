@@ -6,7 +6,11 @@ import { assessmentLabels } from './constants';
 import ScoreIndicator from '@/app/component/papers/ScoreIndicator';
 import Pagination from '@/app/component/papers/Pagination';
 // app/component/papers/PapersTable.tsx
-
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover"
+import { Button } from "@/components/ui/button"
+import { Calendar } from "@/components/ui/calendar"
+import { CalendarIcon } from "lucide-react"
+import { format } from "date-fns"
 
 
 
@@ -116,27 +120,57 @@ const PapersTable = ({
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">From Date</label>
-                            <input
-                                type="date"
-                                value={fromDate}
-                                onChange={(e) => {
-                                    setFromDate(e.target.value);
-                                    onPageChange(1);
-                                }}
-                                className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                            />
+
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        className="w-full justify-start text-left font-normal"
+                                    >
+                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                        {fromDate ? format(fromDate, "yyyy-MM-dd") : "Pick a date"}
+                                    </Button>
+                                </PopoverTrigger>
+
+                                <PopoverContent className="p-0">
+                                    <Calendar
+                                        mode="single"
+                                        selected={fromDate ? new Date(fromDate) : undefined}
+                                        onSelect={(date) => {
+                                            setFromDate(date ? date.toISOString().split('T')[0] : "")
+                                            onPageChange(1)
+                                        }}
+                                    />
+                                </PopoverContent>
+                            </Popover>
                         </div>
+
+                        {/* TO DATE */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">To Date</label>
-                            <input
-                                type="date"
-                                value={toDate}
-                                onChange={(e) => {
-                                    setToDate(e.target.value);
-                                    onPageChange(1);
-                                }}
-                                className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                            />
+
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        className="w-full justify-start text-left font-normal"
+                                    >
+                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                        {toDate ? format(toDate, "yyyy-MM-dd") : "Pick a date"}
+                                    </Button>
+                                </PopoverTrigger>
+
+                                <PopoverContent className="p-0">
+                                    <Calendar
+                                        mode="single"
+                                        selected={toDate ? new Date(toDate) : undefined}
+                                        onSelect={(date) => {
+                                            setToDate(date ? date.toISOString().split('T')[0] : "")
+                                            onPageChange(1)
+                                        }}
+                                    />
+                                </PopoverContent>
+                            </Popover>
                         </div>
                     </div>
                     <div className="flex justify-end">
