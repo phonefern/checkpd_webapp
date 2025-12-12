@@ -1,5 +1,5 @@
 export { default as PapersTable } from './PapersTable';
-export { default as PapersHeader } from './PapersHeader';
+
 export { default as LoadingState } from './LoadingState';
 export { default as ErrorState } from './ErrorState';
 export { default as EmptyState } from './EmptyState';
