@@ -26,7 +26,7 @@ const handleLogout = async () => {
   if (error) {
     console.error('Logout error:', error)
   } else {
-    window.location.href = '/login' // Full page reload to clear state
+    window.location.href = '/pages/login' // Full page reload to clear state
   }
 }
 
@@ -207,7 +207,7 @@ export default function UsersClientPage() {
             Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, totalCount)} of {totalCount} records
           </p>
         <div className='flex gap-2'>
-        <a href="/users">
+        <a href="/pages/users">
          <button
              className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500"
               >

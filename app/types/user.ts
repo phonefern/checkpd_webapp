@@ -15,24 +15,36 @@ export type User = {
     last_update?: string
     record_id?: string
     other?: string
+    area?: string
   }
   
+  export const riskOptions = [
+    { value: true, label: 'High Risk' },
+    { value: false, label: 'Low Risk' },
+    { value: null, label: 'No Data' },
+  ]
+
+  export const sourceOptions = [
+    { value: '', label: 'All Sources' },
+    { value: 'user', label: 'User' },
+    { value: 'staff', label: 'Staff' },
+
+  ]
+
   export const conditionOptions = [
-    { value: '', label: 'All Conditions' },
-    { value: 'cdt7', label: 'CDT7' },
-    { value: 'ctrl', label: 'Control' },
-    { value: 'pd', label: 'PD' },
-    { value: 'pdm', label: 'PDM' },
-    { value: 'pksm', label: 'PKSM' },
-    { value: 'other', label: 'Other' },
-    { value: 'nodiag', label: 'No Diagnosis' },
-    { value: 'normal_check', label: 'Normal Check' },
-    { value: 'Not specified', label: 'Not specified' },
-    { value: 'not_eval', label: 'Not Evaluated' }
+    { value: 'null', label: 'Not specified' },
+    { value: 'ctrl', label: 'ctrl' },
+    { value: 'pd', label: 'pd' },
+    { value: 'pdm', label: 'pdm' },
+    { value: 'pksm', label: 'pksm' },
+    { value: 'other', label: 'other' },
+
+  
+
   ]
 
    export const provinceOptions = [
-    { value: '', label: 'เลือกจังหวัด' },
+    { value: 'null', label: 'เลือกจังหวัด' },
     { value: 'กรุงเทพมหานคร', label: 'กรุงเทพมหานคร' },
     { value: 'กระบี่', label: 'กระบี่' },
     { value: 'กาญจนบุรี', label: 'กาญจนบุรี' },
@@ -109,6 +121,7 @@ export type User = {
     { value: 'อุตรดิตถ์', label: 'อุตรดิตถ์' },
     { value: 'อุทัยธานี', label: 'อุทัยธานี' },
     { value: 'อุบลราชธานี', label: 'อุบลราชธานี' },
+    { value: 'พะเยา', label: 'พะเยา' },
     { value: 'อื่นๆ', label: 'อื่นๆ' },
   ]
   

@@ -1,0 +1,480 @@
+import { useState, useMemo, useRef, useEffect } from "react";
+import Link from "next/link";
+import { PatientData } from './types';
+import { filterPatients, paginatePatients, formatDate, getRiskBadgeColor } from './utils';
+import { assessmentLabels } from './constants';
+import ScoreIndicator from '@/app/component/papers/ScoreIndicator';
+import Pagination from '@/app/component/papers/Pagination';
+// app/component/papers/PapersTable.tsx
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover"
+import { Button } from "@/components/ui/button"
+import { Calendar } from "@/components/ui/calendar"
+import { CalendarIcon } from "lucide-react"
+import { format } from "date-fns"
+import {
+    DropdownMenu,
+    DropdownMenuTrigger,
+    DropdownMenuContent,
+    DropdownMenuItem,
+} from "@/components/ui/dropdown-menu"
+
+
+
+
+interface PapersTableProps {
+    patients: PatientData[];
+    searchTerm: string;
+    onSearchChange: (term: string) => void;
+    currentPage: number;
+    onPageChange: (page: number) => void;
+    itemsPerPage: number;
+    onEditPatient: (patient: PatientData) => void;
+    onDeletePatient: (patientId: number, patientName: string) => void;
+    onViewHistory: (patient: PatientData) => void;
+    totalCount?: number;
+}
+
+const PapersTable = ({
+    patients,
+    searchTerm,
+    onSearchChange,
+    currentPage,
+    onPageChange,
+    itemsPerPage,
+    onEditPatient,
+    onDeletePatient,
+    onViewHistory,
+    totalCount
+}: PapersTableProps) => {
+    const [conditionFilter, setConditionFilter] = useState("");
+    const [otherFilter, setOtherFilter] = useState("");
+    const [fromDate, setFromDate] = useState("");
+    const [toDate, setToDate] = useState("");
+
+    const filteredPatients = useMemo(
+        () =>
+            filterPatients(patients, searchTerm, {
+                condition: conditionFilter,
+                other: otherFilter,
+                fromDate,
+                toDate
+            }),
+        [patients, searchTerm, conditionFilter, otherFilter, fromDate, toDate]
+    );
+
+    const paginatedPatients = useMemo(() =>
+        paginatePatients(filteredPatients, currentPage, itemsPerPage),
+        [filteredPatients, currentPage, itemsPerPage]
+    );
+
+    const totalPages = Math.ceil(filteredPatients.length / itemsPerPage);
+
+    return (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+            {/* Search and Header */}
+            <div className="p-6 border-b border-gray-200">
+                <div className="flex flex-col gap-6">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                        <div>
+                            <h2 className="text-xl font-semibold text-gray-900">รายชื่อผู้ป่วย</h2>
+                            <p className="text-sm text-gray-600">ทั้งหมด {totalCount} คน</p>
+                        </div>
+                        <div className="relative w-full sm:max-w-md">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                </svg>
+                            </div>
+                            <input
+                                type="text"
+                                placeholder="ค้นหา ID, ชื่อ, นามสกุล, HN..."
+                                value={searchTerm}
+                                onChange={(e) => {
+                                    onSearchChange(e.target.value);
+                                    onPageChange(1);
+                                }}
+                                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                            />
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Condition</label>
+                            <input
+                                type="text"
+                                value={conditionFilter}
+                                onChange={(e) => {
+                                    setConditionFilter(e.target.value);
+                                    onPageChange(1);
+                                }}
+                                placeholder="กรอกอาการ"
+                                className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Other</label>
+                            <input
+                                type="text"
+                                value={otherFilter}
+                                onChange={(e) => {
+                                    setOtherFilter(e.target.value);
+                                    onPageChange(1);
+                                }}
+                                placeholder="กรอกข้อมูลอื่นๆ"
+                                className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">From Date</label>
+
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        className="w-full justify-start text-left font-normal cursor-pointer"
+                                    >
+                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                        {fromDate ? format(fromDate, "yyyy-MM-dd") : "Pick a date"}
+                                    </Button>
+                                </PopoverTrigger>
+
+                                <PopoverContent className="p-0">
+                                    <Calendar
+                                        mode="single"
+                                        selected={fromDate ? new Date(fromDate) : undefined}
+                                        onSelect={(date) => {
+                                            setFromDate(date ? date.toISOString().split('T')[0] : "")
+                                            onPageChange(1)
+                                        }}
+                                    />
+                                </PopoverContent>
+                            </Popover>
+                        </div>
+
+                        {/* TO DATE */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">To Date</label>
+
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        className="w-full justify-start text-left font-normal cursor-pointer"
+                                    >
+                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                        {toDate ? format(toDate, "yyyy-MM-dd") : "Pick a date"}
+                                    </Button>
+                                </PopoverTrigger>
+
+                                <PopoverContent className="p-0">
+                                    <Calendar
+                                        mode="single"
+                                        selected={toDate ? new Date(toDate) : undefined}
+                                        onSelect={(date) => {
+                                            setToDate(date ? date.toISOString().split('T')[0] : "")
+                                            onPageChange(1)
+                                        }}
+                                    />
+                                </PopoverContent>
+                            </Popover>
+                        </div>
+                    </div>
+                    <div className="flex justify-end">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setConditionFilter("");
+                                setOtherFilter("");
+                                setFromDate("");
+                                setToDate("");
+                                onPageChange(1);
+                            }}
+                            className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
+                        >
+                            ล้างตัวกรอง
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {/* Table */}
+            <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                        <tr>
+                            <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                ข้อมูลผู้ป่วย
+                            </th>
+                            <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                คะแนนแบบประเมิน
+                            </th>
+                            <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                ความเสี่ยง
+                            </th>
+                            <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                อาการ
+                            </th>
+                            <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                อื่นๆ
+                            </th>
+                            <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                การดำเนินการ
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                        {paginatedPatients.map((patient) => (
+                            <TableRow
+                                key={patient.id}
+                                patient={patient}
+                                onEdit={onEditPatient}
+                                onDelete={onDeletePatient}
+                                onViewHistory={onViewHistory}
+                            />
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+
+            {/* Pagination */}
+            <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={filteredPatients.length}
+                itemsPerPage={itemsPerPage}
+                onPageChange={onPageChange}
+            />
+        </div>
+    );
+};
+
+// Sub-component for table row
+interface TableRowProps {
+    patient: PatientData;
+    onEdit: (patient: PatientData) => void;
+    onDelete: (patientId: number, patientName: string) => void;
+    onViewHistory: (patient: PatientData) => void;
+}
+
+const TableRow = ({ patient, onEdit, onDelete, onViewHistory }: TableRowProps) => {
+    return (
+        <tr className="hover:bg-gray-50 transition-colors">
+            <td className="px-6 py-4">
+                <PatientInfo patient={patient} />
+            </td>
+            <td className="px-6 py-4">
+                <div className="flex flex-wrap">
+                    {Object.entries(assessmentLabels).map(([key, label]) => (
+                        <ScoreIndicator
+                            key={key}
+                            score={patient.risk_factors?.[key as keyof typeof assessmentLabels] ?? null}
+                            assessmentKey={key as keyof typeof assessmentLabels}
+                        />
+                    ))}
+                </div>
+            </td>
+            <td className="px-6 py-4">
+                <RiskBadge risk={patient.prediction_risk} />
+            </td>
+            <td className="text-sm px-6 py-4">
+                {patient.condition || '-'}
+            </td>
+            <td className="text-sm px-6 py-4">
+                {patient.other || '-'}
+            </td>
+            <td className="px-6 py-4">
+                <ActionButtons
+                    patient={patient}
+                    onEdit={onEdit}
+                    onDelete={onDelete}
+                    onViewHistory={onViewHistory}
+                />
+            </td>
+        </tr>
+    );
+};
+
+// Sub-component for patient information
+const PatientInfo = ({ patient }: { patient: PatientData }) => (
+    <div className="flex items-center">
+        <div className="flex-shrink-0 h-12 w-12 bg-blue-100 rounded-full flex items-center justify-center">
+            <svg className="h-6 w-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+        </div>
+        <div className="ml-4">
+            <div className="text-sm font-medium text-gray-900">
+                {patient.first_name} {patient.last_name}
+            </div>
+            <div className="text-sm text-gray-500">
+                {patient.thaiid ? `ID: ${patient.thaiid}` : 'ไม่มีเลขบัตรประชาชน'}
+            </div>
+            <div className="text-xs text-gray-500 mt-1 space-y-1">
+                <div>อายุ: {patient.age} ปี • จังหวัด: {patient.province} • เพศ: {patient.gender}</div>
+                <div>HN: {patient.hn_number || '-'} • วันที่: {formatDate(patient.collection_date)}</div>
+            </div>
+        </div>
+    </div>
+);
+
+// Sub-component for risk badge
+const RiskBadge = ({ risk }: { risk: boolean | null | undefined }) => {
+    if (risk === null || risk === undefined) {
+        return (
+            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-500">
+                ยังไม่ประเมิน
+            </span>
+        );
+    }
+
+    const badgeClass = getRiskBadgeColor(risk);
+    return (
+        <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${badgeClass}`}>
+            {risk ? 'เสี่ยง' : 'ไม่เสี่ยง'}
+        </span>
+    );
+};
+
+// Sub-component for action buttons with dropdown menu
+const ActionButtons = ({
+    patient,
+    onEdit,
+    onDelete,
+    onViewHistory
+}: {
+    patient: PatientData;
+    onEdit: (patient: PatientData) => void;
+    onDelete: (patientId: number, patientName: string) => void;
+    onViewHistory: (patient: PatientData) => void;
+}) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const dropdownRef = useRef<HTMLDivElement>(null);
+
+    // Close dropdown when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                setIsOpen(false);
+            }
+        };
+
+        if (isOpen) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [isOpen]);
+
+    return (
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <div className="relative" ref={dropdownRef}>
+                    {/* Three dots vertical icon button */}
+                    <button
+                        onClick={() => setIsOpen(!isOpen)}
+                        className="inline-flex items-center justify-center p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer duration-350"
+                        aria-label="เมนูการดำเนินการ"
+                    >
+                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+                        </svg>
+                    </button>
+                </div>
+            </DropdownMenuTrigger>
+
+            <DropdownMenuContent>
+                <DropdownMenuItem>
+                    <button
+                        onClick={() => {
+                            onViewHistory(patient);
+                            setIsOpen(false);
+                        }}
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center cursor-pointer"
+                        role="menuitem"
+                    >
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        ดูประวัติ
+                    </button>
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                    <Link
+                        href={`/pages/papers/edit/${patient.id}`}
+                        onClick={() => setIsOpen(false)}
+                        className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center cursor-pointer"
+                        role="menuitem"
+                    >
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                        แก้ไขข้อมูลส่วนตัว
+                    </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                    <button
+                        onClick={() => {
+                            onEdit(patient);
+                            setIsOpen(false);
+                        }}
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center cursor-pointer"
+                        role="menuitem"
+                    >
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2V5a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                        </svg>
+                        แก้ไขข้อมูลส่วนตัว
+                    </button>
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                    <Link
+                        href={`/pages/papers/assessment?patient_thaiid=${patient.thaiid}`}
+                        onClick={() => setIsOpen(false)}
+                        className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                        role="menuitem"
+                    >
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V5a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                        </svg>
+                        เริ่มทำแบบทดสอบ
+                    </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                    <button
+                        onClick={() => {
+                            window.open(`/api/generate-pdf?thaiid=${patient.thaiid}`, "_blank");
+                            setIsOpen(false);
+                        }}
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center cursor-pointer"
+                        role="menuitem"
+                    >
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4h10z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18V5a2 2 0 00-2-2H4a2 2 0 00-2 2v4h2m2-4h4v-6h2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 002-2 2h-2z" />
+                        </svg>
+                        พิมพ์เอกสาร
+                    </button>
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                    <button
+                        onClick={() => {
+                            onDelete(patient.id, `${patient.first_name} ${patient.last_name}`);
+                            setIsOpen(false);
+                        }}
+                        className="w-full text-left px-4 py-2 text-sm text-red-700 hover:bg-red-50 flex items-center cursor-pointer"
+                        role="menuitem"
+                    >
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                        ลบข้อมูล
+                    </button>
+                </DropdownMenuItem>
+            </DropdownMenuContent>
+        </DropdownMenu>
+    );
+};
+
+export default PapersTable;
