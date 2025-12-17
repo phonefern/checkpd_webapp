@@ -15,14 +15,14 @@ export async function middleware(request: NextRequest) {
     error: error?.message
   })
 
-  // Block unauthenticated access to /users/*
-  if (!session && request.nextUrl.pathname.startsWith('/users')) {
-    return NextResponse.redirect(new URL('/login', request.url))
+  // Block unauthenticated access to /pages/users/*
+  if (!session && request.nextUrl.pathname.startsWith('/pages/users')) {
+    return NextResponse.redirect(new URL('/pages/login', request.url))
   }
 
   // Redirect logged-in users away from login page
-  if (session && request.nextUrl.pathname === '/login') {
-    return NextResponse.redirect(new URL('/users', request.url))
+  if (session && request.nextUrl.pathname === '/pages/login') {
+    return NextResponse.redirect(new URL('/pages/users', request.url))
   }
 
   return response

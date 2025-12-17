@@ -1,0 +1,132 @@
+[
+  {
+    "category": "Tremor & Movement Disorders",
+    "diagnosis": [
+      "Essential tremor",
+      "Postural tremor",
+      "Intention tremor",
+      "Task-specific tremor",
+      "Enhanced physiologic tremor",
+      "Essential tremor plus",
+      "Dystonic tremor",
+      "Dystonic head tremor",
+      "Head tremor",
+      "No-no head tremor",
+      "Cervical dystonia",
+      "Segmental dystonia",
+      "Generalized dystonia",
+      "Tremor (unspecified)"
+    ]
+  },
+  {
+    "category": "Parkinsonism & Related",
+    "diagnosis": [
+      "Parkinsonism",
+      "Drug-induced parkinsonism",
+      "Mild parkinsonism (possible drug-induced)",
+      "Suspected drug-induced parkinsonism",
+      "Hypokinesia",
+      "Hyposmia",
+      "Pseudo-parkinsonism",
+      "R/O PSP"
+    ]
+  },
+  {
+    "category": "Ataxia & Cerebellar Disorders",
+    "diagnosis": [
+      "Spinocerebellar ataxia",
+      "Spinocerebellar ataxia type 2",
+      "Spinocerebellar ataxia, DDX x SCA"
+    ]
+  },
+  {
+    "category": "Sleep Disorders",
+    "diagnosis": [
+      "Obstructive sleep apnea",
+      "R/O OSA",
+      "IRBD",
+      "RBD vocalization / acting out",
+      "Excessive daytime sleepiness (EDS)",
+      "Frequent dreamy",
+      "Sudden onset of sleep",
+      "Insomnia"
+    ]
+  },
+  {
+    "category": "Cognitive Impairment & Dementia",
+    "diagnosis": [
+      "Mild cognitive impairment (MCI)",
+      "Impaired cognitive",
+      "Dementia",
+      "Alzheimer's disease",
+      "Cognitive impairment"
+    ]
+  },
+  {
+    "category": "Depression, Anxiety & Psychiatric",
+    "diagnosis": [
+      "Depression",
+      "Mild depression",
+      "Major depression",
+      "Anxiety",
+      "Psychiatric history",
+      "Underlying alcoholism"
+    ]
+  },
+  {
+    "category": "Stroke & Vascular Disorders",
+    "diagnosis": [
+      "Ischemic stroke",
+      "Old ischemic stroke",
+      "Post-hemorrhagic stroke",
+      "Lt hemiparesis / hemiparisis",
+      "Rv old lacunar infarct",
+      "Stroke (unspecified)",
+      "Post-stroke with spastic Rt side",
+      "Dyslipidemia, old stroke"
+    ]
+  },
+  {
+    "category": "Neuropathy & Nerve Disorders",
+    "diagnosis": [
+      "Diabetic neuropathy",
+      "Peripheral neuropathy",
+      "Muscle strain",
+      "R eyelid twitching / facial spasm",
+      "Clonic hemifacial spasm"
+    ]
+  },
+  {
+    "category": "Orthopedic & Spine Disorders",
+    "diagnosis": [
+      "LS spondylosis",
+      "Lumbar spondylosis",
+      "OA knees",
+      "OA hands",
+      "Frozen shoulder",
+      "กระดูกทับเส้น"
+    ]
+  },
+  {
+    "category": "GI, GU & Autonomic",
+    "diagnosis": [
+      "Constipation",
+      "Frequent dribbling",
+      "Nocturia",
+      "Dyslipidemia",
+      "Poorly controlled diabetes",
+      "Hypertension"
+    ]
+  },
+  {
+    "category": "Miscellaneous",
+    "diagnosis": [
+      "Migraine",
+      "Allergic rhinitis",
+      "Breast cancer",
+      "R/O Huntington disease",
+      "แพทย์ไม่ระบุโรค",
+      "Control / Normal"
+    ]
+  }
+]
