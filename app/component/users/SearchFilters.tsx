@@ -91,7 +91,7 @@ export default function SearchFilters({
               setSearchSource(e.target.value)
               setCurrentPage(1)
             }}
-            className="w-full border border-gray-300 p-2 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full border border-gray-300 p-2 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer"
           >
             {sourceOptions.map((option) => (
               <option key={option.value} value={option.value}>
