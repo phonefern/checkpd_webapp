@@ -11,6 +11,12 @@ import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
 import { CalendarIcon } from "lucide-react"
 import { format } from "date-fns"
+import {
+    DropdownMenu,
+    DropdownMenuTrigger,
+    DropdownMenuContent,
+    DropdownMenuItem,
+} from "@/components/ui/dropdown-menu"
 
 
 
@@ -125,7 +131,7 @@ const PapersTable = ({
                                 <PopoverTrigger asChild>
                                     <Button
                                         variant="outline"
-                                        className="w-full justify-start text-left font-normal"
+                                        className="w-full justify-start text-left font-normal cursor-pointer"
                                     >
                                         <CalendarIcon className="mr-2 h-4 w-4" />
                                         {fromDate ? format(fromDate, "yyyy-MM-dd") : "Pick a date"}
@@ -153,7 +159,7 @@ const PapersTable = ({
                                 <PopoverTrigger asChild>
                                     <Button
                                         variant="outline"
-                                        className="w-full justify-start text-left font-normal"
+                                        className="w-full justify-start text-left font-normal cursor-pointer"
                                     >
                                         <CalendarIcon className="mr-2 h-4 w-4" />
                                         {toDate ? format(toDate, "yyyy-MM-dd") : "Pick a date"}
@@ -183,7 +189,7 @@ const PapersTable = ({
                                 setToDate("");
                                 onPageChange(1);
                             }}
-                            className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                            className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
                         >
                             ล้างตัวกรอง
                         </button>
@@ -362,101 +368,112 @@ const ActionButtons = ({
     }, [isOpen]);
 
     return (
-        <div className="relative" ref={dropdownRef}>
-            {/* Three dots vertical icon button */}
-            <button
-                onClick={() => setIsOpen(!isOpen)}
-                className="inline-flex items-center justify-center p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                aria-label="เมนูการดำเนินการ"
-            >
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
-                </svg>
-            </button>
-
-            {/* Dropdown menu */}
-            {isOpen && (
-                <div className="absolute right-0 mt-2 w-56 rounded-lg shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50">
-                    <div className="py-1" role="menu" aria-orientation="vertical">
-                        <button
-                            onClick={() => {
-                                onViewHistory(patient);
-                                setIsOpen(false);
-                            }}
-                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
-                            role="menuitem"
-                        >
-                            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
-                            ดูประวัติ
-                        </button>
-                        <Link
-                            href={`/pages/papers/edit/${patient.id}`}
-                            onClick={() => setIsOpen(false)}
-                            className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
-                            role="menuitem"
-                        >
-                            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                            </svg>
-                            แก้ไขข้อมูลส่วนตัว
-                        </Link>
-                        <button
-                            onClick={() => {
-                                onEdit(patient);
-                                setIsOpen(false);
-                            }}
-                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
-                            role="menuitem"
-                        >
-                            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z" />
-                            </svg>
-                            เพิ่ม/แก้ไข
-                        </button>
-                        <Link
-                            href={`/pages/papers/assessment?patient_thaiid=${patient.thaiid}`}
-                            onClick={() => setIsOpen(false)}
-                            className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
-                            role="menuitem"
-                        >
-                            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-                            </svg>
-                            เริ่มทำแบบทดสอบ
-                        </Link>
-                        <button
-                            onClick={() => {
-                                window.open(`/api/generate-pdf?thaiid=${patient.thaiid}`, "_blank");
-                                setIsOpen(false);
-                            }}
-                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
-                            role="menuitem"
-                        >
-                            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                            </svg>
-                            พิมพ์เอกสาร
-                        </button>
-                        <div className="border-t border-gray-100 my-1"></div>
-                        <button
-                            onClick={() => {
-                                onDelete(patient.id, `${patient.first_name} ${patient.last_name}`);
-                                setIsOpen(false);
-                            }}
-                            className="w-full text-left px-4 py-2 text-sm text-red-700 hover:bg-red-50 flex items-center"
-                            role="menuitem"
-                        >
-                            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                            ลบข้อมูล
-                        </button>
-                    </div>
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <div className="relative" ref={dropdownRef}>
+                    {/* Three dots vertical icon button */}
+                    <button
+                        onClick={() => setIsOpen(!isOpen)}
+                        className="inline-flex items-center justify-center p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer duration-350"
+                        aria-label="เมนูการดำเนินการ"
+                    >
+                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+                        </svg>
+                    </button>
                 </div>
-            )}
-        </div>
+            </DropdownMenuTrigger>
+
+            <DropdownMenuContent>
+                <DropdownMenuItem>
+                    <button
+                        onClick={() => {
+                            onViewHistory(patient);
+                            setIsOpen(false);
+                        }}
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center cursor-pointer"
+                        role="menuitem"
+                    >
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        ดูประวัติ
+                    </button>
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                    <Link
+                        href={`/pages/papers/edit/${patient.id}`}
+                        onClick={() => setIsOpen(false)}
+                        className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center cursor-pointer"
+                        role="menuitem"
+                    >
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                        แก้ไขข้อมูลส่วนตัว
+                    </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                    <button
+                        onClick={() => {
+                            onEdit(patient);
+                            setIsOpen(false);
+                        }}
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center cursor-pointer"
+                        role="menuitem"
+                    >
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2V5a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                        </svg>
+                        แก้ไขข้อมูลส่วนตัว
+                    </button>
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                    <Link
+                        href={`/pages/papers/assessment?patient_thaiid=${patient.thaiid}`}
+                        onClick={() => setIsOpen(false)}
+                        className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                        role="menuitem"
+                    >
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V5a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                        </svg>
+                        เริ่มทำแบบทดสอบ
+                    </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                    <button
+                        onClick={() => {
+                            window.open(`/api/generate-pdf?thaiid=${patient.thaiid}`, "_blank");
+                            setIsOpen(false);
+                        }}
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center cursor-pointer"
+                        role="menuitem"
+                    >
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4h10z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18V5a2 2 0 00-2-2H4a2 2 0 00-2 2v4h2m2-4h4v-6h2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 002-2 2h-2z" />
+                        </svg>
+                        พิมพ์เอกสาร
+                    </button>
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                    <button
+                        onClick={() => {
+                            onDelete(patient.id, `${patient.first_name} ${patient.last_name}`);
+                            setIsOpen(false);
+                        }}
+                        className="w-full text-left px-4 py-2 text-sm text-red-700 hover:bg-red-50 flex items-center cursor-pointer"
+                        role="menuitem"
+                    >
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                        ลบข้อมูล
+                    </button>
+                </DropdownMenuItem>
+            </DropdownMenuContent>
+        </DropdownMenu>
     );
 };
 

@@ -195,7 +195,7 @@ export default function PapersPage() {
                   Check-In (ผู้ป่วยใหม่)
                 </Link>
               </Button>
-              <Button variant="destructive" size="lg" className="gap-2" onClick={handleLogout}>
+              <Button variant="destructive" size="lg" className="gap-2 cursor-pointer" onClick={handleLogout}>
                 <LogOut className="h-4 w-4" />
                 ออกจากระบบ
               </Button>

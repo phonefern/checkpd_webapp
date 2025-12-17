@@ -7,7 +7,7 @@ import { Session } from "@supabase/supabase-js";
 import AuthRedirect from "@/components/AuthRedirect";
 import {
   Users,
-  // DocumentText,
+  FileText,
   CalendarDays,
   ArrowRight,
   UserCircle,
@@ -53,7 +53,7 @@ export default function Dashboard() {
     {
       title: "Data Sheets Management",
       subtitle: "บันทึกและตรวจสอบแบบประเมินผู้ป่วย",
-      // icon: DocumentText,
+      icon: FileText,
       color: "emerald",
       path: "/pages/papers",
     }
@@ -313,7 +313,7 @@ export default function Dashboard() {
                         : "bg-purple-100 text-purple-700"
                     }`}
                   >
-                    {/* <item.icon className="w-8 h-8" /> */}
+                    <item.icon className="w-8 h-8" />
                   </div>
                   <ArrowRight className="w-6 h-6 text-gray-400 group-hover:text-blue-600 transition" />
                 </div>
