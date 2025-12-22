@@ -109,7 +109,7 @@ export default function SearchFilters({
               setSearchProvince(e.target.value)
               setCurrentPage(1)
             }}
-            className="w-full border border-gray-300 p-2 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full border border-gray-300 p-2 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer"
           >
             {provinceOptions.map((option) => (
               <option key={option.value} value={option.value}>
@@ -127,7 +127,7 @@ export default function SearchFilters({
               setSearchCondition(e.target.value)
               setCurrentPage(1)
             }}
-            className="w-full border border-gray-300 p-2 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full border border-gray-300 p-2 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer"
           >
             {conditionOptions.map((option) => (
               <option key={option.value} value={option.value}>
@@ -145,7 +145,7 @@ export default function SearchFilters({
               setSearchRisk(e.target.value)
               setCurrentPage(1)
             }}
-            className="w-full border border-gray-300 p-2 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full border border-gray-300 p-2 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer"
           >
             <option value="">All Risk Levels</option>
             {riskOptions.map((option) => (
@@ -164,7 +164,7 @@ export default function SearchFilters({
               setSearchOther(e.target.value)
               setCurrentPage(1)
             }}
-            className="w-full border border-gray-300 p-2 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full border border-gray-300 p-2 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer"
           >
             <option value="">All Others</option>
             {otherOptions.map((option) => (
@@ -183,7 +183,7 @@ export default function SearchFilters({
               setSearchArea(e.target.value)
               setCurrentPage(1)
             }}
-            className="w-full border border-gray-300 p-2 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full border border-gray-300 p-2 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer"
           >
             <option value="">All Areas</option>
             {areaOptions.map((option) => (
@@ -200,7 +200,7 @@ export default function SearchFilters({
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
-                className={cn("w-full justify-start text-left font-normal", !startDateObj && "text-muted-foreground")}
+                className={cn("w-full justify-start text-left font-normal cursor-pointer", !startDateObj && "text-muted-foreground")}
               >
                 <CalendarIcon className="mr-2 h-4 w-4" />
                 {startDateObj ? format(startDateObj, "PPP") : <span>Pick a date</span>}
@@ -226,7 +226,7 @@ export default function SearchFilters({
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
-                className={cn("w-full justify-start text-left font-normal", !endDateObj && "text-muted-foreground")}
+                className={cn("w-full justify-start text-left font-normal cursor-pointer", !endDateObj && "text-muted-foreground")}
               >
                 <CalendarIcon className="mr-2 h-4 w-4" />
                 {endDateObj ? format(endDateObj, "PPP") : <span>Pick a date</span>}
@@ -255,23 +255,23 @@ export default function SearchFilters({
         </p>
         <div className="flex gap-2">
           <a href="/pages/records">
-            <button className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500">
+            <button className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 cursor-pointer">
               View All Records
             </button>
           </a>
           <a href="/pages/export">
-            <button className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500">
+            <button className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 cursor-pointer">
               Export Data
             </button>
           </a>
           <a href="/pages/storage">
-            <button className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500">
+            <button className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 cursor-pointer">
               Storage
             </button>
           </a>
           <button
             onClick={fetchUsers}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
           >
             Refresh Data
           </button>
