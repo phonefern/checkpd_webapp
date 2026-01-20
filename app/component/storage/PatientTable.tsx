@@ -2,7 +2,6 @@
 
 import React, { useState } from 'react'
 import PatientRow from './PatientRow'
-// import PatientTableCard from './PatientTableCard'
 import PatientTableHeader from './PatientTableHeader'
 import RecordDropdown from './RecordDropdown'
 
@@ -174,21 +173,6 @@ export default function PatientTable(props: Props) {
           </tbody>
         </table>
       </div>
-
-      {/* ===== Mobile Card (< lg) =====
-      <div className="block lg:hidden p-4">
-        <PatientTableCard
-          data={data}
-          page={page}
-          pageSize={pageSize}
-          selectedDatasets={selectedDatasets}
-          selectAll={selectAll}
-          onToggleSelect={onToggleSelect}
-          sawKeys={sawKeys}
-          onSaw={onSaw}
-          selectedTests={selectedTests}
-        />
-      </div> */}
 
       {/* ===== Pagination ===== */}
       <div className="flex items-center justify-between px-6 py-4 border-t">
