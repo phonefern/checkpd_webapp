@@ -135,10 +135,16 @@ export async function GET(req: Request) {
       return Response.json({ error: "no records found" }, { status: 404 })
     }
 
+    console.log(`Found ${records.length} records`)
+
     /* ================= Build File Metadata ================= */
 
     const bucket = process.env.STORAGE_BUCKET ?? "checkpd"
     const today = new Date().toISOString().slice(0, 10)
+    const selectedTestsArray = selected_tests || []
+
+    console.log(`Selected tests:`, selectedTestsArray)
+    console.log(`Sort by: ${sort_by}`)
 
     interface FileMetadata {
       key: string
@@ -160,15 +166,23 @@ export async function GET(req: Request) {
           const conditionFolder = rec.condition ?? "unknown"
           const prefix = `${rec.id}/${rec.record_id}/`
 
+          console.log(`Listing objects with prefix: ${prefix}`)
+
           const objects = await listAllObjects({
             Bucket: bucket,
             Prefix: prefix,
           })
 
+          console.log(`Found ${objects.length} objects for ${rec.id}/${rec.record_id}`)
+
           for (const obj of objects) {
             if (!obj.Key) continue
             const relative = obj.Key.replace(prefix, "")
-            if (!matchTest(relative, selected_tests)) continue
+            
+            if (!matchTest(relative, selectedTestsArray)) {
+              console.log(`Skipping ${relative} - doesn't match selected tests`)
+              continue
+            }
 
             const zipPath = `${today}/${conditionFolder}/${rec.id}/${rec.record_id}/${relative}`
             const downloadUrl = `/api/storage/download-file?key=${encodeURIComponent(obj.Key)}`
@@ -198,18 +212,29 @@ export async function GET(req: Request) {
           const conditionFolder = rec.condition ?? "unknown"
           const prefix = `${rec.id}/${rec.record_id}/`
 
+          console.log(`Listing objects with prefix: ${prefix}`)
+
           const objects = await listAllObjects({
             Bucket: bucket,
             Prefix: prefix,
           })
+
+          console.log(`Found ${objects.length} objects for ${rec.id}/${rec.record_id}`)
 
           for (const obj of objects) {
             if (!obj.Key) continue
             const relative = obj.Key.replace(prefix, "")
             const testType = extractTestType(relative)
 
-            if (!testType) continue
-            if (selected_tests.length && !selected_tests.includes(testType)) continue
+            if (!testType) {
+              console.log(`No test type found for ${relative}`)
+              continue
+            }
+            
+            if (selectedTestsArray.length && !selectedTestsArray.includes(testType)) {
+              console.log(`Skipping ${relative} - test type ${testType} not in selected tests`)
+              continue
+            }
 
             const zipPath = `${today}/${testType}/${conditionFolder}/${rec.id}_${relative}`
             const downloadUrl = `/api/storage/download-file?key=${encodeURIComponent(obj.Key)}`
@@ -229,6 +254,21 @@ export async function GET(req: Request) {
     }
 
     /* ================= Response ================= */
+
+    console.log(`Total files found: ${files.length}`)
+
+    if (files.length === 0) {
+      return Response.json(
+        {
+          success: false,
+          error: "No files found matching criteria",
+          records_found: records.length,
+          sort_by,
+          date: today,
+        },
+        { status: 404 }
+      )
+    }
 
     return Response.json({
       success: true,
