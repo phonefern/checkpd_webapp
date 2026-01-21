@@ -55,7 +55,7 @@ export default function RecordFileDropdown({
       </div>
 
       {loading && (
-        <div className="text-sm text-gray-400">กำลังโหลดไฟล์...</div>
+        <div className="text-sm text-gray-400">Dowloading...</div>
       )}
 
       {!loading && files.length === 0 && (
