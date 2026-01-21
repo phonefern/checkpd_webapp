@@ -1,33 +1,73 @@
-// /app/api/storage/download-file/route.ts
+// app/api/storage/download-file/route.ts
+// Serves individual files from S3 storage
 
-import { s3 } from '@/lib/s3'
-import { GetObjectCommand } from '@aws-sdk/client-s3'
+import { s3 } from "@/lib/s3"
+import { GetObjectCommand } from "@aws-sdk/client-s3"
 
 export async function GET(req: Request) {
-    const { searchParams } = new URL(req.url)
-    const userId = searchParams.get('user_id')
-    const recordId = searchParams.get('record_id')
-    const filename = searchParams.get('file')
+  const { searchParams } = new URL(req.url)
+  const key = searchParams.get("key")
 
-    if (!userId || !recordId || !filename) {
-        return Response.json({ error: 'missing params' }, { status: 400 })
-    }
+  if (!key) {
+    return Response.json({ error: "missing key parameter" }, { status: 400 })
+  }
 
-    const key = `${userId}/${recordId}/${filename}`
+  const bucket = process.env.STORAGE_BUCKET ?? "checkpd"
 
+  try {
     const res = await s3.send(
-        new GetObjectCommand({
-            Bucket: 'checkpd',
-            Key: key,
-        })
+      new GetObjectCommand({
+        Bucket: bucket,
+        Key: key,
+      })
     )
 
-    const buffer = Buffer.from(await res.Body!.transformToByteArray())
+    const body = res.Body as any
 
-    return new Response(buffer, {
-        headers: {
-            'Content-Type': 'application/octet-stream',
-            'Content-Disposition': `attachment; filename="${userId}_${filename}"`,
-        },
+    let arrayBuffer: ArrayBuffer
+    if (typeof body.arrayBuffer === "function") {
+      arrayBuffer = await body.arrayBuffer()
+    } else {
+      // Fallback for stream-based body
+      const chunks: Uint8Array[] = []
+      for await (const chunk of body) {
+        chunks.push(chunk)
+      }
+      const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0)
+      arrayBuffer = new ArrayBuffer(totalLength)
+      const view = new Uint8Array(arrayBuffer)
+      let offset = 0
+      for (const chunk of chunks) {
+        view.set(chunk, offset)
+        offset += chunk.length
+      }
+    }
+
+    // Extract filename from key
+    const filename = key.split("/").pop() ?? "file"
+
+    // Determine content type based on file extension
+    let contentType = "application/octet-stream"
+    if (filename.endsWith(".wav")) {
+      contentType = "audio/wav"
+    } else if (filename.endsWith(".json")) {
+      contentType = "application/json"
+    } else if (filename.endsWith(".csv")) {
+      contentType = "text/csv"
+    }
+
+    return new Response(arrayBuffer, {
+      headers: {
+        "Content-Type": contentType,
+        "Content-Disposition": `attachment; filename="${filename}"`,
+        "Cache-Control": "public, max-age=3600",
+      },
     })
+  } catch (error: any) {
+    console.error("Error downloading file:", error)
+    return Response.json(
+      { error: error.message || "Failed to download file" },
+      { status: 500 }
+    )
+  }
 }

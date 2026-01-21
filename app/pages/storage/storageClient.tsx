@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import JSZip from 'jszip'
 import SearchFilters from '@/app/component/storage/SearchFilters'
 import SummarySection from '@/app/component/storage/SummarySection'
 import PatientTable from '@/app/component/storage/PatientTable'
@@ -20,6 +21,8 @@ export default function StorageClient() {
   const [data, setData] = useState<any[]>([])
   const [totalFilteredCount, setTotalFilteredCount] = useState(0)
   const [totalAllCount, setTotalAllCount] = useState(0)
+  const [downloading, setDownloading] = useState(false)
+  const [downloadProgress, setDownloadProgress] = useState({ current: 0, total: 0 })
 
   /* ================= Selection ================= */
 
@@ -54,41 +57,133 @@ export default function StorageClient() {
 
   /* ================= Download ================= */
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     if (!selectAllPages && selectedDatasets.length === 0) return
+    if (downloading) return
 
-    const payload = selectAllPages
-      ? {
-        select_all: true,
-        sort_by: sortBy,
-        selected_tests: selectedTest,
-        condition,
-        filters: {
-          search,
-          area,
-          risk,
-          testStatus,
-          startDate,
-          endDate,
-          lastMigrated,
-        },
+    setDownloading(true)
+    setDownloadProgress({ current: 0, total: 0 })
+
+    try {
+      // 1. Fetch metadata from server
+      const payload = selectAllPages
+        ? {
+            select_all: true,
+            sort_by: sortBy,
+            selected_tests: selectedTest,
+            condition,
+            filters: {
+              search,
+              area,
+              risk,
+              testStatus,
+              startDate,
+              endDate,
+              lastMigrated,
+            },
+          }
+        : {
+            select_all: false,
+            sort_by: sortBy,
+            selected_tests: selectedTest,
+            condition,
+            items: selectedDatasets.map(d => ({
+              user_id: d.patientId,
+              record_id: d.recordId,
+            })),
+          }
+
+      const metadataUrl = `/api/storage/download-zip-multi?data=${encodeURIComponent(
+        JSON.stringify(payload)
+      )}`
+
+      const metadataRes = await fetch(metadataUrl)
+      if (!metadataRes.ok) {
+        throw new Error(`Failed to fetch metadata: ${metadataRes.statusText}`)
       }
-      : {
-        select_all: false,
-        sort_by: sortBy,
-        selected_tests: selectedTest,
-        condition,
-        items: selectedDatasets.map(d => ({
-          user_id: d.patientId,
-          record_id: d.recordId,
-        })),
+
+      const metadata = await metadataRes.json()
+      if (!metadata.success || !metadata.files || metadata.files.length === 0) {
+        throw new Error('No files to download')
       }
 
-    const url = `/api/storage/download-zip-multi?data=${encodeURIComponent(
-      JSON.stringify(payload)
-    )}`
+      const { files, sort_by: serverSortBy, date } = metadata
+      setDownloadProgress({ current: 0, total: files.length })
 
-    window.open(url, '_blank')
+      // 2. Initialize JSZip
+      const zip = new JSZip()
+
+      // 3. Download all files independently with Promise.allSettled
+      const downloadPromises = files.map(async (fileInfo: any, index: number) => {
+        try {
+          const response = await fetch(fileInfo.downloadUrl)
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+          }
+
+          const blob = await response.blob()
+          
+          // Create folder structure based on zipPath
+          const pathParts = fileInfo.zipPath.split('/')
+          let currentFolder = zip
+          
+          // Create all folders except the last part (filename)
+          // JSZip's folder() method returns existing folder or creates new one
+          for (let i = 0; i < pathParts.length - 1; i++) {
+            const folderName = pathParts[i]
+            const folder = currentFolder.folder(folderName)
+            if (!folder) {
+              throw new Error(`Failed to create folder: ${folderName}`)
+            }
+            currentFolder = folder
+          }
+
+          // Add file to the appropriate folder
+          currentFolder.file(pathParts[pathParts.length - 1], blob)
+
+          setDownloadProgress(prev => ({ ...prev, current: prev.current + 1 }))
+          return { success: true, filename: fileInfo.filename }
+        } catch (error: any) {
+          console.error(`Failed to download ${fileInfo.filename}:`, error)
+          setDownloadProgress(prev => ({ ...prev, current: prev.current + 1 }))
+          return { success: false, filename: fileInfo.filename, error: error.message }
+        }
+      })
+
+      const results = await Promise.allSettled(downloadPromises)
+      
+      // Log results
+      const successful = results.filter(r => r.status === 'fulfilled' && r.value.success)
+      const failed = results.filter(r => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.success))
+      
+      console.log(`✅ Successfully downloaded ${successful.length} files`)
+      if (failed.length > 0) {
+        console.warn(`⚠️ Failed to download ${failed.length} files`)
+      }
+
+      // 4. Generate ZIP file
+      const zipBlob = await zip.generateAsync({ type: 'blob' })
+
+      // 5. Download ZIP
+      const url = URL.createObjectURL(zipBlob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `By${serverSortBy}_${date}.zip`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+
+      if (failed.length > 0) {
+        alert(`Downloaded ${successful.length} files. ${failed.length} files failed to download. Check console for details.`)
+      }
+    } catch (error: any) {
+      console.error('Download error:', error)
+      alert(`Failed to download: ${error.message}`)
+    } finally {
+      setDownloading(false)
+      setDownloadProgress({ current: 0, total: 0 })
+    }
   }
 
   /* ================= Saw (row expand) ================= */
@@ -252,6 +347,8 @@ export default function StorageClient() {
         onDownload={handleDownload}
         sortBy={sortBy}
         setSortBy={setSortBy}
+        downloading={downloading}
+        downloadProgress={downloadProgress}
       />
 
       <PatientTable
