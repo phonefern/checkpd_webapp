@@ -12,12 +12,20 @@ if (!process.env.SUPABASE_S3_KEY_SECRET) {
   console.error("⚠️ SUPABASE_S3_KEY_SECRET is not set")
 }
 
+function must(name: string): string {
+  const v = process.env[name]
+  if (!v || v.trim() === "") {
+    throw new Error(`Missing or empty env: ${name}`)
+  }
+  return v
+}
+
 export const s3 = new S3Client({
   region: "ap-southeast-1",
-  endpoint: process.env.SUPABASE_S3_ENDPOINT, // https://xxxx.supabase.co/storage/v1/s3
-  forcePathStyle: true, // Required for Supabase Storage S3 API
+  endpoint: must("SUPABASE_S3_ENDPOINT"),
+  forcePathStyle: true,
   credentials: {
-    accessKeyId: process.env.SUPABASE_S3_KEY_ID!,
-    secretAccessKey: process.env.SUPABASE_S3_KEY_SECRET!,
+    accessKeyId: must("SUPABASE_S3_KEY_ID"),
+    secretAccessKey: must("SUPABASE_S3_KEY_SECRET"),
   },
 })

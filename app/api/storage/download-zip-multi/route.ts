@@ -3,6 +3,8 @@
 import { supabaseServer } from "@/lib/supabase-server"
 import { s3 } from "@/lib/s3"
 import { ListObjectsV2Command } from "@aws-sdk/client-s3"
+export const runtime = "nodejs"
+
 
 /* ================= Types ================= */
 
