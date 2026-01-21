@@ -166,14 +166,24 @@ export async function GET(req: Request) {
           const conditionFolder = rec.condition ?? "unknown"
           const prefix = `${rec.id}/${rec.record_id}/`
 
-          console.log(`Listing objects with prefix: ${prefix}`)
+          console.log(`Listing objects with prefix: ${prefix} in bucket: ${bucket}`)
 
-          const objects = await listAllObjects({
-            Bucket: bucket,
-            Prefix: prefix,
-          })
-
-          console.log(`Found ${objects.length} objects for ${rec.id}/${rec.record_id}`)
+          let objects: any[] = []
+          try {
+            objects = await listAllObjects({
+              Bucket: bucket,
+              Prefix: prefix,
+            })
+            console.log(`Found ${objects.length} objects for ${rec.id}/${rec.record_id}`)
+          } catch (s3Error: any) {
+            console.error(`S3 error for ${rec.id}/${rec.record_id}:`, {
+              message: s3Error.message,
+              code: s3Error.Code,
+              name: s3Error.name,
+            })
+            // Continue to next record instead of throwing
+            continue
+          }
 
           for (const obj of objects) {
             if (!obj.Key) continue
@@ -212,14 +222,24 @@ export async function GET(req: Request) {
           const conditionFolder = rec.condition ?? "unknown"
           const prefix = `${rec.id}/${rec.record_id}/`
 
-          console.log(`Listing objects with prefix: ${prefix}`)
+          console.log(`Listing objects with prefix: ${prefix} in bucket: ${bucket}`)
 
-          const objects = await listAllObjects({
-            Bucket: bucket,
-            Prefix: prefix,
-          })
-
-          console.log(`Found ${objects.length} objects for ${rec.id}/${rec.record_id}`)
+          let objects: any[] = []
+          try {
+            objects = await listAllObjects({
+              Bucket: bucket,
+              Prefix: prefix,
+            })
+            console.log(`Found ${objects.length} objects for ${rec.id}/${rec.record_id}`)
+          } catch (s3Error: any) {
+            console.error(`S3 error for ${rec.id}/${rec.record_id}:`, {
+              message: s3Error.message,
+              code: s3Error.Code,
+              name: s3Error.name,
+            })
+            // Continue to next record instead of throwing
+            continue
+          }
 
           for (const obj of objects) {
             if (!obj.Key) continue
@@ -295,6 +315,14 @@ async function listAllObjects(input: any) {
   let token: string | undefined
 
   try {
+    console.log(`S3 ListObjectsV2Command:`, {
+      Bucket: input.Bucket,
+      Prefix: input.Prefix,
+      endpoint: process.env.SUPABASE_S3_ENDPOINT,
+      hasKeyId: !!process.env.SUPABASE_S3_KEY_ID,
+      hasKeySecret: !!process.env.SUPABASE_S3_KEY_SECRET,
+    })
+
     do {
       const res = await s3.send(
         new ListObjectsV2Command({
@@ -303,11 +331,24 @@ async function listAllObjects(input: any) {
         })
       )
 
+      console.log(`S3 response for prefix ${input.Prefix}:`, {
+        keyCount: res.KeyCount,
+        isTruncated: res.IsTruncated,
+        contentsLength: res.Contents?.length ?? 0,
+      })
+
       all.push(...(res.Contents ?? []))
       token = res.IsTruncated ? res.NextContinuationToken : undefined
     } while (token)
   } catch (error: any) {
-    console.error(`Error listing objects with prefix ${input.Prefix}:`, error)
+    console.error(`Error listing objects with prefix ${input.Prefix}:`, {
+      error: error.message,
+      code: error.Code,
+      name: error.name,
+      stack: error.stack,
+      Bucket: input.Bucket,
+      Prefix: input.Prefix,
+    })
     throw error
   }
 
