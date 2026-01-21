@@ -103,8 +103,13 @@ export default function StorageClient() {
       }
 
       const metadata = await metadataRes.json()
-      if (!metadata.success || !metadata.files || metadata.files.length === 0) {
-        throw new Error('No files to download')
+      
+      if (!metadata.success) {
+        throw new Error(metadata.error || 'Failed to fetch file metadata')
+      }
+      
+      if (!metadata.files || metadata.files.length === 0) {
+        throw new Error(metadata.error || 'No files to download')
       }
 
       const { files, sort_by: serverSortBy, date } = metadata
@@ -316,7 +321,7 @@ export default function StorageClient() {
   /* ================= Render ================= */
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
       <SearchFilters
         search={search}
         setSearch={setSearch}
