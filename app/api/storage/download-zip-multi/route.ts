@@ -1,11 +1,8 @@
 // app/api/storage/download-zip-multi/route.ts
-import JSZip from "jszip"
+// Returns metadata for files to be downloaded and zipped client-side
 import { supabaseServer } from "@/lib/supabase-server"
 import { s3 } from "@/lib/s3"
-import {
-  ListObjectsV2Command,
-  GetObjectCommand,
-} from "@aws-sdk/client-s3"
+import { ListObjectsV2Command } from "@aws-sdk/client-s3"
 
 /* ================= Types ================= */
 
@@ -130,11 +127,19 @@ export async function GET(req: Request) {
     return Response.json({ error: "no records found" }, { status: 404 })
   }
 
-  /* ================= ZIP Prepare ================= */
+  /* ================= Build File Metadata ================= */
 
   const bucket = process.env.STORAGE_BUCKET ?? "checkpd"
-  const zip = new JSZip()
   const today = new Date().toISOString().slice(0, 10)
+
+  interface FileMetadata {
+    key: string
+    filename: string
+    zipPath: string
+    downloadUrl: string
+  }
+
+  const files: FileMetadata[] = []
 
   /* =========================================================
      MODE 1: SORT BY ID
@@ -156,14 +161,15 @@ export async function GET(req: Request) {
         const relative = obj.Key.replace(prefix, "")
         if (!matchTest(relative, selected_tests)) continue
 
-        const file = await getFile(bucket, obj.Key)
+        const zipPath = `${today}/${conditionFolder}/${rec.id}/${rec.record_id}/${relative}`
+        const downloadUrl = `/api/storage/download-file?key=${encodeURIComponent(obj.Key)}`
 
-        zip
-          .folder(today)!
-          .folder(conditionFolder)!
-          .folder(rec.id)!
-          .folder(rec.record_id)!
-          .file(relative, file)
+        files.push({
+          key: obj.Key,
+          filename: relative,
+          zipPath,
+          downloadUrl,
+        })
       }
     }
   }
@@ -191,26 +197,27 @@ export async function GET(req: Request) {
         if (!testType) continue
         if (selected_tests.length && !selected_tests.includes(testType)) continue
 
-        const file = await getFile(bucket, obj.Key)
+        const zipPath = `${today}/${testType}/${conditionFolder}/${rec.id}_${relative}`
+        const downloadUrl = `/api/storage/download-file?key=${encodeURIComponent(obj.Key)}`
 
-        zip
-          .folder(today)!
-          .folder(testType)!
-          .folder(conditionFolder)!
-          .file(`${rec.id}_${relative}`, file)
+        files.push({
+          key: obj.Key,
+          filename: relative,
+          zipPath,
+          downloadUrl,
+        })
       }
     }
   }
 
   /* ================= Response ================= */
 
-  const buffer = await zip.generateAsync({ type: "uint8array" })
-
-  return new Response(Buffer.from(buffer), {
-    headers: {
-      "Content-Type": "application/zip",
-      "Content-Disposition": `attachment; filename="By${sort_by}_${today}.zip"`,
-    },
+  return Response.json({
+    success: true,
+    sort_by,
+    date: today,
+    total_files: files.length,
+    files,
   })
 }
 
@@ -233,28 +240,6 @@ async function listAllObjects(input: any) {
   } while (token)
 
   return all
-}
-
-async function getFile(bucket: string, key: string): Promise<Buffer> {
-  const res = await s3.send(
-    new GetObjectCommand({
-      Bucket: bucket,
-      Key: key,
-    })
-  )
-
-  const body = res.Body as any
-
-  if (typeof body.arrayBuffer === "function") {
-    return Buffer.from(await body.arrayBuffer())
-  }
-
-  return new Promise((resolve, reject) => {
-    const chunks: Buffer[] = []
-    body.on("data", (c: Buffer) => chunks.push(c))
-    body.on("end", () => resolve(Buffer.concat(chunks)))
-    body.on("error", reject)
-  })
 }
 
 /* ================= Test helpers ================= */

@@ -8,7 +8,9 @@ export default function SummarySection({
   filteredCount,
   onDownload,
   sortBy,
-  setSortBy
+  setSortBy,
+  downloading = false,
+  downloadProgress
 }: SummaryProps) {
   return (
     <div className="mt-6 flex flex-col lg:flex-row gap-4 items-stretch">
@@ -60,7 +62,7 @@ export default function SummarySection({
 
       {/* ===== Right box : Download ===== */}
       <button
-        disabled={selectedCount === 0}
+        disabled={selectedCount === 0 || downloading}
         onClick={onDownload}
         className="
           p-4 min-w-[220px]
@@ -73,8 +75,20 @@ export default function SummarySection({
       >
         <FolderDown size={36} strokeWidth={1.8} />
         <span className="text-sm mt-2 font-medium">
-          Download {selectedCount} Patients
+          {downloading
+            ? downloadProgress && downloadProgress.total > 0
+              ? `Downloading ${downloadProgress.current}/${downloadProgress.total}`
+              : 'Preparing download...'
+            : `Download ${selectedCount} Patients`}
         </span>
+        {downloading && downloadProgress && downloadProgress.total > 0 && (
+          <div className="w-full mt-2 bg-purple-700 rounded-full h-2">
+            <div
+              className="bg-white h-2 rounded-full transition-all duration-300"
+              style={{ width: `${(downloadProgress.current / downloadProgress.total) * 100}%` }}
+            />
+          </div>
+        )}
       </button>
     </div>
   )

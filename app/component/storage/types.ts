@@ -99,6 +99,8 @@ export interface SummaryProps {
   onDownload: () => void
   sortBy: 'ID' | 'TEST'
   setSortBy: (v: 'ID' | 'TEST') => void
+  downloading?: boolean
+  downloadProgress?: { current: number; total: number }
 }
 
 /* =========================
