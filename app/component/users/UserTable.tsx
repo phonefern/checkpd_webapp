@@ -221,7 +221,7 @@ export default function UserTable({
                   ) : (
                     <div className="flex items-center justify-end gap-2">
                       {user.thaiid && hasScreeningThaiId(user.thaiid) && (
-                        <Button size="sm" variant="outline" onClick={() => onViewDetail(user)}>
+                        <Button size="sm" variant="outline" onClick={() => onViewDetail(user)} className="cursor-pointer">
                           <Eye className="mr-1 h-4 w-4" />
                           Detail
                         </Button>
@@ -230,7 +230,7 @@ export default function UserTable({
                         size="sm"
                         variant="outline"
                         onClick={() => setEditingId(user.id)}
-                        className="border-blue-600 text-blue-700 hover:bg-blue-50 dark:border-blue-400 dark:text-blue-400 dark:hover:bg-blue-950"
+                        className="border-blue-600 text-blue-700 hover:bg-blue-50 dark:border-blue-400 dark:text-blue-400 dark:hover:bg-blue-950 cursor-pointer"
                       >
                         <Pencil className="mr-1 h-4 w-4" />
                         Edit
@@ -239,7 +239,7 @@ export default function UserTable({
                         size="sm"
                         variant="outline"
                         onClick={() => window.open(`/api/pdf/${user.id}?record_id=${user.record_id}`, "_blank")}
-                        className="border-violet-600 text-violet-700 hover:bg-violet-50 dark:border-violet-400 dark:text-violet-400 dark:hover:bg-violet-950"
+                        className="border-violet-600 text-violet-700 hover:bg-violet-50 dark:border-violet-400 dark:text-violet-400 dark:hover:bg-violet-950 cursor-pointer"
                       >
                         <Printer className="mr-1 h-4 w-4" />
                         Print

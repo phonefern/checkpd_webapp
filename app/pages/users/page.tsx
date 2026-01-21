@@ -266,7 +266,7 @@ export default function UsersClientPage() {
         <h1 className="text-3xl font-semibold mb-4 text-gray-900">
           Patient Data Management System
         </h1>
-        <Button variant="destructive" size="lg" className="gap-2" onClick={handleLogout}>
+        <Button variant="destructive" size="lg" className="gap-2 cursor-pointer" onClick={handleLogout}>
           <LogOut className="h-4 w-4" />
           ออกจากระบบ
         </Button>
