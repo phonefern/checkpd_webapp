@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import {
   collection,
+  collectionGroup,
   onSnapshot,
   query,
   where,
@@ -13,10 +14,13 @@ import type { DateRange } from 'react-day-picker'
 import {
   Download,
   Users,
-  FileText,
   Activity,
   TrendingUp,
   Clock,
+  UserCheck,
+  CircleUser,
+  ShieldAlert,
+  ShieldCheck,
 } from 'lucide-react'
 
 import { DateRangePicker } from '@/components/ui/date-range-picker'
@@ -27,10 +31,15 @@ import { Badge } from '@/components/ui/badge'
 
 export default function TrackingPage() {
   const [userCount, setUserCount] = useState(0)
+  const [maleCount, setMaleCount] = useState(0)
+  const [femaleCount, setFemaleCount] = useState(0)
   const [tempCount, setTempCount] = useState(0)
+  const [riskCount, setRiskCount] = useState(0)
+  const [normalCount, setNormalCount] = useState(0)
+
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: new Date('2026-01-01'),
-    to: new Date('2026-01-26'),
+    to: new Date('2026-01-27'),
   })
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date())
 
@@ -63,7 +72,18 @@ export default function TrackingPage() {
     )
 
     const unsubUsers = onSnapshot(usersQuery, (snap) => {
+      let male = 0
+      let female = 0
+
+      snap.forEach((doc) => {
+        const gender = doc.data().gender
+        if (gender === 'male') male++
+        if (gender === 'female') female++
+      })
+
       setUserCount(snap.size)
+      setMaleCount(male)
+      setFemaleCount(female)
       setLastUpdated(new Date())
     })
 
@@ -79,9 +99,32 @@ export default function TrackingPage() {
       setLastUpdated(new Date())
     })
 
+    // ===== records (collectionGroup) =====
+    const recordsQuery = query(
+      collectionGroup(db, 'records'),
+      where('timestamp', '>=', startTime),
+      where('timestamp', '<=', endTime)
+    )
+
+    const unsubRecords = onSnapshot(recordsQuery, (snap) => {
+      let risk = 0
+      let normal = 0
+
+      snap.forEach((doc) => {
+        const isRisk = doc.data()?.prediction?.risk
+        if (isRisk === true) risk++
+        if (isRisk === false) normal++
+      })
+
+      setRiskCount(risk)
+      setNormalCount(normal)
+      setLastUpdated(new Date())
+    })
+
     return () => {
       unsubUsers()
       unsubTemps()
+      unsubRecords()
     }
   }, [startTime, endTime])
 
@@ -147,7 +190,56 @@ export default function TrackingPage() {
           </CardContent>
         </Card>
 
-        {/* Stats Grid */}
+        {/* Prediction Cards - Risk & Normal */}
+        <div className="mb-8 grid gap-6 sm:grid-cols-2">
+          <Card className="relative overflow-hidden border-red-500/30 bg-gradient-to-br from-card via-card to-red-500/5">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-muted-foreground">
+                    กลุ่มเสี่ยง
+                  </p>
+                  <AnimatedCounter
+                    value={riskCount}
+                    className="text-5xl font-bold tracking-tight text-red-500"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    พบความเสี่ยงจากการคัดกรอง
+                  </p>
+                </div>
+                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-red-500/10">
+                  <ShieldAlert className="h-7 w-7 text-red-500" />
+                </div>
+              </div>
+            </CardContent>
+            <div className="absolute bottom-0 left-0 right-0 h-1 bg-red-500/50" />
+          </Card>
+
+          <Card className="relative overflow-hidden border-green-500/30 bg-gradient-to-br from-card via-card to-green-500/5">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-muted-foreground">
+                    ปกติ
+                  </p>
+                  <AnimatedCounter
+                    value={normalCount}
+                    className="text-5xl font-bold tracking-tight text-green-500"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    ไม่พบความเสี่ยงจากการคัดกรอง
+                  </p>
+                </div>
+                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-green-500/10">
+                  <ShieldCheck className="h-7 w-7 text-green-500" />
+                </div>
+              </div>
+            </CardContent>
+            <div className="absolute bottom-0 left-0 right-0 h-1 bg-green-500/50" />
+          </Card>
+        </div>
+
+        {/* Stats Grid - Users */}
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           <StatCard
             title="ผู้ใช้งาน (Users)"
@@ -157,10 +249,28 @@ export default function TrackingPage() {
             colorClass="text-primary"
           />
           <StatCard
-            title="ไฟล์ชั่วคราว (Temps)"
+            title="ผู้ชาย"
+            value={maleCount}
+            icon={<CircleUser className="h-6 w-6" />}
+            description="จำนวนผู้ใช้เพศชาย"
+            colorClass="text-chart-1"
+          />
+          <StatCard
+            title="ผู้หญิง"
+            value={femaleCount}
+            icon={<CircleUser className="h-6 w-6" />}
+            description="จำนวนผู้ใช้เพศหญิง"
+            colorClass="text-chart-5"
+          />
+        </div>
+
+        {/* Second Row - Staff & Total */}
+        <div className="mt-6 grid gap-6 sm:grid-cols-2">
+          <StatCard
+            title="ผู้คัดกรอง (Staff)"
             value={tempCount}
-            icon={<FileText className="h-6 w-6" />}
-            description="จำนวนการดาวน์โหลดชั่วคราว"
+            icon={<UserCheck className="h-6 w-6" />}
+            description="จำนวนเจ้าหน้าที่คัดกรอง"
             colorClass="text-accent"
           />
           <StatCard
