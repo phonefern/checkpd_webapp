@@ -71,8 +71,12 @@ export function StatCard({
           'absolute bottom-0 left-0 right-0 h-1 opacity-50',
           colorClass === 'text-primary' && 'bg-primary',
           colorClass === 'text-accent' && 'bg-accent',
+          colorClass === 'text-chart-1' && 'bg-chart-1',
           colorClass === 'text-chart-3' && 'bg-chart-3',
-          colorClass === 'text-chart-4' && 'bg-chart-4'
+          colorClass === 'text-chart-4' && 'bg-chart-4',
+          colorClass === 'text-chart-5' && 'bg-chart-5',
+          colorClass === 'text-red-500' && 'bg-red-500',
+          colorClass === 'text-green-500' && 'bg-green-500'
         )}
       />
     </Card>
