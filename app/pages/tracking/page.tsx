@@ -3,7 +3,6 @@
 import { useEffect, useState, useMemo } from 'react'
 import {
   collection,
-  collectionGroup,
   onSnapshot,
   query,
   where,
@@ -19,8 +18,6 @@ import {
   Clock,
   UserCheck,
   CircleUser,
-  ShieldAlert,
-  ShieldCheck,
 } from 'lucide-react'
 
 import { DateRangePicker } from '@/components/ui/date-range-picker'
@@ -34,8 +31,10 @@ export default function TrackingPage() {
   const [maleCount, setMaleCount] = useState(0)
   const [femaleCount, setFemaleCount] = useState(0)
   const [tempCount, setTempCount] = useState(0)
-  const [riskCount, setRiskCount] = useState(0)
-  const [normalCount, setNormalCount] = useState(0)
+
+  // ❌ ปิด prediction state
+  // const [riskCount, setRiskCount] = useState(0)
+  // const [normalCount, setNormalCount] = useState(0)
 
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: new Date('2026-01-01'),
@@ -43,7 +42,7 @@ export default function TrackingPage() {
   })
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date())
 
-  // สร้าง Timestamp จาก date range
+  // ===== Timestamp จาก date range =====
   const { startTime, endTime } = useMemo(() => {
     if (!dateRange?.from) {
       return { startTime: null, endTime: null }
@@ -52,7 +51,7 @@ export default function TrackingPage() {
     const start = new Date(dateRange.from)
     start.setHours(0, 0, 0, 0)
 
-    const end = dateRange.to ? new Date(dateRange.to) : new Date(dateRange.from)
+    const end = new Date(dateRange.to ?? dateRange.from)
     end.setHours(23, 59, 59, 999)
 
     return {
@@ -99,32 +98,32 @@ export default function TrackingPage() {
       setLastUpdated(new Date())
     })
 
-    // ===== records (collectionGroup) =====
-    const recordsQuery = query(
-      collectionGroup(db, 'records'),
-      where('timestamp', '>=', startTime),
-      where('timestamp', '<=', endTime)
-    )
-
-    const unsubRecords = onSnapshot(recordsQuery, (snap) => {
-      let risk = 0
-      let normal = 0
-
-      snap.forEach((doc) => {
-        const isRisk = doc.data()?.prediction?.risk
-        if (isRisk === true) risk++
-        if (isRisk === false) normal++
-      })
-
-      setRiskCount(risk)
-      setNormalCount(normal)
-      setLastUpdated(new Date())
-    })
+    // ❌ ปิด records / prediction realtime
+    // const recordsQuery = query(
+    //   collectionGroup(db, 'records'),
+    //   where('timestamp', '>=', startTime),
+    //   where('timestamp', '<=', endTime)
+    // )
+    //
+    // const unsubRecords = onSnapshot(recordsQuery, (snap) => {
+    //   let risk = 0
+    //   let normal = 0
+    //
+    //   snap.forEach((doc) => {
+    //     const isRisk = doc.data()?.prediction?.risk
+    //     if (isRisk === true) risk++
+    //     if (isRisk === false) normal++
+    //   })
+    //
+    //   setRiskCount(risk)
+    //   setNormalCount(normal)
+    //   setLastUpdated(new Date())
+    // })
 
     return () => {
       unsubUsers()
       unsubTemps()
-      unsubRecords()
+      // unsubRecords()
     }
   }, [startTime, endTime])
 
@@ -192,7 +191,7 @@ export default function TrackingPage() {
 
         {/* Prediction Cards - Risk & Normal */}
         <div className="mb-8 grid gap-6 sm:grid-cols-2">
-          <Card className="relative overflow-hidden border-red-500/30 bg-gradient-to-br from-card via-card to-red-500/5">
+          {/* <Card className="relative overflow-hidden border-red-500/30 bg-gradient-to-br from-card via-card to-red-500/5">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div className="space-y-1">
@@ -213,9 +212,9 @@ export default function TrackingPage() {
               </div>
             </CardContent>
             <div className="absolute bottom-0 left-0 right-0 h-1 bg-red-500/50" />
-          </Card>
+          </Card> */}
 
-          <Card className="relative overflow-hidden border-green-500/30 bg-gradient-to-br from-card via-card to-green-500/5">
+          {/* <Card className="relative overflow-hidden border-green-500/30 bg-gradient-to-br from-card via-card to-green-500/5">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div className="space-y-1">
@@ -236,7 +235,7 @@ export default function TrackingPage() {
               </div>
             </CardContent>
             <div className="absolute bottom-0 left-0 right-0 h-1 bg-green-500/50" />
-          </Card>
+          </Card> */}
         </div>
 
         {/* Stats Grid - Users */}
