@@ -113,10 +113,10 @@ export function StatCard({
       <CardContent className="p-6">
         <div className="flex items-center justify-between">
           <div className="space-y-1">
-            <p className="text-sm font-medium text-muted-foreground">{title}</p>
+            <p className="text-lg font-medium text-muted-foreground">{title}</p>
             <AnimatedCounter
               value={value}
-              className={cn('text-4xl font-bold text-left tracking-tight', colorClass)}
+              className={cn('text-5xl font-bold text-left tracking-tight', colorClass)}
             />
             {description && (
               <p className="text-xs text-muted-foreground">{description}</p>
