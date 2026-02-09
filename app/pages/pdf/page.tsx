@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
 import { db } from "@/lib/firebaseClient";
 import { UserList } from "@/app/component/pdf/UserList";
@@ -8,8 +9,7 @@ import { RecordsPanel } from "@/app/component/pdf/RecordsPanel";
 import { ExportSection } from "@/app/component/pdf/ExportSection";
 import { PaginationControls } from "@/app/component/pdf/PaginationControls";
 import { UserRow, RecordRow } from "./types";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent } from "@/components/ui/card";
 
 const ITEMS_PER_PAGE = 50;
 
@@ -29,14 +29,35 @@ export default function ExportTestPage() {
 
   // ===== Firebase Listeners =====
   useEffect(() => {
-    const q = query(collection(db, "users"), orderBy("timestamp", "desc"));
+    const usersQuery = query(
+      collection(db, "users"),
+      orderBy("timestamp", "desc")
+    );
 
-    const unsub = onSnapshot(q, (snap) => {
-      const rows: UserRow[] = [];
+    const tempsQuery = query(
+      collection(db, "temps"),
+      orderBy("timestamp", "desc")
+    );
 
+    let usersData: UserRow[] = [];
+    let tempsData: UserRow[] = [];
+
+    const mergeAndSet = () => {
+      const merged = [...usersData, ...tempsData].sort((a, b) => {
+        const ta = a.timestamp?.toMillis?.() || 0;
+        const tb = b.timestamp?.toMillis?.() || 0;
+        return tb - ta;
+      });
+
+      setUsers(merged);
+      setLoading(false);
+    };
+
+    const unsubUsers = onSnapshot(usersQuery, (snap) => {
+      usersData = [];
       snap.forEach((doc) => {
         const d = doc.data();
-        rows.push({
+        usersData.push({
           userDocId: doc.id,
           firstName: d.firstName || d.firstname,
           lastName: d.lastName || d.lastname,
@@ -45,14 +66,35 @@ export default function ExportTestPage() {
           idCardAddress: d.idCardAddress,
           timestamp: d.timestamp,
           lastUpdate: d.lastUpdate,
+          source: "users",
         });
       });
-
-      setUsers(rows);
-      setLoading(false);
+      mergeAndSet();
     });
 
-    return () => unsub();
+    const unsubTemps = onSnapshot(tempsQuery, (snap) => {
+      tempsData = [];
+      snap.forEach((doc) => {
+        const d = doc.data();
+        tempsData.push({
+          userDocId: doc.id,
+          firstName: d.firstName || d.firstname,
+          lastName: d.lastName || d.lastname,
+          gender: d.gender,
+          thaiId: d.thaiId || d.thaiid,
+          idCardAddress: d.idCardAddress,
+          timestamp: d.timestamp,
+          lastUpdate: d.lastUpdate,
+          source: "temps",
+        });
+      });
+      mergeAndSet();
+    });
+
+    return () => {
+      unsubUsers();
+      unsubTemps();
+    };
   }, []);
 
   useEffect(() => {
@@ -62,7 +104,12 @@ export default function ExportTestPage() {
     }
 
     const q = query(
-      collection(db, "users", selectedUser.userDocId, "records"),
+      collection(
+        db,
+        selectedUser.source === "temps" ? "temps" : "users",
+        selectedUser.userDocId,
+        "records"
+      ),
       orderBy("lastUpdate", "desc")
     );
 
@@ -171,74 +218,95 @@ export default function ExportTestPage() {
 
   // ===== Render =====
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white p-4 md:p-6 space-y-6">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left: Users List */}
-        <UserList
-          users={users}
-          loading={loading}
-          searchQuery={searchQuery}
-          selectedUserId={selectedUser?.userDocId || ""}
-          onSearchChange={(query) => {
-            setSearchQuery(query);
-            setCurrentPage(1);
-          }}
-          onUserSelect={handleUserSelect}
-          currentUsers={currentUsers}
-          paginationInfo={{
-            currentPage,
-            totalPages,
-            startIndex,
-            endIndex,
-            totalItems: filteredUsers.length,
-          }}
-        />
+    <div className="relative min-h-screen overflow-hidden">
+      {/* Background Image */}
+      <Image
+        src="/background/checkpd_qr_5.png"
+        alt="CheckPD background"
+        fill
+        priority
+        className="object-cover"
+      />
 
-        {/* Right: Records Panel */}
-        <RecordsPanel
-          selectedUser={selectedUser}
-          records={records}
-          selectedRecordId={recordId}
-          loading={false}
-          onClose={() => {
-            setSelectedUser(null);
-            setRecordId("");
-          }}
-          onRecordSelect={setRecordId}
-          onExport={handleExportSingle}
-          isExporting={loadingSingle}
+      {/* Overlay */}
+      <div className="absolute inset-0 bg-background/50" />
+
+      {/* Content */}
+      <div
+        className="relative min-h-screen p-4 md:p-6 space-y-6"
+        style={{
+          background:
+            'radial-gradient(circle at center, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.9) 40%, rgba(240,244,255,0.85) 100%)',
+        }}
+      >
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left: Users List */}
+          <UserList
+            users={users}
+            loading={loading}
+            searchQuery={searchQuery}
+            selectedUserId={selectedUser?.userDocId || ""}
+            onSearchChange={(query) => {
+              setSearchQuery(query);
+              setCurrentPage(1);
+            }}
+            onUserSelect={handleUserSelect}
+            currentUsers={currentUsers}
+            paginationInfo={{
+              currentPage,
+              totalPages,
+              startIndex,
+              endIndex,
+              totalItems: filteredUsers.length,
+            }}
+          />
+
+          {/* Right: Records Panel */}
+          <RecordsPanel
+            selectedUser={selectedUser}
+            records={records}
+            selectedRecordId={recordId}
+            loading={false}
+            onClose={() => {
+              setSelectedUser(null);
+              setRecordId("");
+            }}
+            onRecordSelect={setRecordId}
+            onExport={handleExportSingle}
+            isExporting={loadingSingle}
+          />
+        </div>
+
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+          <Card>
+            <CardContent className="pt-6">
+              <PaginationControls
+                currentPage={currentPage}
+                totalPages={totalPages}
+                startIndex={startIndex}
+                endIndex={endIndex}
+                totalItems={filteredUsers.length}
+                onPageChange={setCurrentPage}
+              />
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Export Section */}
+        <ExportSection
+          userDocId={userDocId}
+          recordId={recordId}
+          csvFile={csvFile}
+          loadingSingle={loadingSingle}
+          loadingBatch={loadingBatch}
+          onUserDocIdChange={setUserDocId}
+          onRecordIdChange={setRecordId}
+          onCsvFileChange={setCsvFile}
+          onSingleExport={handleExportSingle}
+          onBatchExport={handleExportBatch}
         />
       </div>
-
-      {/* Pagination Controls */}
-      {totalPages > 1 && (
-        <Card>
-          <CardContent className="pt-6">
-            <PaginationControls
-              currentPage={currentPage}
-              totalPages={totalPages}
-              startIndex={startIndex}
-              endIndex={endIndex}
-              totalItems={filteredUsers.length}
-              onPageChange={setCurrentPage}
-            />
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Export Section */}
-      <ExportSection
-        userDocId={userDocId}
-        recordId={recordId}
-        csvFile={csvFile}
-        loadingSingle={loadingSingle}
-        loadingBatch={loadingBatch}
-        onUserDocIdChange={setUserDocId}
-        onRecordIdChange={setRecordId}
-        onCsvFileChange={setCsvFile}
-        onSingleExport={handleExportSingle}
-        onBatchExport={handleExportBatch}
-      />
     </div>
   );
 }

@@ -9,6 +9,7 @@ export type UserRow = {
   idCardAddress?: string;
   timestamp?: Timestamp;
   lastUpdate?: Timestamp;
+  source: "users" | "temps";
 };
 
 export type RecordRow = {
