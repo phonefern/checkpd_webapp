@@ -18,6 +18,9 @@ import {
   query,
   where,
   Timestamp,
+  getDocs,
+  limit,
+  orderBy,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebaseClient'
 import Image from "next/image"
@@ -61,7 +64,6 @@ export default function TrackingPage() {
   const [maleCount, setMaleCount] = useState(0)
   const [femaleCount, setFemaleCount] = useState(0)
   const [tempCount, setTempCount] = useState(0)
-
   const [ageRanges, setAgeRanges] = useState([
     { range: '0-10', count: 0 },
     { range: '11-20', count: 0 },
@@ -81,6 +83,15 @@ export default function TrackingPage() {
     to: new Date('2026-01-27'),
   })
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date())
+  const [riskSummary, setRiskSummary] = useState({
+    risk: 0,
+    normal: 0,
+    pending: 0,
+    noTest: 0,
+  })
+
+  const [loadingRisk, setLoadingRisk] = useState(false)
+
 
 
   /* =======================
@@ -223,6 +234,90 @@ export default function TrackingPage() {
 
   const total = userCount + tempCount
 
+  const refreshRiskSummary = async () => {
+    if (!startTime || !endTime) return
+
+    setLoadingRisk(true)
+
+    let risk = 0
+    let normal = 0
+    let pending = 0
+    let noTest = 0
+
+    try {
+      // ===== USERS =====
+      const usersSnap = await getDocs(
+        query(
+          collection(db, 'users'),
+          where('timestamp', '>=', startTime),
+          where('timestamp', '<=', endTime)
+        )
+      )
+
+      for (const userDoc of usersSnap.docs) {
+        const latestRecordSnap = await getDocs(
+          query(
+            collection(db, 'users', userDoc.id, 'records'),
+            orderBy('lastUpdate', 'desc'),
+            limit(1)
+          )
+        )
+
+        // ---- ไม่มี record ----
+        if (latestRecordSnap.empty) {
+          noTest++
+          continue
+        }
+
+        // ---- มี record ล่าสุด ----
+        const rec = latestRecordSnap.docs[0].data()
+        const r = rec?.prediction?.risk
+
+        if (r === true) risk++
+        else if (r === false) normal++
+        else pending++
+      }
+
+      // ===== TEMPS (ถ้าต้องการรวม) =====
+      const tempsSnap = await getDocs(
+        query(
+          collection(db, 'temps'),
+          where('timestamp', '>=', startTime),
+          where('timestamp', '<=', endTime)
+        )
+      )
+
+      for (const tempDoc of tempsSnap.docs) {
+        const latestRecordSnap = await getDocs(
+          query(
+            collection(db, 'temps', tempDoc.id, 'records'),
+            orderBy('lastUpdate', 'desc'),
+            limit(1)
+          )
+        )
+
+        if (latestRecordSnap.empty) {
+          noTest++
+          continue
+        }
+
+        const rec = latestRecordSnap.docs[0].data()
+        const r = rec?.prediction?.risk
+
+        if (r === true) risk++
+        else if (r === false) normal++
+        else pending++
+      }
+
+      setRiskSummary({ risk, normal, pending, noTest })
+      setLastUpdated(new Date())
+    } catch (err) {
+      console.error('refreshRiskSummary error', err)
+    } finally {
+      setLoadingRisk(false)
+    }
+  }
+
   /* =======================
      UI (เหมือนต้นฉบับ 100%)
   ======================= */
@@ -274,66 +369,120 @@ export default function TrackingPage() {
         </header>
 
         {/* Main */}
+        {/* ================= MAIN ================= */}
         <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-          <Card className="mb-8 overflow-hidden border-purple-900 border-5 backdrop-blur-md"
+
+          {/* ===== HERO: TOTAL DOWNLOADS ===== */}
+          <Card
+            className="mb-10 overflow-hidden border-purple-900 backdrop-blur-md"
             style={{
               background:
                 'radial-gradient(circle at center, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.9) 40%, rgba(240,244,255,0.85) 100%)',
             }}
           >
-            <CardContent className="p-5">
-              <div className="flex flex-col items-center justify-center text-center">
-                <div className="mb-4 flex h-12 w-16 items-center justify-center rounded-full bg-primary/10">
+            <CardContent className="p-6">
+              <div className="flex flex-col items-center text-center">
+                <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
                   <Download className="h-6 w-6 text-primary" />
                 </div>
-                <p className="mb-2 text-3xl font-medium uppercase tracking-wider text-muted-foreground">
+                <p className="text-sm uppercase tracking-wider text-muted-foreground">
                   ยอดดาวน์โหลดทั้งหมด
                 </p>
                 <AnimatedCounter
                   value={total}
-                  className="text-[9rem] md:text-[11rem] lg:text-[13rem] font-extrabold leading-none"
+                  className="mt-2 text-[7rem] md:text-[9rem] font-extrabold leading-none"
                 />
-                <div className="mt-4 flex items-center gap-2 text-sm text-green-500">
-                  <TrendingUp className="h-4 w-4" />
-                  <span>อัปเดตแบบเรียลไทม์</span>
-                </div>
+                <p className="mt-2 flex items-center gap-1 text-xs text-green-500">
+                  <TrendingUp className="h-3 w-3" />
+                  อัปเดตแบบเรียลไทม์
+                </p>
               </div>
             </CardContent>
           </Card>
 
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            <StatCard
-              title="ผู้ใช้งาน (Users)"
-              value={userCount}
-              text="text-left"
-              icon={<Users className="h-6 w-6" />}
-              description="จำนวนผู้ใช้ที่ดาวน์โหลด"
-              colorClass="text-primary"
-            />
-            <StatCard
-              title="ผู้ชาย"
-              value={maleCount}
-              text="text-left"
-              icon={<CircleUser className="h-6 w-6" />}
-              description="จำนวนผู้ใช้เพศชาย"
-              colorClass="text-blue-500"
-            />
-            <StatCard
-              title="ผู้หญิง"
-              value={femaleCount}
-              text="text-left"
-              icon={<CircleUser className="h-6 w-6" />}
-              description="จำนวนผู้ใช้เพศหญิง"
-              colorClass="text-pink-500"
-            />
-            <StatCard
-              title="ผู้คัดกรอง (Staff)"
-              value={tempCount}
-              text="text-left"
-              icon={<UserCheck className="h-6 w-6" />}
-              description="จำนวนเจ้าหน้าที่คัดกรอง"
-              colorClass="text-orange-500"
-            />
+          {/* ===== SECTION: RISK SUMMARY (MANUAL) ===== */}
+          <div className="mb-10">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-foreground">
+                ผลการคัดกรอง (จากการทดสอบล่าสุด)
+              </h2>
+              <button
+                onClick={refreshRiskSummary}
+                disabled={loadingRisk}
+                className="rounded-md border px-3 py-1.5 text-sm hover:bg-muted disabled:opacity-50"
+              >
+                {loadingRisk ? 'กำลังดึงข้อมูล...' : 'Refresh ผลคัดกรอง'}
+              </button>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <StatCard
+                title="เสี่ยง"
+                value={riskSummary.risk}
+                icon={<TrendingUp className="h-5 w-5" />}
+                description="พบความเสี่ยงจากการประเมินล่าสุด"
+                colorClass="text-red-600"
+              />
+              <StatCard
+                title="ปกติ"
+                value={riskSummary.normal}
+                icon={<UserCheck className="h-5 w-5" />}
+                description="ไม่พบความเสี่ยง"
+                colorClass="text-green-600"
+              />
+              <StatCard
+                title="ยังไม่ประเมิน"
+                value={riskSummary.pending}
+                icon={<Clock className="h-5 w-5" />}
+                description="ทำแบบทดสอบแล้ว แต่ยังไม่มีผล"
+                colorClass="text-gray-500"
+              />
+              <StatCard
+                title="ไม่ได้ทดสอบ"
+                value={riskSummary.noTest}
+                icon={<Activity className="h-5 w-5" />}
+                description="ยังไม่มีบันทึกการทดสอบ"
+                colorClass="text-yellow-600"
+              />
+            </div>
+          </div>
+
+          {/* ===== SECTION: USER STRUCTURE (REALTIME) ===== */}
+          <div className="mb-6">
+            <h2 className="mb-4 text-lg font-semibold text-foreground">
+              สรุปสถานะผู้ใช้
+            </h2>
+
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <StatCard
+                title="ผู้ใช้งาน (Users)"
+                value={userCount}
+                icon={<Users className="h-5 w-5" />}
+                description="จำนวนผู้ใช้ทั้งหมด"
+                colorClass="text-primary"
+              />
+              <StatCard
+                title="ผู้ชาย"
+                value={maleCount}
+                icon={<CircleUser className="h-5 w-5" />}
+                description="จำนวนผู้ใช้เพศชาย"
+                colorClass="text-blue-500"
+              />
+              <StatCard
+                title="ผู้หญิง"
+                value={femaleCount}
+                icon={<CircleUser className="h-5 w-5" />}
+                description="จำนวนผู้ใช้เพศหญิง"
+                colorClass="text-pink-500"
+              />
+              <StatCard
+                title="ผู้คัดกรอง (Staff)"
+                value={tempCount}
+                icon={<UserCheck className="h-5 w-5" />}
+                description="จำนวนเจ้าหน้าที่คัดกรอง"
+                colorClass="text-orange-500"
+              />
+            </div>
           </div>
 
           <div className="mt-6">
