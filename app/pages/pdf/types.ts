@@ -1,0 +1,26 @@
+import { Timestamp } from "firebase/firestore";
+
+export type UserRow = {
+  userDocId: string;
+  firstName?: string;
+  lastName?: string;
+  gender?: string;
+  thaiId?: string;
+  idCardAddress?: string;
+  timestamp?: Timestamp;
+  lastUpdate?: Timestamp;
+};
+
+export type RecordRow = {
+  recordId: string;
+  timestamp?: Timestamp;
+  risk?: boolean | null;
+};
+
+export type PaginationInfo = {
+  currentPage: number;
+  totalPages: number;
+  startIndex: number;
+  endIndex: number;
+  totalItems: number;
+};
