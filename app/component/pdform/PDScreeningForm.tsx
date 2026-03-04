@@ -1,37 +1,79 @@
 // components/PDScreeningForm.tsx
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Session } from '@supabase/supabase-js'
-import AuthRedirect from '@/components/AuthRedirect'
 import { supabase } from '@/lib/supabase'
 import { provinceOptions } from '@/app/types/user';
 
-export default function PDScreeningForm() {
+type PDScreeningFormData = {
+  thaiid: string;
+  firstName: string;
+  lastName: string;
+  gender: string;
+  age: string;
+  province: string;
+  collectionDate: string;
+  hnNumber: string;
+  weight: string;
+  height: string;
+  bmi: string;
+  chest: string;
+  waist: string;
+  neck: string;
+  hip: string;
+  bpSupine: string;
+  prSupine: string;
+  bpUpright: string;
+  prUpright: string;
+};
+
+type PDScreeningFormProps = {
+  initialValues?: Partial<PDScreeningFormData>;
+  redirectTo?: string;
+};
+
+const emptyFormData: PDScreeningFormData = {
+  thaiid: "",
+  firstName: "",
+  lastName: "",
+  gender: "",
+  age: "",
+  province: "",
+  collectionDate: "",
+  hnNumber: "",
+  weight: "",
+  height: "",
+  bmi: "",
+  chest: "",
+  waist: "",
+  neck: "",
+  hip: "",
+  bpSupine: "",
+  prSupine: "",
+  bpUpright: "",
+  prUpright: "",
+};
+
+export default function PDScreeningForm({ initialValues, redirectTo }: PDScreeningFormProps) {
   const router = useRouter();
 
-  const [formData, setFormData] = useState({
-    thaiid: "",
-    firstName: "",
-    lastName: "",
-    gender: "",
-    age: "",
-    province: "",
-    collectionDate: "",
-    hnNumber: "",
-    weight: "",
-    height: "",
-    bmi: "",
-    chest: "",
-    waist: "",
-    neck: "",
-    hip: "",
-    bpSupine: "",
-    prSupine: "",
-    bpUpright: "",
-    prUpright: "",
-  });
+  const initialMerged = useMemo(() => {
+    return {
+      ...emptyFormData,
+      ...(initialValues ?? {}),
+    };
+  }, [initialValues]);
+
+  const [formData, setFormData] = useState<PDScreeningFormData>(initialMerged);
+  const didHydrateRef = useRef(false);
+
+  useEffect(() => {
+    if (didHydrateRef.current) return;
+    didHydrateRef.current = true;
+    setFormData(initialMerged);
+  }, [initialMerged]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitMessage, setSubmitMessage] = useState('');
@@ -66,15 +108,20 @@ export default function PDScreeningForm() {
       case "waist":
       case "neck":
       case "hip":
-      case "bpSupine":
-      case "prSupine":
-      case "bpUpright":
-      case "prUpright":
         newValue = value.replace(/[^0-9.]/g, "");
         const dotCount = (newValue.match(/\./g) || []).length;
         if (dotCount > 1) newValue = newValue.slice(0, newValue.lastIndexOf("."));
         if (value && !/^[0-9.]+$/.test(value))
           errorMessage = "กรอกเฉพาะตัวเลขเท่านั้น";
+        break;
+
+      case "bpSupine":
+      case "prSupine":
+      case "bpUpright":
+      case "prUpright":
+        newValue = value.replace(/[^0-9/]/g, "");
+        if (value && !/^[0-9/]+$/.test(value))
+          errorMessage = "กรอกเฉพาะตัวเลขและ / เท่านั้น";
         break;
 
       default:
@@ -178,29 +225,12 @@ export default function PDScreeningForm() {
         console.log('Insert result:', data);
         setSubmitMessage('success: บันทึกข้อมูลเรียบร้อยแล้ว! ✅');
 
-        setFormData({
-          thaiid: '',
-          firstName: '',
-          lastName: '',
-          gender: '',
-          age: '',
-          province: '',
-          collectionDate: '',
-          hnNumber: '',
-          weight: '',
-          height: '',
-          bmi: '',
-          chest: '',
-          waist: '',
-          neck: '',
-          hip: '',
-          bpSupine: '',
-          prSupine: '',
-          bpUpright: '',
-          prUpright: '',
-        });
+        setFormData(emptyFormData);
 
-        setTimeout(() => router.back(), 1500);
+        setTimeout(() => {
+          if (redirectTo) router.push(redirectTo);
+          else router.back();
+        }, 800);
       }
     } catch (err) {
       console.error('Unexpected error:', err);

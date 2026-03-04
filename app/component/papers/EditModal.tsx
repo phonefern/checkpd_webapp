@@ -48,6 +48,17 @@ interface EditModalProps {
 
 type ActiveTab = 'basic' | 'prodromal' | 'pd';
 
+const SCORE_FIELDS: Array<{ field: keyof EditScores; label: string }> = [
+  { field: 'rome4_score', label: 'Rome4 Score' },
+  { field: 'epworth_score', label: 'Epworth Score' },
+  { field: 'hamd_score', label: 'HAMD Score' },
+  { field: 'sleep_score', label: 'RBD Score' },
+  { field: 'smell_score', label: 'Smell Score' },
+  { field: 'mds_score', label: 'MDS Score' },
+  { field: 'moca_score', label: 'MoCA Score' },
+  { field: 'tmse_score', label: 'TMSE Score' },
+];
+
 // Main EditModal Component
 const EditModal = ({ patient, onClose, onSave }: EditModalProps) => {
   const [editCondition, setEditCondition] = useState(patient.condition || '');
@@ -140,11 +151,17 @@ const EditModal = ({ patient, onClose, onSave }: EditModalProps) => {
 
       if (updateScreeningError) throw updateScreeningError;
 
-      // Update risk factors
+      // Upsert risk factors (create row if missing)
       const { error: updateRiskError } = await supabase
         .from('risk_factors_test')
-        .update(editScores)
-        .eq('patient_id', patient.id);
+        .upsert(
+          [{
+            patient_id: patient.id,
+            thaiid: patient.thaiid ?? null,
+            ...editScores,
+          }],
+          { onConflict: 'patient_id' }
+        );
 
       if (updateRiskError) throw updateRiskError;
 
@@ -298,23 +315,23 @@ const EditModal = ({ patient, onClose, onSave }: EditModalProps) => {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">คะแนนแบบสอบถาม</label>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {Object.entries(editScores).map(([key, value]) => {
-                      const inputId = `edit-score-${key}`;
+                    {SCORE_FIELDS.map(({ field, label }) => {
+                      const inputId = `edit-score-${field}`;
                       return (
-                        <div key={key}>
+                        <div key={field}>
                           <label htmlFor={inputId} className="text-xs text-gray-600">
-                            {key.replace('_', ' ')}
+                            {label}
                           </label>
                           <input
                             id={inputId}
-                            name={key}
+                            name={field}
                             type="number"
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                            value={value ?? ''}
+                            value={editScores[field] ?? ''}
                             onChange={(e) =>
                               setEditScores((prev) => ({
                                 ...prev,
-                                [key]: e.target.value === '' ? null : Number(e.target.value),
+                                [field]: e.target.value === '' ? null : Number(e.target.value),
                               }))
                             }
                           />
@@ -500,8 +517,14 @@ const ProdromalDetailsSection = ({
 
       await supabase
         .from("risk_factors_test")
-        .update(editScores)
-        .eq("patient_id", patientId);
+        .upsert(
+          [{
+            patient_id: patientId,
+            thaiid: patient.thaiid ?? null,
+            ...editScores
+          }],
+          { onConflict: "patient_id" }
+        );
 
       alert("✅ บันทึกข้อมูลสำเร็จ");
     } catch (err) {
@@ -515,23 +538,14 @@ const ProdromalDetailsSection = ({
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-        {Object.entries({
-          rome4_score: 'Rome4 Score',
-          epworth_score: 'Epworth Score', 
-          hamd_score: 'HAMD Score',
-          sleep_score: 'Sleep Score',
-          smell_score: 'Smell Score',
-          mds_score: 'MDS Score',
-          moca_score: 'MoCA Score',
-          tmse_score: 'TMSE Score'
-        }).map(([key, label]) => (
+        {SCORE_FIELDS.map(({ field, label }) => (
           <ScoreInput 
-            key={key} 
+            key={field} 
             label={label} 
-            name={key as keyof EditScores}
-            value={editScores[key as keyof EditScores] ?? null}
+            name={field}
+            value={editScores[field] ?? null}
             onChange={(n, v) => handleScoreChange(n, v)}
-            error={errors[key]}
+            error={errors[field]}
           />
         ))}
       </div>

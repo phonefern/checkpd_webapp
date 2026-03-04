@@ -6,6 +6,7 @@ export type UserRow = {
   lastName?: string;
   gender?: string;
   thaiId?: string;
+  age?: number | null;
   idCardAddress?: string;
   timestamp?: Timestamp;
   lastUpdate?: Timestamp;

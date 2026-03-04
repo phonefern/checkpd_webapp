@@ -123,6 +123,22 @@ interface PatientInfo {
 function AssessmentContent() {
   const searchParams = useSearchParams();
   const patientThaiid = searchParams.get("patient_thaiid");
+  const prefFirstName =
+    searchParams.get("first_name") ||
+    searchParams.get("firstName") ||
+    "";
+  const prefLastName =
+    searchParams.get("last_name") ||
+    searchParams.get("lastName") ||
+    "";
+  const prefGender =
+    searchParams.get("gender") ||
+    "";
+  const prefAgeRaw =
+    searchParams.get("age") ||
+    "";
+  const prefAge =
+    prefAgeRaw && !Number.isNaN(Number(prefAgeRaw)) ? Number(prefAgeRaw) : null;
   const [patientInfo, setPatientInfo] = useState<PatientInfo | null>(null);
   const [riskFactors, setRiskFactors] = useState<RiskFactors | null>(null);
   const [loading, setLoading] = useState(true);
@@ -147,13 +163,14 @@ function AssessmentContent() {
           .eq("thaiid", patientThaiid)
           .order("collection_date", { ascending: false })
           .limit(1)
-          .single();
+          .maybeSingle();
 
-        if (patientError) {
-          throw new Error("ไม่พบข้อมูลผู้ป่วย");
+        if (patientError && patientError.code !== "PGRST116") {
+          throw patientError;
         }
 
-        setPatientInfo(patientData);
+        // If no row in pd_screenings, allow QA to proceed with pref-filled info.
+        setPatientInfo(patientData || null);
 
         // Fetch risk factors
         const { data: riskData, error: riskError } = await supabase
@@ -180,7 +197,7 @@ function AssessmentContent() {
         }
       } catch (err: any) {
         console.error("Error fetching data:", err);
-        setError(err.message || "เกิดข้อผิดพลาดในการโหลดข้อมูล");
+        setError(err?.message || "เกิดข้อผิดพลาดในการโหลดข้อมูล");
       } finally {
         setLoading(false);
       }
@@ -257,16 +274,21 @@ function AssessmentContent() {
 
   const patientName = patientInfo
     ? `${patientInfo.first_name} ${patientInfo.last_name}`
-    : "ไม่พบข้อมูลผู้ป่วย";
+    : prefFirstName || prefLastName
+      ? `${prefFirstName} ${prefLastName}`.trim()
+      : "ไม่พบข้อมูลผู้ป่วย";
   const hn = patientInfo?.hn_number ? `HN: ${patientInfo.hn_number}` : "";
   const collectionDate = patientInfo?.collection_date
     ? formatDate(patientInfo.collection_date)
     : "-";
+  const genderLabel =
+    prefGender === "male" ? "ชาย" : prefGender === "female" ? "หญิง" : prefGender || "-";
+  const ageLabel = typeof prefAge === "number" ? `${prefAge} ปี` : "-";
 
   return (
     <>
       {/* Patient Header Card */}
-      {patientThaiid && patientInfo && (
+      {patientThaiid && (
         <div className="bg-white border-b border-gray-200 shadow-sm">
           <div className="max-w-6xl mx-auto px-6 py-6">
             <div className="flex items-center justify-between">
@@ -286,7 +308,16 @@ function AssessmentContent() {
                       </>
                     )}
                     <span>เลขบัตรประชาชน: {patientThaiid}</span>
+                    <span>•</span>
+                    <span>เพศ: {genderLabel}</span>
+                    <span>•</span>
+                    <span>อายุ: {ageLabel}</span>
                   </div>
+                  {!patientInfo && (
+                    <div className="mt-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 inline-block">
+                      ไม่พบข้อมูลใน pd_screenings (สามารถทำ QA ต่อได้)
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="text-right">
