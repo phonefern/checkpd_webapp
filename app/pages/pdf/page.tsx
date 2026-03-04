@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import Image from "next/image";
 import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
 import { db } from "@/lib/firebaseClient";
+import { supabase } from "@/lib/supabase";
 import { UserList } from "@/app/component/pdf/UserList";
 import { RecordsPanel } from "@/app/component/pdf/RecordsPanel";
 import { ExportSection } from "@/app/component/pdf/ExportSection";
@@ -26,6 +27,32 @@ export default function ExportTestPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedUser, setSelectedUser] = useState<UserRow | null>(null);
   const [records, setRecords] = useState<RecordRow[]>([]);
+  const [screeningThaiIds, setScreeningThaiIds] = useState<string[]>([]);
+  const [screeningCheckedThaiIds, setScreeningCheckedThaiIds] = useState<string[]>([]);
+  const [screeningLoading, setScreeningLoading] = useState(false);
+  const [screeningError, setScreeningError] = useState<string | null>(null);
+  const screeningCacheRef = useRef<Map<string, boolean>>(new Map());
+  const screeningDebounceRef = useRef<number | null>(null);
+
+  const calculateAgeFromBod = (bod: any): number | null => {
+    try {
+      if (!bod) return null;
+      let birthDate: Date | null = null;
+      if (typeof bod?.toDate === "function") birthDate = bod.toDate();
+      else if (bod instanceof Date) birthDate = bod;
+      else if (typeof bod === "string") birthDate = new Date(bod.replace("at", ""));
+      if (!birthDate || Number.isNaN(birthDate.getTime())) return null;
+
+      const today = new Date();
+      let age = today.getFullYear() - birthDate.getFullYear();
+      const monthDiff = today.getMonth() - birthDate.getMonth();
+      const dayDiff = today.getDate() - birthDate.getDate();
+      if (monthDiff < 0 || (monthDiff === 0 && dayDiff < 0)) age--;
+      return age;
+    } catch {
+      return null;
+    }
+  };
 
   // ===== Firebase Listeners =====
   useEffect(() => {
@@ -63,6 +90,12 @@ export default function ExportTestPage() {
           lastName: d.lastName || d.lastname,
           gender: d.gender,
           thaiId: d.thaiId || d.thaiid,
+          age:
+            typeof d.age === "number"
+              ? d.age
+              : typeof d.age === "string"
+                ? Number(d.age) || null
+                : calculateAgeFromBod(d.bod),
           idCardAddress: d.idCardAddress,
           timestamp: d.timestamp,
           lastUpdate: d.lastUpdate,
@@ -82,6 +115,12 @@ export default function ExportTestPage() {
           lastName: d.lastName || d.lastname,
           gender: d.gender,
           thaiId: d.thaiId || d.thaiid,
+          age:
+            typeof d.age === "number"
+              ? d.age
+              : typeof d.age === "string"
+                ? Number(d.age) || null
+                : calculateAgeFromBod(d.bod),
           idCardAddress: d.idCardAddress,
           timestamp: d.timestamp,
           lastUpdate: d.lastUpdate,
@@ -151,6 +190,99 @@ export default function ExportTestPage() {
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
   const endIndex = Math.min(startIndex + ITEMS_PER_PAGE, filteredUsers.length);
   const currentUsers = filteredUsers.slice(startIndex, endIndex);
+
+  // ===== Screening status (Supabase: pd_screenings) =====
+  const currentThaiIds = useMemo(() => {
+    return Array.from(
+      new Set(
+        currentUsers
+          .map((u) => (u.thaiId || "").trim())
+          .filter((id) => id.length > 0)
+      )
+    );
+  }, [currentUsers]);
+
+  const currentThaiIdsKey = useMemo(() => {
+    const sorted = [...currentThaiIds].sort();
+    return sorted.join("|");
+  }, [currentThaiIds]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const hydrateFromCache = () => {
+      const screened: string[] = [];
+      const checked: string[] = [];
+      for (const id of currentThaiIds) {
+        if (screeningCacheRef.current.has(id)) {
+          checked.push(id);
+          if (screeningCacheRef.current.get(id) === true) screened.push(id);
+        }
+      }
+      setScreeningThaiIds(screened);
+      setScreeningCheckedThaiIds(checked);
+    };
+
+    const load = async () => {
+      setScreeningError(null);
+
+      if (currentThaiIds.length === 0) {
+        setScreeningThaiIds([]);
+        setScreeningCheckedThaiIds([]);
+        setScreeningLoading(false);
+        return;
+      }
+
+      // 1) Update UI immediately from cache (no network).
+      hydrateFromCache();
+
+      // 2) Only query for ids we haven't checked yet.
+      const unknown = currentThaiIds.filter((id) => !screeningCacheRef.current.has(id));
+      if (unknown.length === 0) {
+        setScreeningLoading(false);
+        return;
+      }
+
+      setScreeningLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from("pd_screenings")
+          .select("thaiid")
+          .in("thaiid", unknown);
+
+        if (error) throw error;
+        const found = new Set((data ?? []).map((row: any) => row?.thaiid).filter(Boolean));
+
+        for (const id of unknown) {
+          screeningCacheRef.current.set(id, found.has(id));
+        }
+
+        if (!cancelled) hydrateFromCache();
+      } catch (err: any) {
+        if (!cancelled) {
+          setScreeningError(err?.message || "โหลดสถานะ screening ไม่สำเร็จ");
+        }
+      } finally {
+        if (!cancelled) setScreeningLoading(false);
+      }
+    };
+
+    // Debounce because Firebase onSnapshot can trigger frequent renders.
+    if (screeningDebounceRef.current) {
+      window.clearTimeout(screeningDebounceRef.current);
+    }
+    screeningDebounceRef.current = window.setTimeout(() => {
+      load();
+    }, 350);
+
+    return () => {
+      cancelled = true;
+      if (screeningDebounceRef.current) {
+        window.clearTimeout(screeningDebounceRef.current);
+        screeningDebounceRef.current = null;
+      }
+    };
+  }, [currentThaiIdsKey]);
 
   // ===== Event Handlers =====
   const handleExportSingle = async () => {
@@ -246,6 +378,10 @@ export default function ExportTestPage() {
             loading={loading}
             searchQuery={searchQuery}
             selectedUserId={selectedUser?.userDocId || ""}
+            screeningThaiIds={screeningThaiIds}
+            screeningCheckedThaiIds={screeningCheckedThaiIds}
+            screeningLoading={screeningLoading}
+            screeningError={screeningError}
             onSearchChange={(query) => {
               setSearchQuery(query);
               setCurrentPage(1);

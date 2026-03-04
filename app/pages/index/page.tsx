@@ -13,6 +13,10 @@ import {
   UserCircle,
   Building2,
   LogOut,
+  BarChart3,
+  FileDown,
+  Download,
+  
 } from "lucide-react";
 
 interface DashboardStats {
@@ -42,22 +46,43 @@ export default function Dashboard() {
     hospital: "โรงพยาบาลจุฬาลงกรณ์ สภากาชาดไทย",
   });
 
-  const menuItems = [
-    {
-      title: "Patient Data Management",
-      subtitle: "จัดการข้อมูลผู้ป่วยในระบบ CheckPD",
-      icon: Users,
-      color: "blue",
-      path: "/pages/users",
-    },
-    {
-      title: "Data Sheets Management",
-      subtitle: "บันทึกและตรวจสอบแบบประเมินผู้ป่วย",
-      icon: FileText,
-      color: "emerald",
-      path: "/pages/papers",
-    }
-  ];
+const menuItems = [
+  {
+    title: "Patient Data Management",
+    subtitle: "จัดการข้อมูลผู้ป่วยในระบบ CheckPD",
+    icon: Users,
+    color: "blue",
+    path: "/pages/users",
+  },
+  {
+    title: "Data Sheets Management",
+    subtitle: "บันทึกและตรวจสอบแบบประเมินผู้ป่วย",
+    icon: FileText,
+    color: "emerald",
+    path: "/pages/papers",
+  },
+  {
+    title: "Download Tracking",
+    subtitle: "ติดตามจำนวนการดาวน์โหลดแบบ Real-time จาก Firebase",
+    icon: BarChart3,
+    color: "amber",
+    path: "/pages/tracking",
+  },
+  {
+    title: "PDF Export And Assessment",
+    subtitle: "Export ผลการทำ CheckPD และ ทำ Assessment แบบ Real-time จาก Firebase",
+    icon: FileDown,
+    color: "purple",
+    path: "/pages/pdf",
+  },
+  {
+    title: "Raw Data Management",
+    subtitle: "ดาวน์โหลดข้อมูลดิบจากระบบ CheckPD",
+    icon: Download,
+    color: "green",
+    path: "/pages/storage",
+  },
+];
 
   const navigateTo = (path: string) => {
     router.push(path);
