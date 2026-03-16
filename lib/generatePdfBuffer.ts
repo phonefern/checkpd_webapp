@@ -1,6 +1,5 @@
 // app/lib/pdf/generatePdfBuffer.ts
-import playwright from 'playwright-core';
-import chromium from '@sparticuz/chromium';
+import { getBrowser, resetBrowser } from '@/lib/pdfBrowser';
 import { adminDb } from '@/lib/firebaseAdmin';
 import { Timestamp } from 'firebase-admin/firestore';
 import { processRecordData } from './processRecordData';
@@ -48,17 +47,23 @@ export async function generatePdfBuffer(
 
   const html = generateHTML(userData, recordData, info);
 
-  const browser = await playwright.chromium.launch({
-    args: chromium.args,
-    executablePath: process.env.VERCEL ? await chromium.executablePath() : undefined,
-    headless: true,
-  });
-
-  const page = await browser.newPage();
-  await page.setContent(html, { waitUntil: 'networkidle' });
-
-  const pdf = await page.pdf({ format: 'A4' });
-  await browser.close();
-
-  return Buffer.from(pdf);
+  const runPdf = async () => {
+    const browser = await getBrowser();
+    const page = await browser.newPage();
+    try {
+      await page.setContent(html, { waitUntil: 'networkidle' });
+      return await page.pdf({ format: 'A4' });
+    } finally {
+      await page.close();
+    }
+  };
+  try {
+    return Buffer.from(await runPdf());
+  } catch (e: any) {
+    if (e?.message?.includes('has been closed') || e?.message?.includes('Target closed')) {
+      resetBrowser();
+      return Buffer.from(await runPdf());
+    }
+    throw e;
+  }
 }

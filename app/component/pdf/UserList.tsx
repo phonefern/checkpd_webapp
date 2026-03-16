@@ -233,7 +233,7 @@ export function UserList({
                                                     มี
                                                 </Badge>
                                             ) : (
-                                                <Badge variant="destructive" className="font-normal">
+                                                <Badge variant="outline" className="font-normal">
                                                     ไม่มี
                                                 </Badge>
                                             )}
@@ -257,10 +257,10 @@ export function UserList({
                                                     type="button"
                                                     variant="secondary"
                                                     size="sm"
-                                                    className="gap-2 w-full"
+                                                    className="gap-2 w-full cursor-pointer"
                                                     disabled={!user.thaiId || (!isScreeningChecked(user.thaiId) && !screeningError)}
                                                 >
-                                                    <ClipboardCheck className="h-4 w-4" />
+                                                    <ClipboardCheck className="h-4 w-4 cursor-pointer" />
                                                     QA
                                                 </Button>
                                             </Link>
