@@ -2,11 +2,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import path from "path";
 import fs from "fs";
-import playwright from "playwright-core";
-import chromium from "@sparticuz/chromium";
+import { getBrowser, resetBrowser } from "@/lib/pdfBrowser";
+import { checkRateLimit, getClientIdentifier } from "@/lib/rateLimit";
 import { supabaseServer as supabase } from "@/lib/supabase-server";
 
 export const runtime = "nodejs"; // ต้องใช้ Node.js runtime (ไม่ใช่ Edge)
+
+const PDF_RATE_LIMIT = 15;
+const PDF_RATE_WINDOW_MS = 60 * 1000;
 
 
 // โหลดฟอนต์ THSarabun จากไฟล์ในโปรเจกต์ (เก็บใน /public หรือ /fonts ก็ได้)
@@ -20,6 +23,15 @@ try {
 
 export async function GET(req: NextRequest) {
   try {
+    const id = getClientIdentifier(req);
+    const { ok, resetAt } = checkRateLimit(id, PDF_RATE_LIMIT, PDF_RATE_WINDOW_MS);
+    if (!ok) {
+      return NextResponse.json(
+        { error: "เกินจำนวนการขอ PDF ต่อนาที กรุณาลองใหม่ในภายหลัง" },
+        { status: 429, headers: { "X-RateLimit-Reset": String(resetAt), "Retry-After": "60" } }
+      );
+    }
+
     const thaiid = req.nextUrl.searchParams.get("thaiid");
     if (!thaiid) {
       return NextResponse.json({ error: "กรุณาระบุ thaiid" }, { status: 400 });
@@ -190,15 +202,15 @@ export async function GET(req: NextRequest) {
       <div class="section">
         <div>${createCheckbox(isProdromal)}<strong> Prodromal / High risk </strong> กรณีมีข้อใดข้อหนึ่งดังต่อไปนี้ </div>
         <div class="indent">
-          ${createCheckbox(false)} <span>Suspected RBD</span>: History of acting out of dream or vocalization or RBDQ >= 17 or PSG confirmed
+          ${createCheckbox(false)} <strong>Suspected RBD</strong>: History of acting out of dream or vocalization or RBDQ >= 17 or PSG confirmed
         </div>
         <div class="sub-question">
           ${createCheckbox(false)} อายุที่เริ่มมีอาการของนอนละเมอ <span class="field"></span> ปี หรือ มีอาการมานานเท่าไหร่ <span class="field"></span> ปี
         </div>
         <div class="indent">
-          ${createCheckbox(false)} <span>Hyposmia</span>: History ได้กลิ่นลดลง Sniffin stick <= 9 
+          ${createCheckbox(false)} <strong>Hyposmia</strong>: History ได้กลิ่นลดลง Sniffin stick <= 9 
         </div>
-        <div class="indent">
+        <div class="sub-question">
           ${createCheckbox(false)}อายุที่เริ่มมีอาการจมูกได้กลิ่นลดลง<span class="field"></span> ปี หรือ มีอาการมานานเท่าไหร่ <span class="field"></span> ปี
         </div>
       </div>
@@ -207,39 +219,39 @@ export async function GET(req: NextRequest) {
         <div class="section"> หรือ มีอาการนำ อย่างน้อย 2 ข้อจากอาการดังต่อไปนี้</div>
         
         <div class="indent">
-          ${createCheckbox(false)}Constipation: History ถ่ายอุจจาระ ความถี่นานกว่าวันเว้นวัน หรือต้องใช้ยาระบาย หรือ ลักษณะอุจจาระแข็งขึ้น เรื้อรังในช่วง 3 เดือนที่ผ่านมา เมื่อเทียบกับก่อนหน้า  or ROME IV >= 2
+          ${createCheckbox(false)} <strong>Constipation</strong>: History ถ่ายอุจจาระ ความถี่นานกว่าวันเว้นวัน หรือต้องใช้ยาระบาย หรือ ลักษณะอุจจาระแข็งขึ้น เรื้อรังในช่วง 3 เดือนที่ผ่านมา เมื่อเทียบกับก่อนหน้า  or ROME IV >= 2
         </div>
         <div class="sub-question">
           ${createCheckbox(false)} อายุที่เริ่มมีอาการท้องผูก <span class="field"></span> ปี มีอาการท้องผูกมานานเท่าไหร่ <span class="field"></span> ปี
         </div>
 
         <div class="indent">
-          ${createCheckbox(false)}Depression: ประวัติการได้รับการวินิจฉัยและรักษา หรือ HAM-D ตั้งแต่ 13 คะแนนขึ้นไป
+          ${createCheckbox(false)} <strong>Depression</strong>: ประวัติการได้รับการวินิจฉัยและรักษา หรือ HAM-D ตั้งแต่ 13 คะแนนขึ้นไป
         </div>
         <div class="sub-question">
           ${createCheckbox(false)} อายุที่เริ่มมีอาการซึมเศร้า <span class="field"></span> ปี มีอาการซึมเศร้ามานานเท่าไหร่ <span class="field"></span> ปี
         </div>
 
         <div class="indent">
-          ${createCheckbox(false)}Excessive daytime sleepiness: ง่วงนอนมากผิดปกติในช่วงกลางวัน หรือ ESS ตั้งแต่ 10 คะแนน โดยที่กลางคืนนอนหลับได้ปกติ หรือไม่มีอาการกรนหยุดหายใจ
+          ${createCheckbox(false)} <strong>Excessive daytime sleepiness</strong>: ง่วงนอนมากผิดปกติในช่วงกลางวัน หรือ ESS ตั้งแต่ 10 คะแนน โดยที่กลางคืนนอนหลับได้ปกติ หรือไม่มีอาการกรนหยุดหายใจ
         </div>
         <div class="sub-question">
           ${createCheckbox(false)} อายุที่เริ่มมีอาการ EDS <span class="field"></span> ปี หรือ มีอาการ EDS มานานเท่าไหร่ <span class="field"></span> ปี
         </div>
 
         <div class="indent">
-          ${createCheckbox(false)}Autonomic dysfunction: มีอาการระบบประสาทอัตโนมัติผิดปกติข้อใดข้อหนึ่ง หน้ามืดหรือเป็นลมหมดสติเวลาเปลี่ยนท่าจากนอนหรือนั่งเป็นยืน, กลั้นปัสสาวะไม่อยู่, อวัยวะเพศไม่แข็งตัว
+          ${createCheckbox(false)} <strong>Autonomic dysfunction</strong>: มีอาการระบบประสาทอัตโนมัติผิดปกติข้อใดข้อหนึ่ง หน้ามืดหรือเป็นลมหมดสติเวลาเปลี่ยนท่าจากนอนหรือนั่งเป็นยืน, กลั้นปัสสาวะไม่อยู่, อวัยวะเพศไม่แข็งตัว
         </div>
         <div class="sub-question">
           ${createCheckbox(false)} อายุที่เริ่มมีอาการ ANS dysfunction <span class="field"></span>ปี หรือ มีอาการมานาน <span class="field"></span> ปี
         </div>
 
         <div class="indent">
-          ${createCheckbox(false)}Mild parkinsonian sign: (UPDRS part III > 3 โดยไม่รวม postural and kinetic tremor หรือ total UPDRS > 6 โดยยังไม่เข้า criteria การวินิจฉัยพาร์กินสัน และไม่นับคะแนนจาก potential confounder
+          ${createCheckbox(false)} <strong>Mild parkinsonian sign</strong>: (UPDRS part III > 3 โดยไม่รวม postural and kinetic tremor หรือ total UPDRS > 6 โดยยังไม่เข้า criteria การวินิจฉัยพาร์กินสัน และไม่นับคะแนนจาก potential confounder
         </div>
 
         <div class="indent">
-          ${createCheckbox(false)}Family history of PD (First degree): ประวัติญาติสายตรงเป็นพาร์กินสัน
+          ${createCheckbox(false)} <strong>Family history of PD (First degree)</strong>: ประวัติญาติสายตรงเป็นพาร์กินสัน
         </div>
       </div>
 
@@ -417,22 +429,28 @@ export async function GET(req: NextRequest) {
   </html>
   `;
 
-    // ใช้ playwright-core + @sparticuz/chromium สำหรับ Vercel
-    const browser = await playwright.chromium.launch({
-      args: chromium.args,
-      executablePath: process.env.VERCEL
-        ? await chromium.executablePath() // ใช้ sparticuz บน Vercel
-        : undefined, // local ให้ใช้ chromium ที่ติดมากับ Playwright
-      headless: true,
-    });
-
-
-    const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: "networkidle" });
-    const pdfBuffer = await page.pdf({ format: "A4" });
-    await browser.close();
-
-    return new Response(Buffer.from(pdfBuffer), {
+    const runPdf = async () => {
+      const browser = await getBrowser();
+      const page = await browser.newPage();
+      try {
+        await page.setContent(html, { waitUntil: "networkidle" });
+        return await page.pdf({ format: "A4" });
+      } finally {
+        await page.close();
+      }
+    };
+    let pdfBuffer: Buffer;
+    try {
+      pdfBuffer = Buffer.from(await runPdf());
+    } catch (e: any) {
+      if (e?.message?.includes("has been closed") || e?.message?.includes("Target closed")) {
+        resetBrowser();
+        pdfBuffer = Buffer.from(await runPdf());
+      } else {
+        throw e;
+      }
+    }
+    return new Response(new Uint8Array(pdfBuffer), {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",

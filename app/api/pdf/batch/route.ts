@@ -5,11 +5,23 @@ import JSZip from 'jszip';
 export const runtime = 'nodejs';
 
 import { generatePdfBuffer } from '@/lib/generatePdfBuffer';
+import { checkRateLimit, getClientIdentifier } from '@/lib/rateLimit';
 
 const MAX_BATCH = 100;
+const PDF_RATE_LIMIT = 10;   // batch counts as multiple; allow fewer per minute
+const PDF_RATE_WINDOW_MS = 60 * 1000;
 
 export async function POST(req: NextRequest) {
   try {
+    const id = getClientIdentifier(req);
+    const { ok, resetAt } = checkRateLimit(id, PDF_RATE_LIMIT, PDF_RATE_WINDOW_MS);
+    if (!ok) {
+      return NextResponse.json(
+        { error: 'เกินจำนวนการขอ PDF ต่อนาที กรุณาลองใหม่ในภายหลัง' },
+        { status: 429, headers: { 'X-RateLimit-Reset': String(resetAt), 'Retry-After': '60' } }
+      );
+    }
+
     const formData = await req.formData();
     const file = formData.get('file') as File;
 

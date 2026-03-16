@@ -171,26 +171,40 @@ export default function UsersClientPage() {
     }
 
     const loadAreaOptions = async () => {
-      const { data, error } = await supabase
-        .from('user_record_summary_with_users')
-        .select('area')
-        .order('area', { ascending: true })
+      const areaSet = new Set<string>()
+      const pageSize = 1000
+      let from = 0
 
-      if (error) {
-        console.error('❌ Error loading area options:', error)
-        return
+      while (true) {
+        const { data, error } = await supabase
+          .from('user_record_summary_with_users')
+          .select('area')
+          .not('area', 'is', null)
+          .order('area', { ascending: true })
+          .range(from, from + pageSize - 1)
+
+        if (error) {
+          console.error('Error loading area options:', error)
+          return
+        }
+
+        if (!data || data.length === 0) break
+
+        for (const row of data) {
+          if (typeof row.area !== 'string') continue
+          const value = row.area.trim()
+          if (value.length > 0) {
+            areaSet.add(value)
+          }
+        }
+
+        if (data.length < pageSize) break
+        from += pageSize
       }
 
-      const options = Array.from(
-        new Set(
-          (data ?? [])
-            .map(({ area }) => (typeof area === 'string' ? area.trim() : ''))
-            .filter((value) => value.length > 0)
-        )
-      )
-
-      setAreaOptions(options)
+      setAreaOptions(Array.from(areaSet).sort((a, b) => a.localeCompare(b)))
     }
+
 
     loadOtherOptions()
     loadAreaOptions()

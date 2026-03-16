@@ -1,13 +1,16 @@
-// app/api/pdf/[userDocId]/route.ts
+﻿// app/api/pdf/[userDocId]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebaseAdmin';
 import { Timestamp } from 'firebase-admin/firestore';
 import path from 'path';
 import fs from 'fs';
-import playwright from 'playwright-core';
-import chromium from '@sparticuz/chromium';
+import { getBrowser, resetBrowser } from '@/lib/pdfBrowser';
+import { checkRateLimit, getClientIdentifier } from '@/lib/rateLimit';
 
 export const runtime = 'nodejs';
+
+const PDF_RATE_LIMIT = 15;   // requests per minute per IP
+const PDF_RATE_WINDOW_MS = 60 * 1000;
 
 // โหลดฟอนต์และรูปภาพ
 const fontPath = path.join(process.cwd(), 'fonts', 'thsarabunnew-webfont.woff');
@@ -594,6 +597,15 @@ export async function GET(
   context: { params: Promise<{ userDocId: string }> }
 ) {
   try {
+    const id = getClientIdentifier(req);
+    const { ok, remaining, resetAt } = checkRateLimit(id, PDF_RATE_LIMIT, PDF_RATE_WINDOW_MS);
+    if (!ok) {
+      return NextResponse.json(
+        { error: 'เกินจำนวนการขอ PDF ต่อนาที กรุณาลองใหม่ในภายหลัง' },
+        { status: 429, headers: { 'X-RateLimit-Reset': String(resetAt), 'Retry-After': '60' } }
+      );
+    }
+
     const params = await context.params;
     const { userDocId } = params;
     const { searchParams } = new URL(req.url);
@@ -649,24 +661,31 @@ export async function GET(
     // สร้าง HTML
     const html = generateHTML(userData, recordData, info);
 
-    // สร้าง PDF ด้วย Playwright
-    const browser = await playwright.chromium.launch({
-      args: chromium.args,
-      executablePath: process.env.VERCEL ? await chromium.executablePath() : undefined,
-      headless: true,
-    });
-
-    const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: 'networkidle' });
-    const pdfBuffer = await page.pdf({ format: 'A4' });
-    await browser.close();
-
-    // console.log("balanceFrequency:", balanceFrequency);
-    // console.log("gaitFrequency:", gaitFrequency);
-
-    return new Response(Buffer.from(pdfBuffer), {
-      status: 200,
-      headers: {
+    // สร้าง PDF ด้วย Playwright (reuse browser; retry 1 ครั้งถ้า browser ถูกปิดไปแล้ว)
+    const runPdf = async () => {
+      const browser = await getBrowser();
+      const page = await browser.newPage();
+      try {
+        await page.setContent(html, { waitUntil: "domcontentloaded" });
+        return await page.pdf({ format: 'A4' });
+      } finally {
+        await page.close();
+      }
+    };
+    let pdfBuffer: Buffer;
+    try {
+      pdfBuffer = Buffer.from(await runPdf());
+    } catch (e: any) {
+      if (e?.message?.includes('has been closed') || e?.message?.includes('Target closed')) {
+        resetBrowser();
+        pdfBuffer = Buffer.from(await runPdf());
+      } else {
+        throw e;
+      }
+    }
+      return new Response(new Uint8Array(pdfBuffer), {
+        status: 200,
+        headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `inline; filename*=UTF-8''${encodeURIComponent(
           `report_${userDocId}_${recordId}.pdf`
