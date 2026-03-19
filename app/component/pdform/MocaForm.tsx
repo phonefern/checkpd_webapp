@@ -1,43 +1,40 @@
-// app/component/pdform/MocaForm.tsx
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { mocaItems } from "./MocaConfig";
+import MocaCard, { MocaItem } from "./MocaCard";
 
-const sections = [
-  { title: "VISUOSPATIAL / EXECUTIVE", max: 5 },
-  { title: "NAMING", max: 3 },
-  { title: "MEMORY", max: 0 },
-  { title: "ATTENTION (Repeat)", max: 2 },
-  { title: "ATTENTION (Concentration)", max: 1 },
-  { title: "ATTENTION (Counting)", max: 3 },
-  { title: "LANGUAGE (Sentence repetition)", max: 2 },
-  { title: "LANGUAGE (Fluency)", max: 1 },
-  { title: "ABSTRACTION", max: 2 },
-  { title: "DELAYED RECALL", max: 5 },
-  { title: "ORIENTATION", max: 6 },
-];
+interface PatientInfo {
+  id: string;
+  first_name: string;
+  last_name: string;
+  thaiid: string;
+}
 
 export default function MocaForm({ thaiId }: { thaiId?: string }) {
   const router = useRouter();
-  const [answers, setAnswers] = useState<number[]>(Array(11).fill(0));
+  const [answers, setAnswers] = useState<number[]>(() =>
+    Array(mocaItems.length).fill(0)
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitMessage, setSubmitMessage] = useState("");
-  const [patientInfo, setPatientInfo] = useState<any>(null);
+  const [patientInfo, setPatientInfo] = useState<PatientInfo | null>(null);
 
-  // โหลดข้อมูลผู้ป่วยจากเลขบัตรประชาชน
   useEffect(() => {
     if (!thaiId) {
-      setSubmitMessage("ไม่พบข้อมูลผู้ป่วย กรุณาเลือกผู้ป่วยก่อนทำแบบประเมิน");
+      setSubmitMessage("กรุณาเลือกผู้ป่วยก่อนเริ่มแบบประเมิน");
       return;
     }
 
     const fetchPatientInfo = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
         if (!session) {
-          setSubmitMessage("กรุณาเข้าสู่ระบบก่อน");
+          setSubmitMessage("ไม่พบ session ผู้ใช้");
           return;
         }
 
@@ -48,77 +45,65 @@ export default function MocaForm({ thaiId }: { thaiId?: string }) {
           .single();
 
         if (error) {
-          console.error("Error fetching patient data:", error);
-          setSubmitMessage("ไม่พบข้อมูลผู้ป่วยด้วยเลขบัตรประชาชนนี้");
+          setSubmitMessage(
+            "ไม่พบข้อมูลผู้ป่วย หรือข้อมูลไม่ครบ กรุณาตรวจสอบ Thai ID อีกครั้ง"
+          );
         } else {
           setPatientInfo(data);
         }
       } catch (err) {
         console.error("Error fetching patient info:", err);
-        setSubmitMessage("เกิดข้อผิดพลาดในการโหลดข้อมูลผู้ป่วย");
+        setSubmitMessage("เกิดข้อผิดพลาดในการดึงข้อมูลผู้ป่วย");
       }
     };
 
     fetchPatientInfo();
   }, [thaiId]);
 
+  const scoreItems = mocaItems.filter((item) => item.type !== "practice");
+  const totalScore = scoreItems.reduce(
+    (acc, item) => acc + (answers[item.id] || 0),
+    0
+  );
+  const maxScore = scoreItems.reduce((acc, item) => acc + item.max, 0);
+  const scorePercent = maxScore > 0 ? Math.round((totalScore / maxScore) * 100) : 0;
 
+  const sectionGroups = useMemo(() => {
+    const grouped: {
+      section: string;
+      items: MocaItem[];
+      score: number;
+      max: number;
+    }[] = [];
+    const sectionMap = new Map<string, number>();
 
+    mocaItems.forEach((item) => {
+      const index = sectionMap.get(item.section);
+      if (index === undefined) {
+        const sectionData = {
+          section: item.section,
+          items: [item],
+          score: item.type === "practice" ? 0 : answers[item.id] || 0,
+          max: item.type === "practice" ? 0 : item.max,
+        };
+        sectionMap.set(item.section, grouped.length);
+        grouped.push(sectionData);
+      } else {
+        const group = grouped[index];
+        group.items.push(item);
+        if (item.type !== "practice") {
+          group.score += answers[item.id] || 0;
+          group.max += item.max;
+        }
+      }
+    });
 
-  const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
-    e.target.select();
-  };
-
-
-  const handleAnswer = (index: number, value: string) => {
-    const maxScore = sections[index].max;
-
-    // If input is empty, treat as 0 immediately
-    if (value === "") {
-      const updated = [...answers];
-      updated[index] = 0;
-      setAnswers(updated);
-      return;
-    }
-
-    // Parse only digits, remove leading zeros, clamp to max
-    let numValue = parseInt(value.replace(/^0+/, "") || "0", 10);
-    numValue = Math.max(0, Math.min(numValue, maxScore));
-
-    const updated = [...answers];
-    updated[index] = numValue;
-    setAnswers(updated);
-  };
-
-
-
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, index: number) => {
-    const maxScore = sections[index].max;
-    const currentValue = answers[index] ?? 0;
-
-    if (e.key === "ArrowUp") {
-      e.preventDefault();
-      const updated = [...answers];
-      updated[index] = Math.min(currentValue + 1, maxScore);
-      setAnswers(updated);
-    }
-
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      const updated = [...answers];
-      updated[index] = Math.max(currentValue - 1, 0);
-      setAnswers(updated);
-    }
-  };
-
-
-
-  const totalScore = answers.reduce((acc, val) => acc + val, 0);
+    return grouped;
+  }, [answers]);
 
   const handleSubmit = async () => {
     if (!thaiId || !patientInfo) {
-      setSubmitMessage("ไม่พบข้อมูลผู้ป่วย");
+      setSubmitMessage("กรุณาเลือกผู้ป่วยก่อนบันทึกผล");
       return;
     }
 
@@ -130,10 +115,9 @@ export default function MocaForm({ thaiId }: { thaiId?: string }) {
         data: { session },
       } = await supabase.auth.getSession();
       if (!session) {
-        throw new Error("ไม่พบ session ผู้ใช้");
+        throw new Error("ไม่พบ session ผู้ใช้งาน");
       }
 
-      // ใช้ upsert แทน insert/update
       const { error: upsertError } = await supabase
         .from("risk_factors_test")
         .upsert(
@@ -150,116 +134,144 @@ export default function MocaForm({ thaiId }: { thaiId?: string }) {
         );
 
       if (upsertError) {
-        console.error("Error saving assessment:", upsertError);
-        setSubmitMessage(`เกิดข้อผิดพลาด: ${upsertError.message}`);
+        setSubmitMessage(`บันทึกข้อมูลไม่สำเร็จ: ${upsertError.message}`);
       } else {
-        console.log("Assessment saved successfully");
-        setSubmitMessage("บันทึกผลการประเมินเรียบร้อยแล้ว!");
+        setSubmitMessage("บันทึกผล MoCA เรียบร้อย!");
         await new Promise((resolve) => setTimeout(resolve, 1500));
-
         router.back();
       }
     } catch (err) {
       console.error("Unexpected error:", err);
-      setSubmitMessage("เกิดข้อผิดพลาดที่ไม่คาดคิด");
+      setSubmitMessage("เกิดข้อผิดพลาดระบบ กรุณาลองใหม่");
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="max-w-4xl mx-auto mt-10 bg-white p-8 rounded-lg shadow">
-      <h1 className="text-2xl font-bold text-center mb-6">
-        แบบประเมิน Montreal Cognitive Assessment (MoCA)
-      </h1>
+    <div className="max-w-4xl mx-auto mt-10 bg-slate-50 p-4 sm:p-6 rounded-xl shadow-lg">
+      <div className="bg-white border border-slate-200 rounded-xl p-5 sm:p-6 mb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-slate-800">
+              Montreal Cognitive Assessment (MoCA)
+            </h1>
+            <p className="text-sm sm:text-base text-slate-500 mt-1">
+              คำถาม/ข้อสอบครบ 30 คะแนน (ตัวอย่าง)
+            </p>
+          </div>
+          <div className="rounded-xl bg-slate-200 text-slate-600 p-3 text-center">
+            <div className="text-xs uppercase tracking-wide font-semibold">
+              คะแนนรวม
+            </div>
+            <div className="text-3xl font-extrabold mt-1">{totalScore}</div>
+            <div className="text-xs">{`/ ${maxScore}`}</div>
+          </div>
+        </div>
+      </div>
 
       {thaiId && patientInfo && (
-        <div className="mb-4 p-3 bg-blue-50 rounded-lg text-center text-blue-700">
-          กำลังทำแบบประเมินสำหรับ: {patientInfo.first_name}{" "}
-          {patientInfo.last_name} ({thaiId})
+        <div className="mb-4 rounded-xl bg-blue-50 border border-blue-200 p-3 text-blue-800 text-sm sm:text-base">
+          รายชื่อผู้ป่วย:{" "}
+          <span className="font-semibold">
+            {patientInfo.first_name} {patientInfo.last_name}
+          </span>{" "}
+          ({thaiId})
         </div>
       )}
 
-      <div className="overflow-x-auto">
-        <table className="w-full border border-gray-300 mb-6">
-          <thead>
-            <tr className="bg-gray-100">
-              <th className="border border-gray-300 px-3 py-2 text-left">
-                หมวดการประเมิน
-              </th>
-              <th className="border border-gray-300 px-3 py-2 text-center">
-                คะแนน (สูงสุด)
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {sections.map((section, i) => (
-              <tr key={i}>
-                <td className="border border-gray-300 px-3 py-2">
-                  {section.title}
-                </td>
-                <td className="border border-gray-300 text-center">
-                  <input
-                    type="number"
-                    min={0}
-                    max={sections[i].max}
-                    value={answers[i] ?? 0}
-                    onChange={(e) => handleAnswer(i, e.target.value)}
-                    onKeyDown={(e) => handleKeyDown(e, i)}
-                    onFocus={handleFocus}
-                    className="w-20 border rounded px-2 py-1 text-center"
-                  />
-
-
-                  <span className="ml-1 text-sm text-gray-500">
-                    / {section.max}
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="bg-white border border-slate-200 rounded-xl p-4 sm:p-5 mb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <div>
+            <div className="text-sm text-slate-500">Progress</div>
+            <div className="font-semibold text-slate-700">
+              คะแนนรวม {scorePercent}%
+            </div>
+          </div>
+          <div className="w-full sm:w-72 h-2 bg-slate-200 rounded-full">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-cyan-500"
+              style={{ width: `${scorePercent}%` }}
+            />
+          </div>
+        </div>
       </div>
 
-      <div className="flex justify-between items-center mb-6">
-        <p className="font-bold text-lg">
-          รวมคะแนนทั้งหมด:{" "}
-          <span className="text-blue-600">{totalScore}</span> / 30
-        </p>
-        <p
-          className={`font-bold text-lg ${totalScore < 26 ? "text-red-600" : "text-green-600"
-            }`}
+      <div className="space-y-5">
+        {sectionGroups.map((group) => (
+          <section
+            key={group.section}
+            className="bg-white border border-slate-200 rounded-xl p-4 sm:p-5 space-y-4 shadow-sm"
+          >
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-800">
+                  {group.section}
+                </h2>
+                <p className="text-xs text-slate-500 mt-1">
+                  {group.max > 0
+                    ? `คะแนนส่วนนี้: ${group.score}/${group.max}`
+                    : "ส่วนฝึกฝน (ไม่คิดคะแนน)"}
+                </p>
+              </div>
+              <div className="text-sm text-slate-600">
+                {group.max > 0 ? `${Math.round((group.score / group.max) * 100)}%` : "-"}
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              {group.items.map((item) => (
+                <MocaCard
+                  key={item.id}
+                  item={item}
+                  value={item.type === "practice" ? (answers[item.id] ?? -1) : (answers[item.id] || 0)}
+                  onChange={(val) => {
+                    const updated = [...answers];
+                    updated[item.id] = val;
+                    setAnswers(updated);
+                  }}
+                />
+              ))}
+            </div>
+          </section>
+        ))}
+      </div>
+
+      <div className="mt-5 bg-white border border-slate-200 rounded-xl p-4 sm:p-5">
+        <div className="text-sm text-slate-500">คะแนนรวม</div>
+        <div className="text-3xl font-bold text-slate-800">
+          {totalScore} / {maxScore}
+        </div>
+        <div
+          className={`text-base font-semibold ${
+            totalScore < 26 ? "text-red-600" : "text-green-600"
+          }`}
         >
-          ผลประเมิน:{" "}
-          {totalScore < 26 ? "อาจมีความบกพร่องทางสติปัญญา" : "ปกติ"}
-        </p>
+          {totalScore < 26 ? "มีความเสี่ยง/ต้องประเมินต่อ" : "ปกติ"}
+        </div>
       </div>
 
-      <div className="flex justify-center">
+      <div className="mt-4 flex justify-center">
         <button
           onClick={handleSubmit}
           disabled={isSubmitting || !thaiId || !patientInfo}
-          className={`px-6 py-2 rounded text-white ${isSubmitting || !thaiId || !patientInfo
-            ? "bg-gray-400 cursor-not-allowed"
-            : "bg-blue-600 hover:bg-blue-700"
-            }`}
+          className={`px-6 py-2 rounded-xl text-white font-semibold transition ${
+            isSubmitting || !thaiId || !patientInfo
+              ? "bg-slate-400 cursor-not-allowed"
+              : "bg-indigo-600 hover:bg-indigo-700"
+          }`}
         >
-          {isSubmitting  ? "กำลังบันทึก..." : "ส่งแบบประเมิน"} {isSubmitting && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm z-50">
-              <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-600 border-solid mb-4"></div>
-              <p className="text-lg font-semibold text-blue-600">กำลังบันทึกผลการประเมิน...</p>
-            </div>
-          )}
-
+          {isSubmitting ? "กำลังบันทึก..." : "บันทึกผล"}
         </button>
       </div>
 
       {submitMessage && (
         <div
-          className={`mt-4 p-3 rounded text-center ${submitMessage.includes("เรียบร้อย")
-            ? "bg-green-100 text-green-700"
-            : "bg-red-100 text-red-700"
-            }`}
+          className={`mt-4 p-3 rounded-lg text-center ${
+            submitMessage.includes("เรียบร้อย")
+              ? "bg-blue-100 text-blue-700"
+              : "bg-red-100 text-red-700"
+          }`}
         >
           {submitMessage}
         </div>
