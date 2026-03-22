@@ -1,9 +1,9 @@
 'use client'
 
-import { QaRow, QA_CONDITION_OPTIONS, QA_HY_OPTIONS } from './types'
+import { QaRow, QaPatient, QA_CONDITION_OPTIONS, QA_HY_OPTIONS } from './types'
 import { provinceOptions } from '@/app/types/user'
 import { Button } from '@/components/ui/button'
-import { Pencil, Check, X } from 'lucide-react'
+import { Pencil, Check, X, Trash2, ClipboardList } from 'lucide-react'
 
 interface QaTableProps {
   rows: QaRow[]
@@ -11,9 +11,11 @@ interface QaTableProps {
   setEditingId: (id: number | null) => void
   onFieldChange: (patientId: number, field: string, value: string) => void
   onSave: (patientId: number) => void
+  onDelete: (patientId: number, name: string) => void
+  onAssess: (patient: QaPatient) => void
 }
 
-export default function QaTable({ rows, editingId, setEditingId, onFieldChange, onSave }: QaTableProps) {
+export default function QaTable({ rows, editingId, setEditingId, onFieldChange, onSave, onDelete, onAssess }: QaTableProps) {
   if (rows.length === 0) {
     return (
       <div className="text-muted-foreground border rounded p-6 text-center">
@@ -150,14 +152,32 @@ export default function QaTable({ rows, editingId, setEditingId, onFieldChange, 
                       </Button>
                     </div>
                   ) : (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setEditingId(p.id)}
-                      className="border-blue-600 text-blue-700 hover:bg-blue-50 cursor-pointer"
-                    >
-                      <Pencil className="mr-1 h-3 w-3" />Edit
-                    </Button>
+                    <div className="flex items-center justify-end gap-1">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => onAssess(p)}
+                        className="border-purple-500 text-purple-700 hover:bg-purple-50 cursor-pointer"
+                      >
+                        <ClipboardList className="mr-1 h-3 w-3" />Tests
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setEditingId(p.id)}
+                        className="border-blue-600 text-blue-700 hover:bg-blue-50 cursor-pointer"
+                      >
+                        <Pencil className="mr-1 h-3 w-3" />Edit
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => onDelete(p.id, `${p.first_name ?? ''} ${p.last_name ?? ''}`.trim())}
+                        className="border-red-500 text-red-600 hover:bg-red-50 cursor-pointer"
+                      >
+                        <Trash2 className="mr-1 h-3 w-3" />Delete
+                      </Button>
+                    </div>
                   )}
                 </td>
               </tr>
