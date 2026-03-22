@@ -4,7 +4,11 @@ import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import QaSearchFilters from '@/app/component/qa/QaSearchFilters'
 import QaTable from '@/app/component/qa/QaTable'
+import QaCreateModal from '@/app/component/qa/QaCreateModal'
+import QaAssessmentModal from '@/app/component/qa/QaAssessmentModal'
 import TablePagination from '@/app/component/users/Pagination'
+import { Button } from '@/components/ui/button'
+import { Plus } from 'lucide-react'
 import {
   PAGE_SIZE,
   QaPatient,
@@ -14,6 +18,7 @@ import {
   QaRow,
   detectQaCondition,
 } from '@/app/component/qa/types'
+
 
 export default function QaPage() {
   // Filter state
@@ -35,6 +40,12 @@ export default function QaPage() {
 
   // Edit state
   const [editingId, setEditingId] = useState<number | null>(null)
+
+  // Create modal state
+  const [createOpen, setCreateOpen] = useState(false)
+
+  // Assessment modal state
+  const [assessingPatient, setAssessingPatient] = useState<QaPatient | null>(null)
 
   const totalPages = Math.ceil(totalCount / PAGE_SIZE)
   const from = (currentPage - 1) * PAGE_SIZE
@@ -70,7 +81,7 @@ export default function QaPage() {
         .schema('core')
         .from('patients_v2')
         .select('id,first_name,last_name,age,province,collection_date,hn_number,bmi', { count: 'exact' })
-        .order('id', { ascending: false })
+        .order('collection_date', { ascending: false, nullsFirst: false })
         .range(from, to)
 
       if (search.trim()) {
@@ -158,6 +169,21 @@ export default function QaPage() {
     }))
   }
 
+  const handleDelete = async (patientId: number, name: string) => {
+    if (!confirm(`ลบผู้ป่วย "${name}" และข้อมูลแบบทดสอบทั้งหมด?`)) return
+    const { error: delErr } = await supabase
+      .schema('core')
+      .from('patients_v2')
+      .delete()
+      .eq('id', patientId)
+    if (delErr) {
+      setError(`Delete failed: ${delErr.message}`)
+      return
+    }
+    setRows((prev) => prev.filter((r) => r.patient.id !== patientId))
+    setTotalCount((prev) => prev - 1)
+  }
+
   const handleSave = async (patientId: number) => {
     const row = rows.find((r) => r.patient.id === patientId)
     if (!row) return
@@ -191,7 +217,26 @@ export default function QaPage() {
 
   return (
     <div className="max-w-9xl mx-auto bg-white rounded-lg shadow-lg p-6">
-      <h1 className="text-3xl font-semibold mb-4 text-gray-900">QA — Parkinson System</h1>
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-3xl font-semibold text-gray-900">QA — Parkinson System</h1>
+        <Button onClick={() => setCreateOpen(true)} className="gap-2 bg-blue-600 hover:bg-blue-700 text-white">
+          <Plus className="h-4 w-4" />
+          เพิ่มผู้ป่วยใหม่
+        </Button>
+      </div>
+
+      <QaCreateModal
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCreated={fetchData}
+      />
+
+      <QaAssessmentModal
+        open={assessingPatient !== null}
+        patient={assessingPatient}
+        onClose={() => setAssessingPatient(null)}
+        onUpdated={fetchData}
+      />
 
       <QaSearchFilters
         search={search}
@@ -231,6 +276,8 @@ export default function QaPage() {
             setEditingId={setEditingId}
             onFieldChange={handleFieldChange}
             onSave={handleSave}
+            onDelete={handleDelete}
+            onAssess={setAssessingPatient}
           />
           <TablePagination
             currentPage={currentPage}
