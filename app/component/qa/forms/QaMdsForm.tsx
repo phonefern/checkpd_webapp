@@ -42,7 +42,7 @@ const mkP3 = ():P3 => ({ q01:0,q02:0,q03a:0,q03b:0,q03c:0,q03d:0,q03e:0,q04a:0,q
 const mkP4 = ():P4 => ({ q01:0,q02:0,q03:0,q04:0,q05:0,q06:0 })
 
 function sum(obj: Record<string, number | boolean | string>): number {
-  return Object.values(obj).reduce((a, v) => a + (typeof v === 'number' ? v : 0), 0) as number
+  return Object.values(obj).reduce<number>((a, v) => a + (typeof v === 'number' ? v : 0), 0)
 }
 
 const TABS = ['Part I', 'Part II', 'Part III', 'Part IV']
@@ -61,7 +61,7 @@ export default function QaMdsForm({ open, patientId, onClose, onSaved }: Props) 
     supabase.schema('core').from('mds_updrs_v2').select('*').eq('patient_id', patientId).maybeSingle()
       .then(({ data }) => {
         if (data) {
-          const d = data as Record<string, number | boolean | string | null>
+          const d = data as unknown as Record<string, number | boolean | string | null>
           const n = (k: string) => Number(d[k] ?? 0)
           const b = (k: string) => Boolean(d[k] ?? false)
           setP1({ q01:n('p1_q01_cognitive_impairment'),q02:n('p1_q02_hallucinations_psychosis'),q03:n('p1_q03_depressed_mood'),q04:n('p1_q04_anxious_mood'),q05:n('p1_q05_apathy'),q06:n('p1_q06_dds'),q07:n('p1_q07_sleep_problems'),q08:n('p1_q08_daytime_sleepiness'),q09:n('p1_q09_pain_sensations'),q10:n('p1_q10_urinary_problems'),q11:n('p1_q11_constipation_problems'),q12:n('p1_q12_lightheadedness'),q13:n('p1_q13_fatigue') })

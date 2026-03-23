@@ -126,7 +126,7 @@ export default function QaMocaForm({ open, patientId, onClose, onSaved }: Props)
       .eq('patient_id', patientId).maybeSingle()
       .then(({ data }) => {
         if (data) {
-          const d = data as Record<string, number | null>
+          const d = data as unknown as Record<string, number | null>
           setForm({
             visuospatial_executive: d.visuospatial_executive ?? 0,
             naming:                 d.naming ?? 0,

@@ -232,7 +232,7 @@ export default function QaHamdForm({ open, patientId, onClose, onSaved }: Props)
       .eq('patient_id', patientId).maybeSingle()
       .then(({ data }) => {
         if (data) {
-          const d = data as Record<string, number | null>
+          const d = data as unknown as Record<string, number | null>
           setForm({
             q01: d.q01_depressed_mood ?? 0, q02: d.q02_guilt ?? 0, q03: d.q03_suicide ?? 0,
             q04: d.q04_insomnia_early ?? 0, q05: d.q05_insomnia_middle ?? 0, q06: d.q06_insomnia_late ?? 0,
