@@ -1,21 +1,24 @@
 'use client'
 
-import { QaRow, QaPatient, QA_CONDITION_OPTIONS, QA_HY_OPTIONS } from './types'
-import { provinceOptions } from '@/app/types/user'
+import { QaRow, QaPatient } from './types'
 import { Button } from '@/components/ui/button'
-import { Pencil, Check, X, Trash2, ClipboardList } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { MoreHorizontal, ClipboardList, Pencil, Trash2, Printer } from 'lucide-react'
 
 interface QaTableProps {
   rows: QaRow[]
-  editingId: number | null
-  setEditingId: (id: number | null) => void
-  onFieldChange: (patientId: number, field: string, value: string) => void
-  onSave: (patientId: number) => void
-  onDelete: (patientId: number, name: string) => void
   onAssess: (patient: QaPatient) => void
+  onEdit: (patient: QaPatient) => void
+  onDelete: (patientId: number, name: string) => void
 }
 
-export default function QaTable({ rows, editingId, setEditingId, onFieldChange, onSave, onDelete, onAssess }: QaTableProps) {
+export default function QaTable({ rows, onAssess, onEdit, onDelete }: QaTableProps) {
   if (rows.length === 0) {
     return (
       <div className="text-muted-foreground border rounded p-6 text-center">
@@ -23,8 +26,6 @@ export default function QaTable({ rows, editingId, setEditingId, onFieldChange, 
       </div>
     )
   }
-
-  const conditionEditOptions = QA_CONDITION_OPTIONS.filter((o) => o.value !== '')
 
   return (
     <div className="overflow-x-auto rounded border">
@@ -47,142 +48,78 @@ export default function QaTable({ rows, editingId, setEditingId, onFieldChange, 
             <th className="px-3 py-2 text-center font-medium">MDS-UPDRS</th>
             <th className="px-3 py-2 text-center font-medium">Epworth</th>
             <th className="px-3 py-2 text-center font-medium">Smell</th>
+            <th className="px-3 py-2 text-center font-medium">TMSE</th>
+            <th className="px-3 py-2 text-center font-medium">RBD</th>
+            <th className="px-3 py-2 text-center font-medium">Rome4</th>
             <th className="px-3 py-2 text-right font-medium">Actions</th>
           </tr>
         </thead>
         <tbody className="divide-y">
-          {rows.map(({ patient: p, diag, conditionLabel, moca, hamd, mds, epw, smell }) => {
-            const isEditing = editingId === p.id
-            return (
-              <tr key={p.id} className="hover:bg-muted/30 transition-colors">
-                <td className="px-3 py-2 font-mono text-xs text-muted-foreground">{p.id}</td>
-                <td className="px-3 py-2 whitespace-nowrap">{p.first_name} {p.last_name}</td>
-                <td className="px-3 py-2 font-mono text-xs">{p.hn_number ?? '-'}</td>
-                <td className="px-3 py-2 text-center">{p.age ?? '-'}</td>
-                <td className="px-3 py-2">
-                  {isEditing ? (
-                    <select
-                      value={p.province ?? ''}
-                      onChange={(e) => onFieldChange(p.id, 'province', e.target.value)}
-                      className="border border-gray-300 rounded p-1 text-sm w-36 cursor-pointer"
+          {rows.map(({ patient: p, diag, conditionLabel, moca, hamd, mds, epw, smell, tmse, rbd, rome4 }) => (
+            <tr key={p.id} className="hover:bg-muted/30 transition-colors">
+              <td className="px-3 py-2 font-mono text-xs text-muted-foreground">{p.id}</td>
+              <td className="px-3 py-2 whitespace-nowrap">{p.first_name} {p.last_name}</td>
+              <td className="px-3 py-2 font-mono text-xs">{p.hn_number ?? '-'}</td>
+              <td className="px-3 py-2 text-center">{p.age ?? '-'}</td>
+              <td className="px-3 py-2">{p.province ?? '-'}</td>
+              <td className="px-3 py-2 whitespace-nowrap text-xs">{p.collection_date ?? '-'}</td>
+              <td className="px-3 py-2 text-center">{p.bmi != null ? Number(p.bmi).toFixed(1) : '-'}</td>
+              <td className="px-3 py-2">{conditionLabel}</td>
+              <td className="px-3 py-2 text-center">{diag?.hy_stage ?? '-'}</td>
+              <td className="px-3 py-2 text-center">{diag?.disease_duration ?? '-'}</td>
+              <td className="px-3 py-2 text-center" title={diag?.other_diagnosis_text ?? ''}>
+                {diag?.other_diagnosis_text ?? '-'}
+              </td>
+              <td className="px-3 py-2 text-center">{moca?.total_score ?? '-'}</td>
+              <td className="px-3 py-2 text-center">{hamd?.total_score ?? '-'}</td>
+              <td className="px-3 py-2 text-center">{mds?.total_score ?? '-'}</td>
+              <td className="px-3 py-2 text-center">{epw?.total_score ?? '-'}</td>
+              <td className="px-3 py-2 text-center">{smell?.total_score ?? '-'}</td>
+              <td className="px-3 py-2 text-center">{tmse?.total_score ?? '-'}</td>
+              <td className="px-3 py-2 text-center">{rbd?.total_score ?? '-'}</td>
+              <td className="px-3 py-2 text-center">{rome4?.total_score ?? '-'}</td>
+              <td className="px-3 py-2 text-right">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0 cursor-pointer">
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem
+                      onClick={() => window.open(`/api/qa-pdf?patient_id=${p.id}`, '_blank')}
+                      className="cursor-pointer text-green-700 focus:text-green-700"
                     >
-                      <option value="">-</option>
-                      {provinceOptions.filter((o) => o.value !== 'null').map((o) => (
-                        <option key={o.value} value={o.value}>{o.label}</option>
-                      ))}
-                    </select>
-                  ) : (
-                    p.province ?? '-'
-                  )}
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap text-xs">{p.collection_date ?? '-'}</td>
-                <td className="px-3 py-2 text-center">{p.bmi != null ? Number(p.bmi).toFixed(1) : '-'}</td>
-                <td className="px-3 py-2">
-                  {isEditing ? (
-                    <select
-                      value={diag?.condition ?? ''}
-                      onChange={(e) => onFieldChange(p.id, 'condition', e.target.value)}
-                      className="border border-gray-300 rounded p-1 text-sm cursor-pointer"
+                      <Printer className="mr-2 h-4 w-4" />
+                      Print
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => onAssess(p)}
+                      className="cursor-pointer text-purple-700 focus:text-purple-700"
                     >
-                      <option value="">-</option>
-                      {conditionEditOptions.map((o) => (
-                        <option key={o.value} value={o.value}>{o.label}</option>
-                      ))}
-                    </select>
-                  ) : (
-                    conditionLabel
-                  )}
-                </td>
-                <td className="px-3 py-2 text-center">
-                  {isEditing ? (
-                    <select
-                      value={diag?.hy_stage ?? ''}
-                      onChange={(e) => onFieldChange(p.id, 'hy_stage', e.target.value)}
-                      className="border border-gray-300 rounded p-1 text-sm w-16 cursor-pointer"
+                      <ClipboardList className="mr-2 h-4 w-4" />
+                      Tests
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => onEdit(p)}
+                      className="cursor-pointer text-blue-700 focus:text-blue-700"
                     >
-                      {QA_HY_OPTIONS.map((o) => (
-                        <option key={o.value} value={o.value}>{o.label}</option>
-                      ))}
-                    </select>
-                  ) : (
-                    diag?.hy_stage ?? '-'
-                  )}
-                </td>
-                <td className="px-3 py-2 text-xs">
-                  {isEditing ? (
-                    <input
-                      type="text"
-                      value={diag?.disease_duration ?? ''}
-                      onChange={(e) => onFieldChange(p.id, 'disease_duration', e.target.value)}
-                      className="border border-gray-300 rounded p-1 text-sm w-24"
-                    />
-                  ) : (
-                    diag?.disease_duration ?? '-'
-                  )}
-                </td>
-                <td className="px-3 py-2 text-xs max-w-[160px] truncate" title={diag?.other_diagnosis_text ?? ''}>
-                  {isEditing ? (
-                    <input
-                      type="text"
-                      value={diag?.other_diagnosis_text ?? ''}
-                      onChange={(e) => onFieldChange(p.id, 'other_diagnosis_text', e.target.value)}
-                      className="border border-gray-300 rounded p-1 text-sm w-36"
-                    />
-                  ) : (
-                    diag?.other_diagnosis_text ?? '-'
-                  )}
-                </td>
-                <td className="px-3 py-2 text-center">{moca?.total_score ?? '-'}</td>
-                <td className="px-3 py-2 text-center">{hamd?.total_score ?? '-'}</td>
-                <td className="px-3 py-2 text-center">{mds?.total_score ?? '-'}</td>
-                <td className="px-3 py-2 text-center">{epw?.total_score ?? '-'}</td>
-                <td className="px-3 py-2 text-center">{smell?.total_score ?? '-'}</td>
-                <td className="px-3 py-2 text-right whitespace-nowrap">
-                  {isEditing ? (
-                    <div className="flex items-center justify-end gap-1">
-                      <Button
-                        size="sm"
-                        onClick={() => onSave(p.id)}
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer"
-                      >
-                        <Check className="mr-1 h-3 w-3" />Save
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => setEditingId(null)} className="cursor-pointer">
-                        <X className="mr-1 h-3 w-3" />Cancel
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-end gap-1">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => onAssess(p)}
-                        className="border-purple-500 text-purple-700 hover:bg-purple-50 cursor-pointer"
-                      >
-                        <ClipboardList className="mr-1 h-3 w-3" />Tests
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setEditingId(p.id)}
-                        className="border-blue-600 text-blue-700 hover:bg-blue-50 cursor-pointer"
-                      >
-                        <Pencil className="mr-1 h-3 w-3" />Edit
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => onDelete(p.id, `${p.first_name ?? ''} ${p.last_name ?? ''}`.trim())}
-                        className="border-red-500 text-red-600 hover:bg-red-50 cursor-pointer"
-                      >
-                        <Trash2 className="mr-1 h-3 w-3" />Delete
-                      </Button>
-                    </div>
-                  )}
-                </td>
-              </tr>
-            )
-          })}
+                      <Pencil className="mr-2 h-4 w-4" />
+                      Edit
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={() => onDelete(p.id, `${p.first_name ?? ''} ${p.last_name ?? ''}`.trim())}
+                      className="cursor-pointer text-red-600 focus:text-red-600"
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Delete
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </td>
+            </tr>
+          ))}
         </tbody>
       </table>
     </div>

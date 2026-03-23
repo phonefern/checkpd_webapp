@@ -11,6 +11,8 @@ import { ExportSection } from "@/app/component/pdf/ExportSection";
 import { PaginationControls } from "@/app/component/pdf/PaginationControls";
 import { UserRow, RecordRow } from "./types";
 import { Card, CardContent } from "@/components/ui/card";
+import QaCreateModal from "@/app/component/qa/QaCreateModal";
+import { QaPatient, QaDiagnosisRow } from "@/app/component/qa/types";
 
 const ITEMS_PER_PAGE = 50;
 
@@ -348,6 +350,46 @@ export default function ExportTestPage() {
     setRecordId("");
   };
 
+  // ===== QA Modal =====
+  const [qaOpen, setQaOpen] = useState(false);
+  const [qaEditPatient, setQaEditPatient] = useState<QaPatient | null>(null);
+  const [qaEditDiag, setQaEditDiag] = useState<QaDiagnosisRow | null>(null);
+  const [qaPrefill, setQaPrefill] = useState<{ first_name: string; last_name: string; thaiid: string; age: string } | undefined>(undefined);
+
+  const handleQaClick = async (user: UserRow) => {
+    const thaiid = (user.thaiId || "").trim();
+
+    // Check if patient already exists in core.patients_v2
+    const { data: existing } = await supabase
+      .schema("core")
+      .from("patients_v2")
+      .select("id,first_name,last_name,thaiid,hn_number,age,province,collection_date,bmi,weight,height,chest_cm,waist_cm,hip_cm,neck_cm,bp_supine,pr_supine,bp_upright,pr_upright")
+      .eq("thaiid", thaiid)
+      .maybeSingle();
+
+    if (existing) {
+      const { data: diag } = await supabase
+        .schema("core")
+        .from("patient_diagnosis_v2")
+        .select("*")
+        .eq("patient_id", (existing as QaPatient).id)
+        .maybeSingle();
+      setQaEditPatient(existing as QaPatient);
+      setQaEditDiag(diag as QaDiagnosisRow | null);
+      setQaPrefill(undefined);
+    } else {
+      setQaEditPatient(null);
+      setQaEditDiag(null);
+      setQaPrefill({
+        first_name: user.firstName ?? "",
+        last_name: user.lastName ?? "",
+        thaiid,
+        age: user.age != null ? String(user.age) : "",
+      });
+    }
+    setQaOpen(true);
+  };
+
   // ===== Render =====
   return (
     <div className="relative min-h-screen overflow-hidden">
@@ -372,6 +414,16 @@ export default function ExportTestPage() {
         }}
       >
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* QA Modal */}
+          <QaCreateModal
+            open={qaOpen}
+            onClose={() => setQaOpen(false)}
+            onCreated={() => setQaOpen(false)}
+            editPatient={qaEditPatient}
+            editDiag={qaEditDiag}
+            prefillData={qaPrefill}
+          />
+
           {/* Left: Users List */}
           <UserList
             users={users}
@@ -387,6 +439,7 @@ export default function ExportTestPage() {
               setCurrentPage(1);
             }}
             onUserSelect={handleUserSelect}
+            onQaClick={handleQaClick}
             currentUsers={currentUsers}
             paginationInfo={{
               currentPage,

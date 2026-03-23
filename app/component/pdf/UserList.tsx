@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import {
     Table,
     TableBody,
@@ -27,6 +26,7 @@ interface UserListProps {
     screeningError: string | null;
     onSearchChange: (query: string) => void;
     onUserSelect: (user: UserRow) => void;
+    onQaClick: (user: UserRow) => void;
     currentUsers: UserRow[];
     paginationInfo: {
         currentPage: number;
@@ -48,6 +48,7 @@ export function UserList({
     screeningError,
     onSearchChange,
     onUserSelect,
+    onQaClick,
     currentUsers,
     paginationInfo,
 }: UserListProps) {
@@ -76,45 +77,6 @@ export function UserList({
         return screeningCheckedThaiIds.includes(thaiid);
     };
 
-    const buildAssessmentHref = (user: UserRow) => {
-        const thaiid = (user.thaiId || "").trim();
-        if (!thaiid) return "/pages/papers/assessment";
-        const params = new URLSearchParams();
-        params.set("patient_thaiid", thaiid);
-        if (user.firstName) params.set("first_name", user.firstName);
-        if (user.lastName) params.set("last_name", user.lastName);
-        if (user.gender) params.set("gender", user.gender);
-        if (typeof user.age === "number" && Number.isFinite(user.age)) {
-            params.set("age", String(user.age));
-        }
-        return `/pages/papers/assessment?${params.toString()}`;
-    };
-
-    const buildCheckInHref = (user: UserRow) => {
-        const thaiid = (user.thaiId || "").trim();
-        if (!thaiid) return "/pages/papers/check-in";
-        const params = new URLSearchParams();
-        params.set("thaiid", thaiid);
-        if (user.firstName) params.set("firstName", user.firstName);
-        if (user.lastName) params.set("lastName", user.lastName);
-        if (user.gender) params.set("gender", user.gender);
-        if (typeof user.age === "number" && Number.isFinite(user.age)) {
-            params.set("age", String(user.age));
-        }
-        // After check-in completes, continue to QA assessment.
-        params.set("next", buildAssessmentHref(user));
-        return `/pages/papers/check-in?${params.toString()}`;
-    };
-
-    const buildQaHref = (user: UserRow) => {
-        const thaiid = (user.thaiId || "").trim();
-        if (!thaiid) return "/pages/papers/check-in";
-        // If already has screening -> go Assessment QA, else go Check-in first.
-        if (isScreeningChecked(thaiid) && hasScreeningThaiId(thaiid)) {
-            return buildAssessmentHref(user);
-        }
-        return buildCheckInHref(user);
-    };
 
     return (
         <Card className="lg:col-span-2">
@@ -245,25 +207,18 @@ export function UserList({
                                             {user.timestamp?.toDate().toLocaleDateString("th-TH") || "-"}
                                         </TableCell>
                                         <TableCell>
-                                            <Link
-                                                href={buildQaHref(user)}
-                                                onClick={(e) => e.stopPropagation()}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className={!user.thaiId ? "pointer-events-none opacity-50" : ""}
-                                                title={!user.thaiId ? "ต้องมีเลขบัตรประชาชนก่อน" : "ไปทำ QA ต่อ (ถ้าไม่มี screening จะไปหน้า check-in ก่อน)"}
+                                            <Button
+                                                type="button"
+                                                variant="secondary"
+                                                size="sm"
+                                                className="gap-2 w-full cursor-pointer"
+                                                disabled={!user.thaiId}
+                                                title={!user.thaiId ? "ต้องมีเลขบัตรประชาชนก่อน" : "เพิ่ม/แก้ไขข้อมูล QA"}
+                                                onClick={(e) => { e.stopPropagation(); onQaClick(user); }}
                                             >
-                                                <Button
-                                                    type="button"
-                                                    variant="secondary"
-                                                    size="sm"
-                                                    className="gap-2 w-full cursor-pointer"
-                                                    disabled={!user.thaiId || (!isScreeningChecked(user.thaiId) && !screeningError)}
-                                                >
-                                                    <ClipboardCheck className="h-4 w-4 cursor-pointer" />
-                                                    QA
-                                                </Button>
-                                            </Link>
+                                                <ClipboardCheck className="h-4 w-4" />
+                                                QA
+                                            </Button>
                                         </TableCell>
                                     </TableRow>
                                 ))}

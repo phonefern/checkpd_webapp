@@ -8,7 +8,18 @@ export type QaPatient = {
   province: string | null
   collection_date: string | null
   hn_number: string | null
+  thaiid: string | null
   bmi: number | null
+  weight: number | null
+  height: number | null
+  chest_cm: number | null
+  waist_cm: number | null
+  hip_cm: number | null
+  neck_cm: number | null
+  bp_supine: string | null
+  pr_supine: number | null
+  bp_upright: string | null
+  pr_upright: number | null
 }
 
 export type QaDiagnosisRow = {
@@ -18,7 +29,28 @@ export type QaDiagnosisRow = {
   disease_duration: string | null
   other_diagnosis_text: string | null
   constipation: boolean | null
+  constipation_onset_age: string | null
+  constipation_duration: string | null
   rbd_suspected: boolean | null
+  rbd_onset_age: string | null
+  rbd_duration: string | null
+  hyposmia: boolean | null
+  hyposmia_onset_age: string | null
+  hyposmia_duration: string | null
+  depression: boolean | null
+  depression_onset_age: string | null
+  depression_duration: string | null
+  eds: boolean | null
+  eds_onset_age: string | null
+  eds_duration: string | null
+  ans_dysfunction: boolean | null
+  ans_onset_age: string | null
+  ans_duration: string | null
+  adl_score: number | null
+  scopa_aut_score: number | null
+  blood_test_note: string | null
+  fdopa_pet_requested: boolean | null
+  fdopa_pet_score: string | null
 }
 
 export type QaScoreRow = { patient_id: number; total_score: number | null }
@@ -42,6 +74,9 @@ export type QaRow = {
   mds: QaScoreRow | undefined
   epw: QaScoreRow | undefined
   smell: QaScoreRow | undefined
+  tmse: QaScoreRow | undefined
+  rbd: QaScoreRow | undefined
+  rome4: QaScoreRow | undefined
 }
 
 export const QA_CONDITION_OPTIONS = [
