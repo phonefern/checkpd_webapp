@@ -53,7 +53,7 @@ export default function QaTmseForm({ open, patientId, onClose, onSaved }: Props)
       .eq('patient_id', patientId).maybeSingle()
       .then(({ data }) => {
         if (data) {
-          const d = data as Record<string, number | null>
+          const d = data as unknown as Record<string, number | null>
           const f: FormState = {} as FormState
           for (const k of Object.keys(EMPTY)) f[k as keyof FormState] = (d[k] ?? 0) as never
           setForm(f)

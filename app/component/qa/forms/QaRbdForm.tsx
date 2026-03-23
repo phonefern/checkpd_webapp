@@ -80,7 +80,7 @@ export default function QaRbdForm({ open, patientId, onClose, onSaved }: Props) 
       .eq('patient_id', patientId).maybeSingle()
       .then(({ data }) => {
         if (data) {
-          const d = data as Record<string, string | null>
+          const d = data as unknown as Record<string, string | null>
           const f = makeEmpty()
           for (const q of QUESTIONS) {
             f[q.key] = {

@@ -53,7 +53,7 @@ export default function QaSmellForm({ open, patientId, onClose, onSaved }: Props
       .then(({ data }) => {
         if (data) {
           const f: FormState = {}
-          for (const k of Object.keys(EMPTY)) f[k] = (data as Record<string, string>)[k] ?? ''
+          for (const k of Object.keys(EMPTY)) f[k] = (data as unknown as Record<string, string>)[k] ?? ''
           setForm(f)
         } else {
           setForm(EMPTY)

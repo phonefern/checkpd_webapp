@@ -39,7 +39,7 @@ export default function QaRome4Form({ open, patientId, onClose, onSaved }: Props
       .then(({ data }) => {
         if (data) {
           const f: FormState = {}
-          for (const k of Object.keys(EMPTY)) f[k] = (data as Record<string, number>)[k] ?? 0
+          for (const k of Object.keys(EMPTY)) f[k] = (data as unknown as Record<string, number>)[k] ?? 0
           setForm(f)
         } else {
           setForm(EMPTY)
