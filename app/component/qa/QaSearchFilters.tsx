@@ -12,6 +12,8 @@ import { QA_CONDITION_OPTIONS, QA_HY_OPTIONS } from './types'
 interface QaSearchFiltersProps {
   search: string
   setSearch: (v: string) => void
+  thaiId: string
+  setThaiId: (v: string) => void
   condition: string
   setCondition: (v: string) => void
   hyStage: string
@@ -32,6 +34,8 @@ interface QaSearchFiltersProps {
 export default function QaSearchFilters({
   search,
   setSearch,
+  thaiId,
+  setThaiId,
   condition,
   setCondition,
   hyStage,
@@ -53,6 +57,7 @@ export default function QaSearchFilters({
 
   const reset = () => {
     setSearch('')
+    setThaiId('')
     setCondition('')
     setHyStage('')
     setProvince('')
@@ -61,11 +66,11 @@ export default function QaSearchFilters({
     setCurrentPage(1)
   }
 
-  const hasActiveFilter = search || condition || hyStage || province || startDate || endDate
+  const hasActiveFilter = search || thaiId || condition || hyStage || province || startDate || endDate
 
   return (
     <div className="mb-6 p-6 bg-card border border-border rounded-lg shadow-sm">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-4">
         {/* Search */}
         <div className="xl:col-span-2">
           <label className="block text-sm font-medium text-foreground mb-2">Search Patient</label>
@@ -75,6 +80,19 @@ export default function QaSearchFilters({
             value={search}
             onChange={(e) => { setSearch(e.target.value); setCurrentPage(1) }}
             className="w-full border border-gray-300 p-2 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          />
+        </div>
+
+        {/* Thai ID */}
+        <div className="xl:col-span-2">
+          <label className="block text-sm font-medium text-foreground mb-2">บัตรประชาชน (Thai ID)</label>
+          <input
+            type="text"
+            placeholder="เลขบัตรประชาชน 13 หลัก"
+            value={thaiId}
+            maxLength={13}
+            onChange={(e) => { setThaiId(e.target.value.replace(/\D/g, '')); setCurrentPage(1) }}
+            className="w-full border border-gray-300 p-2 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono"
           />
         </div>
 

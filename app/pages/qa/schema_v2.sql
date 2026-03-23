@@ -34,7 +34,8 @@ CREATE TABLE core.patients_v2 (
   bp_upright             TEXT NULL,
   pr_upright             TEXT NULL,
   created_at             TIMESTAMPTZ DEFAULT TIMEZONE('utc', NOW()),
-  updated_at             TIMESTAMPTZ DEFAULT TIMEZONE('utc', NOW())
+  updated_at             TIMESTAMPTZ DEFAULT TIMEZONE('utc', NOW()),
+  thaiid                 TEXT NULL,
 );
 
 CREATE INDEX idx_patients_v2_hash         ON core.patients_v2 (form_submission_hash);

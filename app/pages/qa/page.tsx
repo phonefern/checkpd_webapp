@@ -19,10 +19,13 @@ import {
   detectQaCondition,
 } from '@/app/component/qa/types'
 
+const DIAG_SELECT =
+  'patient_id,condition,hy_stage,disease_duration,other_diagnosis_text,constipation,constipation_onset_age,constipation_duration,rbd_suspected,rbd_onset_age,rbd_duration,hyposmia,hyposmia_onset_age,hyposmia_duration,depression,depression_onset_age,depression_duration,eds,eds_onset_age,eds_duration,ans_dysfunction,ans_onset_age,ans_duration,adl_score,scopa_aut_score,blood_test_note,fdopa_pet_requested,fdopa_pet_score'
 
 export default function QaPage() {
   // Filter state
   const [search, setSearch] = useState('')
+  const [thaiId, setThaiId] = useState('')
   const [condition, setCondition] = useState('')
   const [hyStage, setHyStage] = useState('')
   const [province, setProvince] = useState('')
@@ -38,11 +41,10 @@ export default function QaPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Edit state
-  const [editingId, setEditingId] = useState<number | null>(null)
-
-  // Create modal state
+  // Create / Edit modal state
   const [createOpen, setCreateOpen] = useState(false)
+  const [editPatient, setEditPatient] = useState<QaPatient | null>(null)
+  const [editDiag, setEditDiag] = useState<QaDiagnosisRow | null>(null)
 
   // Assessment modal state
   const [assessingPatient, setAssessingPatient] = useState<QaPatient | null>(null)
@@ -63,9 +65,9 @@ export default function QaPage() {
         let diagQuery = supabase
           .schema('core')
           .from('patient_diagnosis_v2')
-          .select('patient_id,condition,hy_stage,disease_duration,other_diagnosis_text,constipation,rbd_suspected')
+          .select(DIAG_SELECT)
 
-        if (hyStage)   diagQuery = diagQuery.eq('hy_stage', hyStage)
+        if (hyStage) diagQuery = diagQuery.eq('hy_stage', hyStage)
 
         const { data: diagData, error: diagErr } = await diagQuery
         if (diagErr) throw new Error(`patient_diagnosis_v2: ${diagErr.message}`)
@@ -80,7 +82,10 @@ export default function QaPage() {
       let patientQuery = supabase
         .schema('core')
         .from('patients_v2')
-        .select('id,first_name,last_name,age,province,collection_date,hn_number,bmi', { count: 'exact' })
+        .select(
+          'id,first_name,last_name,age,province,collection_date,hn_number,thaiid,bmi,weight,height,chest_cm,waist_cm,hip_cm,neck_cm,bp_supine,pr_supine,bp_upright,pr_upright',
+          { count: 'exact' }
+        )
         .order('collection_date', { ascending: false, nullsFirst: false })
         .range(from, to)
 
@@ -88,6 +93,7 @@ export default function QaPage() {
         const q = `%${search.trim()}%`
         patientQuery = patientQuery.or(`first_name.ilike.${q},last_name.ilike.${q},hn_number.ilike.${q}`)
       }
+      if (thaiId.trim()) patientQuery = patientQuery.ilike('thaiid', `%${thaiId.trim()}%`)
       if (province)  patientQuery = patientQuery.eq('province', province)
       if (startDate) patientQuery = patientQuery.gte('collection_date', startDate)
       if (endDate)   patientQuery = patientQuery.lte('collection_date', endDate)
@@ -116,28 +122,33 @@ export default function QaPage() {
       const patientIds = patients.map((p) => p.id)
 
       // --- Step 3: fetch related data for this page's patients ---
-      const [diagRes, mocaRes, hamdRes, mdsRes, epwRes, smellRes] = await Promise.all([
-        supabase.schema('core').from('patient_diagnosis_v2')
-          .select('patient_id,condition,hy_stage,disease_duration,other_diagnosis_text,constipation,rbd_suspected')
-          .in('patient_id', patientIds),
-        supabase.schema('core').from('moca_v2').select('patient_id,total_score').in('patient_id', patientIds),
-        supabase.schema('core').from('hamd_v2').select('patient_id,total_score,severity_level').in('patient_id', patientIds),
-        supabase.schema('core').from('mds_updrs_v2').select('patient_id,total_score').in('patient_id', patientIds),
-        supabase.schema('core').from('epworth_v2').select('patient_id,total_score').in('patient_id', patientIds),
-        supabase.schema('core').from('smell_test_v2').select('patient_id,total_score').in('patient_id', patientIds),
-      ])
+      const [diagRes, mocaRes, hamdRes, mdsRes, epwRes, smellRes, tmseRes, rbdRes, rome4Res] =
+        await Promise.all([
+          supabase.schema('core').from('patient_diagnosis_v2').select(DIAG_SELECT).in('patient_id', patientIds),
+          supabase.schema('core').from('moca_v2').select('patient_id,total_score').in('patient_id', patientIds),
+          supabase.schema('core').from('hamd_v2').select('patient_id,total_score,severity_level').in('patient_id', patientIds),
+          supabase.schema('core').from('mds_updrs_v2').select('patient_id,total_score').in('patient_id', patientIds),
+          supabase.schema('core').from('epworth_v2').select('patient_id,total_score').in('patient_id', patientIds),
+          supabase.schema('core').from('smell_test_v2').select('patient_id,total_score').in('patient_id', patientIds),
+          supabase.schema('core').from('tmse_v2').select('patient_id,total_score').in('patient_id', patientIds),
+          supabase.schema('core').from('rbd_questionnaire_v2').select('patient_id,total_score').in('patient_id', patientIds),
+          supabase.schema('core').from('rome4_v2').select('patient_id,total_score').in('patient_id', patientIds),
+        ])
 
-      const errors = [diagRes, mocaRes, hamdRes, mdsRes, epwRes, smellRes]
+      const errors = [diagRes, mocaRes, hamdRes, mdsRes, epwRes, smellRes, tmseRes, rbdRes, rome4Res]
         .map((r, i) => r.error ? `table[${i}]: ${r.error.message}` : null)
         .filter(Boolean)
       if (errors.length > 0) throw new Error(errors.join(', '))
 
-      const diagMap  = Object.fromEntries((diagRes.data  ?? []).map((d: QaDiagnosisRow) => [d.patient_id, d]))
-      const mocaMap  = Object.fromEntries((mocaRes.data  ?? []).map((d: QaScoreRow)    => [d.patient_id, d]))
-      const hamdMap  = Object.fromEntries((hamdRes.data  ?? []).map((d: QaHamdRow)     => [d.patient_id, d]))
-      const mdsMap   = Object.fromEntries((mdsRes.data   ?? []).map((d: QaScoreRow)    => [d.patient_id, d]))
-      const epwMap   = Object.fromEntries((epwRes.data   ?? []).map((d: QaScoreRow)    => [d.patient_id, d]))
-      const smellMap = Object.fromEntries((smellRes.data ?? []).map((d: QaScoreRow)    => [d.patient_id, d]))
+      const diagMap   = Object.fromEntries((diagRes.data   ?? []).map((d: QaDiagnosisRow) => [d.patient_id, d]))
+      const mocaMap   = Object.fromEntries((mocaRes.data   ?? []).map((d: QaScoreRow)    => [d.patient_id, d]))
+      const hamdMap   = Object.fromEntries((hamdRes.data   ?? []).map((d: QaHamdRow)     => [d.patient_id, d]))
+      const mdsMap    = Object.fromEntries((mdsRes.data    ?? []).map((d: QaScoreRow)    => [d.patient_id, d]))
+      const epwMap    = Object.fromEntries((epwRes.data    ?? []).map((d: QaScoreRow)    => [d.patient_id, d]))
+      const smellMap  = Object.fromEntries((smellRes.data  ?? []).map((d: QaScoreRow)    => [d.patient_id, d]))
+      const tmseMap   = Object.fromEntries((tmseRes.data   ?? []).map((d: QaScoreRow)    => [d.patient_id, d]))
+      const rbdMap    = Object.fromEntries((rbdRes.data    ?? []).map((d: QaScoreRow)    => [d.patient_id, d]))
+      const rome4Map  = Object.fromEntries((rome4Res.data  ?? []).map((d: QaScoreRow)    => [d.patient_id, d]))
 
       setRows(patients.map((p) => ({
         patient: p,
@@ -148,25 +159,22 @@ export default function QaPage() {
         mds:   mdsMap[p.id] as QaScoreRow | undefined,
         epw:   epwMap[p.id] as QaScoreRow | undefined,
         smell: smellMap[p.id] as QaScoreRow | undefined,
+        tmse:  tmseMap[p.id] as QaScoreRow | undefined,
+        rbd:   rbdMap[p.id] as QaScoreRow | undefined,
+        rome4: rome4Map[p.id] as QaScoreRow | undefined,
       })))
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
       setLoading(false)
     }
-  }, [search, condition, hyStage, province, startDate, endDate, currentPage])
+  }, [search, thaiId, condition, hyStage, province, startDate, endDate, currentPage])
 
-  const handleFieldChange = (patientId: number, field: string, value: string) => {
-    setRows((prev) => prev.map((row) => {
-      if (row.patient.id !== patientId) return row
-      if (field === 'province') {
-        return { ...row, patient: { ...row.patient, province: value || null } }
-      }
-      const newDiag: QaDiagnosisRow = row.diag
-        ? { ...row.diag, [field]: value || null }
-        : { patient_id: patientId, condition: null, hy_stage: null, disease_duration: null, other_diagnosis_text: null, constipation: null, rbd_suspected: null, [field]: value || null }
-      return { ...row, diag: newDiag, conditionLabel: detectQaCondition(newDiag) }
-    }))
+  const handleEdit = (patient: QaPatient) => {
+    const row = rows.find((r) => r.patient.id === patient.id)
+    setEditPatient(patient)
+    setEditDiag(row?.diag ?? null)
+    setCreateOpen(true)
   }
 
   const handleDelete = async (patientId: number, name: string) => {
@@ -184,31 +192,10 @@ export default function QaPage() {
     setTotalCount((prev) => prev - 1)
   }
 
-  const handleSave = async (patientId: number) => {
-    const row = rows.find((r) => r.patient.id === patientId)
-    if (!row) return
-
-    const [patRes, diagRes] = await Promise.all([
-      supabase.schema('core').from('patients_v2')
-        .update({ province: row.patient.province })
-        .eq('id', patientId),
-      supabase.schema('core').from('patient_diagnosis_v2')
-        .upsert({
-          patient_id: patientId,
-          condition: row.diag?.condition ?? null,
-          hy_stage: row.diag?.hy_stage ?? null,
-          disease_duration: row.diag?.disease_duration ?? null,
-          other_diagnosis_text: row.diag?.other_diagnosis_text ?? null,
-          constipation: row.diag?.constipation ?? null,
-          rbd_suspected: row.diag?.rbd_suspected ?? null,
-        }, { onConflict: 'patient_id' }),
-    ])
-
-    if (patRes.error || diagRes.error) {
-      setError(`Save failed: ${patRes.error?.message ?? diagRes.error?.message}`)
-      return
-    }
-    setEditingId(null)
+  const handleModalClose = () => {
+    setCreateOpen(false)
+    setEditPatient(null)
+    setEditDiag(null)
   }
 
   useEffect(() => {
@@ -219,7 +206,10 @@ export default function QaPage() {
     <div className="max-w-9xl mx-auto bg-white rounded-lg shadow-lg p-6">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-3xl font-semibold text-gray-900">QA — Parkinson System</h1>
-        <Button onClick={() => setCreateOpen(true)} className="gap-2 bg-blue-600 hover:bg-blue-700 text-white">
+        <Button
+          onClick={() => { setEditPatient(null); setEditDiag(null); setCreateOpen(true) }}
+          className="gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+        >
           <Plus className="h-4 w-4" />
           เพิ่มผู้ป่วยใหม่
         </Button>
@@ -227,8 +217,10 @@ export default function QaPage() {
 
       <QaCreateModal
         open={createOpen}
-        onClose={() => setCreateOpen(false)}
+        onClose={handleModalClose}
         onCreated={fetchData}
+        editPatient={editPatient}
+        editDiag={editDiag}
       />
 
       <QaAssessmentModal
@@ -241,6 +233,8 @@ export default function QaPage() {
       <QaSearchFilters
         search={search}
         setSearch={setSearch}
+        thaiId={thaiId}
+        setThaiId={setThaiId}
         condition={condition}
         setCondition={setCondition}
         hyStage={hyStage}
@@ -272,12 +266,9 @@ export default function QaPage() {
         <>
           <QaTable
             rows={rows}
-            editingId={editingId}
-            setEditingId={setEditingId}
-            onFieldChange={handleFieldChange}
-            onSave={handleSave}
-            onDelete={handleDelete}
             onAssess={setAssessingPatient}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
           />
           <TablePagination
             currentPage={currentPage}
@@ -290,7 +281,7 @@ export default function QaPage() {
       )}
 
       <p className="mt-2 text-xs text-muted-foreground">
-        Tables: patients_v2, patient_diagnosis_v2, moca_v2, hamd_v2, mds_updrs_v2, epworth_v2, smell_test_v2
+        Tables: patients_v2, patient_diagnosis_v2, moca_v2, hamd_v2, mds_updrs_v2, epworth_v2, smell_test_v2, tmse_v2, rbd_questionnaire_v2, rome4_v2
       </p>
     </div>
   )
