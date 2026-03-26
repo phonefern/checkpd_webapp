@@ -9,7 +9,7 @@ import { UserList } from "@/app/component/pdf/UserList";
 import { RecordsPanel } from "@/app/component/pdf/RecordsPanel";
 import { ExportSection } from "@/app/component/pdf/ExportSection";
 import { PaginationControls } from "@/app/component/pdf/PaginationControls";
-import { UserRow, RecordRow } from "./types";
+import { UserRow, RecordRow, extractProvince } from "./types";
 import { Card, CardContent } from "@/components/ui/card";
 import QaCreateModal from "@/app/component/qa/QaCreateModal";
 import { QaPatient, QaDiagnosisRow } from "@/app/component/qa/types";
@@ -33,6 +33,9 @@ export default function ExportTestPage() {
   const [screeningCheckedThaiIds, setScreeningCheckedThaiIds] = useState<string[]>([]);
   const [screeningLoading, setScreeningLoading] = useState(false);
   const [screeningError, setScreeningError] = useState<string | null>(null);
+  const [provinceFilter, setProvinceFilter] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const screeningCacheRef = useRef<Map<string, boolean>>(new Map());
   const screeningDebounceRef = useRef<number | null>(null);
 
@@ -99,6 +102,7 @@ export default function ExportTestPage() {
                 ? Number(d.age) || null
                 : calculateAgeFromBod(d.bod),
           idCardAddress: d.idCardAddress,
+          liveAddress: d.liveAddress,
           timestamp: d.timestamp,
           lastUpdate: d.lastUpdate,
           source: "users",
@@ -124,6 +128,7 @@ export default function ExportTestPage() {
                 ? Number(d.age) || null
                 : calculateAgeFromBod(d.bod),
           idCardAddress: d.idCardAddress,
+          liveAddress: d.liveAddress,
           timestamp: d.timestamp,
           lastUpdate: d.lastUpdate,
           source: "temps",
@@ -178,14 +183,30 @@ export default function ExportTestPage() {
 
   // ===== Filtering and Pagination =====
   const filteredUsers = users.filter((u) => {
-    const query = searchQuery.toLowerCase().trim();
-    if (!query) return true;
+    const q = searchQuery.toLowerCase().trim();
+    if (q && !(
+      u.firstName?.toLowerCase().includes(q) ||
+      u.lastName?.toLowerCase().includes(q) ||
+      u.thaiId?.toLowerCase().includes(q)
+    )) return false;
 
-    return (
-      (u.firstName?.toLowerCase().includes(query)) ||
-      (u.lastName?.toLowerCase().includes(query)) ||
-      (u.thaiId?.toLowerCase().includes(query))
-    );
+    if (provinceFilter) {
+      const p = extractProvince(u.liveAddress);
+      if (p !== provinceFilter) return false;
+    }
+
+    if (dateFrom || dateTo) {
+      const ts = u.timestamp?.toDate?.();
+      if (!ts) return false;
+      if (dateFrom && ts < new Date(dateFrom)) return false;
+      if (dateTo) {
+        const end = new Date(dateTo);
+        end.setHours(23, 59, 59, 999);
+        if (ts > end) return false;
+      }
+    }
+
+    return true;
   });
 
   const totalPages = Math.ceil(filteredUsers.length / ITEMS_PER_PAGE);
@@ -434,10 +455,13 @@ export default function ExportTestPage() {
             screeningCheckedThaiIds={screeningCheckedThaiIds}
             screeningLoading={screeningLoading}
             screeningError={screeningError}
-            onSearchChange={(query) => {
-              setSearchQuery(query);
-              setCurrentPage(1);
-            }}
+            provinceFilter={provinceFilter}
+            dateFrom={dateFrom}
+            dateTo={dateTo}
+            onSearchChange={(query) => { setSearchQuery(query); setCurrentPage(1); }}
+            onProvinceChange={(v) => { setProvinceFilter(v); setCurrentPage(1); }}
+            onDateFromChange={(v) => { setDateFrom(v); setCurrentPage(1); }}
+            onDateToChange={(v) => { setDateTo(v); setCurrentPage(1); }}
             onUserSelect={handleUserSelect}
             onQaClick={handleQaClick}
             currentUsers={currentUsers}
