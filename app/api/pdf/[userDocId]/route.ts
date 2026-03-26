@@ -8,6 +8,7 @@ import { getBrowser, resetBrowser } from '@/lib/pdfBrowser';
 import { checkRateLimit, getClientIdentifier } from '@/lib/rateLimit';
 
 export const runtime = 'nodejs';
+export const maxDuration = 60; // seconds — allows Chromium cold-start on Vercel
 
 const PDF_RATE_LIMIT = 15;   // requests per minute per IP
 const PDF_RATE_WINDOW_MS = 60 * 1000;
@@ -676,7 +677,18 @@ export async function GET(
     try {
       pdfBuffer = Buffer.from(await runPdf());
     } catch (e: any) {
-      if (e?.message?.includes('has been closed') || e?.message?.includes('Target closed')) {
+      const msg: string = e?.message ?? '';
+      const isBrowserDead =
+        msg.includes('has been closed') ||
+        msg.includes('Target closed') ||
+        msg.includes('Connection closed') ||
+        msg.includes('Protocol error') ||
+        msg.includes('Browser has been closed') ||
+        msg.includes('browser has been disconnected') ||
+        msg.includes('Chromium exited') ||
+        msg.includes('net::ERR') ||
+        msg.includes('Session closed');
+      if (isBrowserDead) {
         resetBrowser();
         pdfBuffer = Buffer.from(await runPdf());
       } else {
