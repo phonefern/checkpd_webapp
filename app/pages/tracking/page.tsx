@@ -11,6 +11,7 @@ import {
   UserCheck,
   CircleUser,
   Activity,
+  MapPin,
 } from 'lucide-react'
 import {
   collection,
@@ -30,9 +31,10 @@ import { AnimatedCounter } from '@/components/ui/animated-counter'
 import { AgeRangeGrid } from '@/components/ui/age-range-grid'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { extractProvince, provinceOptions } from '@/app/pages/pdf/types'
 
 /* =======================
-   Age helpers (เหมือนเดิม)
+   Age helpers
 ======================= */
 function calculateAge(birthDate: Date): number {
   const today = new Date()
@@ -58,25 +60,11 @@ function getAgeRange(age: number | null): string {
 
 export default function TrackingPage() {
   /* =======================
-     State (เหมือน UI เดิม)
+     State
   ======================= */
-  const [userCount, setUserCount] = useState(0)
-  const [maleCount, setMaleCount] = useState(0)
-  const [femaleCount, setFemaleCount] = useState(0)
-  const [tempCount, setTempCount] = useState(0)
-  const [ageRanges, setAgeRanges] = useState([
-    { range: '0-10', count: 0 },
-    { range: '11-20', count: 0 },
-    { range: '21-30', count: 0 },
-    { range: '31-40', count: 0 },
-    { range: '41-50', count: 0 },
-    { range: '51-60', count: 0 },
-    { range: '61-70', count: 0 },
-    { range: '71-80', count: 0 },
-    { range: '81-90', count: 0 },
-    { range: '91-100', count: 0 },
-    { range: 'null', count: 0 },
-  ])
+  // Raw docs from snapshots — filtered in useMemo
+  const [rawUserDocs, setRawUserDocs] = useState<Record<string, unknown>[]>([])
+  const [rawTempDocs, setRawTempDocs] = useState<Record<string, unknown>[]>([])
 
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: new Date('2026-01-01'),
@@ -89,49 +77,62 @@ export default function TrackingPage() {
     pending: 0,
     noTest: 0,
   })
-
   const [loadingRisk, setLoadingRisk] = useState(false)
-
-
+  const [provinceFilter, setProvinceFilter] = useState('')
 
   /* =======================
-   MOCK DATA SIMULATION
+     Computed stats from raw docs + province filter
   ======================= */
-  // useEffect(() => {
-  //   let interval: NodeJS.Timeout
+  const stats = useMemo(() => {
+    let male = 0
+    let female = 0
+    const ageCounter: Record<string, number> = {
+      '0-10': 0, '11-20': 0, '21-30': 0, '31-40': 0, '41-50': 0,
+      '51-60': 0, '61-70': 0, '71-80': 0, '81-90': 0, '91-100': 0, null: 0,
+    }
+    const provinceCounter: Record<string, number> = {}
 
-  //   interval = setInterval(() => {
-  //     // random new users
-  //     const newUsers = Math.floor(Math.random() * 4) + 1 // 1–4
-  //     const newTemps = Math.random() > 0.6 ? 1 : 0
+    for (const d of rawUserDocs) {
+      const p = extractProvince(d.liveAddress as string | undefined)
+      // Always count for province breakdown (ignores filter)
+      const pKey = p ?? 'ไม่ระบุ'
+      provinceCounter[pKey] = (provinceCounter[pKey] ?? 0) + 1
 
-  //     // gender split
-  //     let male = 0
-  //     let female = 0
-  //     for (let i = 0; i < newUsers; i++) {
-  //       Math.random() > 0.5 ? male++ : female++
-  //     }
+      // Apply province filter for main stats
+      if (provinceFilter && p !== provinceFilter) continue
 
-  //     // age ranges
-  //     const ranges = [...ageRanges]
-  //     for (let i = 0; i < newUsers; i++) {
-  //       const idx = Math.floor(Math.random() * ranges.length)
-  //       ranges[idx] = {
-  //         ...ranges[idx],
-  //         count: ranges[idx].count + 1,
-  //       }
-  //     }
+      if (d.gender === 'male') male++
+      if (d.gender === 'female') female++
 
-  //     setUserCount((v) => v + newUsers)
-  //     setMaleCount((v) => v + male)
-  //     setFemaleCount((v) => v + female)
-  //     setTempCount((v) => v + newTemps)
-  //     setAgeRanges(ranges)
-  //     setLastUpdated(new Date())
-  //   }, 1000)
+      if (d.bod) {
+        const age = calculateAge((d.bod as { toDate: () => Date }).toDate())
+        ageCounter[getAgeRange(age)]++
+      } else {
+        ageCounter['null']++
+      }
+    }
 
-  //   return () => clearInterval(interval)
-  // }, [])
+    const userCount = provinceFilter
+      ? rawUserDocs.filter((d) => extractProvince(d.liveAddress as string | undefined) === provinceFilter).length
+      : rawUserDocs.length
+
+    const tempCount = provinceFilter
+      ? rawTempDocs.filter((d) => extractProvince(d.liveAddress as string | undefined) === provinceFilter).length
+      : rawTempDocs.length
+
+    const provinceBreakdown = Object.entries(provinceCounter)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+
+    return {
+      userCount,
+      maleCount: male,
+      femaleCount: female,
+      tempCount,
+      ageRanges: Object.entries(ageCounter).map(([range, count]) => ({ range, count })),
+      provinceBreakdown,
+    }
+  }, [rawUserDocs, rawTempDocs, provinceFilter])
 
   /* =======================
      Date → Firestore Timestamp
@@ -171,46 +172,7 @@ export default function TrackingPage() {
     )
 
     const unsubUsers = onSnapshot(usersQuery, (snap) => {
-      let male = 0
-      let female = 0
-
-      const ageCounter: Record<string, number> = {
-        '0-10': 0,
-        '11-20': 0,
-        '21-30': 0,
-        '31-40': 0,
-        '41-50': 0,
-        '51-60': 0,
-        '61-70': 0,
-        '71-80': 0,
-        '81-90': 0,
-        '91-100': 0,
-        null: 0,
-      }
-
-      snap.forEach((doc) => {
-        const d = doc.data()
-
-        if (d.gender === 'male') male++
-        if (d.gender === 'female') female++
-
-        if (d.bod) {
-          const age = calculateAge(d.bod.toDate())
-          ageCounter[getAgeRange(age)]++
-        } else {
-          ageCounter['null']++
-        }
-      })
-
-      setUserCount(snap.size)
-      setMaleCount(male)
-      setFemaleCount(female)
-      setAgeRanges(
-        Object.entries(ageCounter).map(([range, count]) => ({
-          range,
-          count,
-        }))
-      )
+      setRawUserDocs(snap.docs.map((d) => d.data()))
       setLastUpdated(new Date())
     })
 
@@ -222,7 +184,7 @@ export default function TrackingPage() {
     )
 
     const unsubTemps = onSnapshot(tempsQuery, (snap) => {
-      setTempCount(snap.size)
+      setRawTempDocs(snap.docs.map((d) => d.data()))
       setLastUpdated(new Date())
     })
 
@@ -232,7 +194,7 @@ export default function TrackingPage() {
     }
   }, [startTime, endTime])
 
-  const total = userCount + tempCount
+  const total = stats.userCount + stats.tempCount
 
   const refreshRiskSummary = async () => {
     if (!startTime || !endTime) return
@@ -254,7 +216,12 @@ export default function TrackingPage() {
         )
       )
 
-      for (const userDoc of usersSnap.docs) {
+      const filteredUserDocs = usersSnap.docs.filter((doc) => {
+        if (!provinceFilter) return true
+        return extractProvince(doc.data().liveAddress) === provinceFilter
+      })
+
+      for (const userDoc of filteredUserDocs) {
         const latestRecordSnap = await getDocs(
           query(
             collection(db, 'users', userDoc.id, 'records'),
@@ -263,13 +230,11 @@ export default function TrackingPage() {
           )
         )
 
-        // ---- ไม่มี record ----
         if (latestRecordSnap.empty) {
           noTest++
           continue
         }
 
-        // ---- มี record ล่าสุด ----
         const rec = latestRecordSnap.docs[0].data()
         const r = rec?.prediction?.risk
 
@@ -278,7 +243,7 @@ export default function TrackingPage() {
         else pending++
       }
 
-      // ===== TEMPS (ถ้าต้องการรวม) =====
+      // ===== TEMPS =====
       const tempsSnap = await getDocs(
         query(
           collection(db, 'temps'),
@@ -287,7 +252,12 @@ export default function TrackingPage() {
         )
       )
 
-      for (const tempDoc of tempsSnap.docs) {
+      const filteredTempDocs = tempsSnap.docs.filter((doc) => {
+        if (!provinceFilter) return true
+        return extractProvince(doc.data().liveAddress) === provinceFilter
+      })
+
+      for (const tempDoc of filteredTempDocs) {
         const latestRecordSnap = await getDocs(
           query(
             collection(db, 'temps', tempDoc.id, 'records'),
@@ -319,7 +289,7 @@ export default function TrackingPage() {
   }
 
   /* =======================
-     UI (เหมือนต้นฉบับ 100%)
+     UI
   ======================= */
   return (
     <main
@@ -351,7 +321,7 @@ export default function TrackingPage() {
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 <Badge
                   variant="outline"
                   className="border-green-500/50 bg-green-500/10 text-green-500"
@@ -363,13 +333,33 @@ export default function TrackingPage() {
                   dateRange={dateRange}
                   onDateRangeChange={setDateRange}
                 />
+                {/* Province filter */}
+                <select
+                  value={provinceFilter}
+                  onChange={(e) => setProvinceFilter(e.target.value === 'null' ? '' : e.target.value)}
+                  className="border border-border rounded-md px-3 py-1.5 text-sm bg-card/90 backdrop-blur-md focus:ring-2 focus:ring-primary focus:border-primary"
+                >
+                  <option value="">ทุกจังหวัด</option>
+                  {provinceOptions
+                    .filter((o) => o.value !== 'null')
+                    .map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                </select>
+                {provinceFilter && (
+                  <button
+                    onClick={() => setProvinceFilter('')}
+                    className="text-xs text-muted-foreground hover:text-foreground underline"
+                  >
+                    ล้างตัวกรอง
+                  </button>
+                )}
               </div>
             </div>
           </div>
         </header>
 
         {/* Main */}
-        {/* ================= MAIN ================= */}
         <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
 
           {/* ===== HERO: TOTAL DOWNLOADS ===== */}
@@ -386,7 +376,7 @@ export default function TrackingPage() {
                   <Download className="h-6 w-6 text-primary" />
                 </div>
                 <p className="text-sm uppercase tracking-wider text-muted-foreground">
-                  ยอดดาวน์โหลดทั้งหมด
+                  ยอดดาวน์โหลดทั้งหมด{provinceFilter ? ` · ${provinceFilter}` : ''}
                 </p>
                 <AnimatedCounter
                   value={total}
@@ -404,7 +394,7 @@ export default function TrackingPage() {
           <div className="mb-10">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-foreground">
-                ผลการคัดกรอง (จากการทดสอบล่าสุด)
+                ผลการคัดกรอง (จากการทดสอบล่าสุด){provinceFilter ? ` · ${provinceFilter}` : ''}
               </h2>
               <button
                 onClick={refreshRiskSummary}
@@ -450,34 +440,34 @@ export default function TrackingPage() {
           {/* ===== SECTION: USER STRUCTURE (REALTIME) ===== */}
           <div className="mb-6">
             <h2 className="mb-4 text-lg font-semibold text-foreground">
-              สรุปสถานะผู้ใช้
+              สรุปสถานะผู้ใช้{provinceFilter ? ` · ${provinceFilter}` : ''}
             </h2>
 
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <StatCard
                 title="ผู้ใช้งาน (Users)"
-                value={userCount}
+                value={stats.userCount}
                 icon={<Users className="h-5 w-5" />}
                 description="จำนวนผู้ใช้ทั้งหมด"
                 colorClass="text-primary"
               />
               <StatCard
                 title="ผู้ชาย"
-                value={maleCount}
+                value={stats.maleCount}
                 icon={<CircleUser className="h-5 w-5" />}
                 description="จำนวนผู้ใช้เพศชาย"
                 colorClass="text-blue-500"
               />
               <StatCard
                 title="ผู้หญิง"
-                value={femaleCount}
+                value={stats.femaleCount}
                 icon={<CircleUser className="h-5 w-5" />}
                 description="จำนวนผู้ใช้เพศหญิง"
                 colorClass="text-pink-500"
               />
               <StatCard
                 title="ผู้คัดกรอง (Staff)"
-                value={tempCount}
+                value={stats.tempCount}
                 icon={<UserCheck className="h-5 w-5" />}
                 description="จำนวนเจ้าหน้าที่คัดกรอง"
                 colorClass="text-orange-500"
@@ -487,10 +477,51 @@ export default function TrackingPage() {
 
           <div className="mt-6">
             <AgeRangeGrid
-              ageRanges={ageRanges}
+              ageRanges={stats.ageRanges}
               className="bg-card/90 backdrop-blur-md"
             />
           </div>
+
+          {/* ===== SECTION: PROVINCE BREAKDOWN ===== */}
+          {stats.provinceBreakdown.length > 0 && (
+            <Card className="mt-8 border-border/50 bg-card/80 backdrop-blur-md">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-sm font-medium">
+                  <MapPin className="h-4 w-4" />
+                  ยอดผู้ใช้ตามจังหวัด (Top 10)
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {stats.provinceBreakdown.map(([province, count]) => {
+                    const max = stats.provinceBreakdown[0]?.[1] ?? 1
+                    const pct = Math.round((count / max) * 100)
+                    return (
+                      <div key={province} className="flex items-center gap-3">
+                        <button
+                          className="w-32 shrink-0 text-right text-xs font-medium hover:text-primary hover:underline"
+                          onClick={() => setProvinceFilter(province === 'ไม่ระบุ' ? '' : province)}
+                          title="กรองตามจังหวัดนี้"
+                        >
+                          {province}
+                        </button>
+                        <div className="flex-1 h-4 bg-muted rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-primary/60 rounded-full transition-all duration-500"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                        <span className="w-8 shrink-0 text-xs text-muted-foreground text-right">{count}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+                <p className="mt-3 text-xs text-muted-foreground">
+                  คลิกชื่อจังหวัดเพื่อกรองข้อมูล • ยอดรวมจาก users collection ทั้งหมดในช่วงวันที่เลือก
+                </p>
+              </CardContent>
+            </Card>
+          )}
 
           <Card className="mt-8 border-border/50 bg-card/80 backdrop-blur-md">
             <CardHeader className="pb-2">
