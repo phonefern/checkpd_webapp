@@ -16,8 +16,21 @@ import {
   BarChart3,
   FileDown,
   Download,
-  
+  Menu,
+  X,
 } from "lucide-react";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuItem,
+  SidebarMenuButton,
+  SidebarFooter,
+  SidebarTrigger,
+  SidebarOverlay,
+  useSidebar,
+} from "@/components/ui/sidebar";
 
 interface DashboardStats {
   totalPatients: number;
@@ -272,21 +285,63 @@ const menuItems = [
 
   return (
     <>
-      <div className="min-h-screen bg-gray-50">
-        {/* Header Bar - แบบ HIS จริง */}
-        <header className="bg-white border-b border-gray-200 shadow-sm">
-          <div className="px-6 py-4 flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <Building2 className="w-8 h-8 text-blue-700" />
-              <div>
-                <h1 className="text-xl font-semibold text-gray-900">
-                  CheckPD System
-                </h1>
-                <p className="text-sm text-gray-600">
-                  {currentUser.hospital}
-                </p>
-              </div>
+      <Sidebar>
+        {/* Sidebar Content */}
+        <SidebarContent>
+          <SidebarHeader>
+            <div className="flex items-center space-x-2">
+              <Building2 className="w-6 h-6 text-blue-700" />
+              <h2 className="font-semibold text-gray-900">CheckPD</h2>
             </div>
+          </SidebarHeader>
+
+          <SidebarMenu>
+            {menuItems.map((item, index) => (
+              <SidebarMenuItem key={index}>
+                <SidebarMenuButton
+                  onClick={() => navigateTo(item.path)}
+                  className="flex items-center gap-3"
+                >
+                  <item.icon className="w-5 h-5" />
+                  <span className="truncate">{item.title}</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            ))}
+          </SidebarMenu>
+
+          <SidebarFooter>
+            <button
+              onClick={handleLogout}
+              className="w-full flex items-center gap-3 px-4 py-2 text-sm font-medium rounded-md text-red-700 hover:bg-red-50 transition-colors duration-200"
+            >
+              <LogOut className="w-5 h-5" />
+              <span>ออกจากระบบ</span>
+            </button>
+          </SidebarFooter>
+        </SidebarContent>
+
+        <SidebarOverlay />
+
+        {/* Main Content */}
+        <div className="flex-1 flex flex-col overflow-hidden md:ml-0">
+          <div className="min-h-screen bg-gray-50">
+            {/* Header Bar - แบบ HIS จริง */}
+            <header className="bg-white border-b border-gray-200 shadow-sm">
+              <div className="px-6 py-4 flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  <SidebarTrigger className="md:hidden">
+                    <Menu className="w-5 h-5" />
+                  </SidebarTrigger>
+                  <Building2 className="w-8 h-8 text-blue-700 hidden md:block" />
+                  <div>
+                    <h1 className="text-xl font-semibold text-gray-900">
+                      CheckPD System
+                    </h1>
+                    <p className="text-sm text-gray-600">
+                      {currentUser.hospital}
+                    </p>
+                  </div>
+                </div>
 
             <div className="flex items-center space-x-6">
               <div className="text-right">
@@ -379,7 +434,7 @@ const menuItems = [
                 </p>
               </div>
               <div className="bg-white rounded-lg border border-gray-200 p-6">
-                <p className="text-sm text-gray-600">นัดหมายวันนี้</p>
+                <p className="text-sm text-gray-600">นัด��มายวันนี้</p>
                 <p className="text-3xl font-bold text-gray-900 mt-2">
                   {stats.appointmentsToday}
                 </p>
@@ -410,15 +465,17 @@ const menuItems = [
           )}
         </main>
 
-        {/* Footer */}
-        <footer className="bg-white border-t border-gray-200 mt-16">
-          <div className="max-w-7xl mx-auto px-6 py-6 text-center text-sm text-gray-600">
-            <p>
-              Copyright © 2025 ChulaPD • ศูนย์ความเป็นเลิศทางการแพทย์โรคพาร์กินสันฯ โรงพยาบาลจุฬาลงกรณ์ • All Rights Reserved
-            </p>
+            {/* Footer */}
+            <footer className="bg-white border-t border-gray-200 mt-16">
+              <div className="max-w-7xl mx-auto px-6 py-6 text-center text-sm text-gray-600">
+                <p>
+                  Copyright © 2025 ChulaPD • ศูนย์ความเป็นเลิศทางการแพทย์โรคพาร์กินสันฯ โรงพยาบาลจุฬาลงกรณ์ • All Rights Reserved
+                </p>
+              </div>
+            </footer>
           </div>
-        </footer>
-      </div>
+        </div>
+      </Sidebar>
 
       <style jsx global>{`
         @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&display=swap');
@@ -426,6 +483,10 @@ const menuItems = [
         body {
           font-family: 'Sarabun', sans-serif;
         }
+      `}</style>
+    </>
+  );
+}
       `}</style>
     </>
   );
