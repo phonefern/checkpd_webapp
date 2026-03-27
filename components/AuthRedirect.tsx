@@ -12,8 +12,8 @@ export default function AuthRedirect() {
       console.debug('Checking session in AuthRedirect')
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
-        console.debug('No session found, redirecting to /login')
-        router.push('/login')
+        console.debug('No session found, redirecting to /pages/login')
+        router.push('/pages/login')
       }
     }
 

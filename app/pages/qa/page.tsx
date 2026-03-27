@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import type { Session } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import QaSearchFilters from '@/app/component/qa/QaSearchFilters'
 import QaTable from '@/app/component/qa/QaTable'
@@ -9,6 +10,7 @@ import QaAssessmentModal from '@/app/component/qa/QaAssessmentModal'
 import TablePagination from '@/app/component/users/Pagination'
 import { Button } from '@/components/ui/button'
 import { Plus } from 'lucide-react'
+import SidebarLayout from '@/app/component/layout/SidebarLayout'
 import {
   PAGE_SIZE,
   QaPatient,
@@ -23,6 +25,9 @@ const DIAG_SELECT =
   'patient_id,condition,hy_stage,disease_duration,other_diagnosis_text,constipation,constipation_onset_age,constipation_duration,rbd_suspected,rbd_onset_age,rbd_duration,hyposmia,hyposmia_onset_age,hyposmia_duration,depression,depression_onset_age,depression_duration,eds,eds_onset_age,eds_duration,ans_dysfunction,ans_onset_age,ans_duration,adl_score,scopa_aut_score,blood_test_note,fdopa_pet_requested,fdopa_pet_score'
 
 export default function QaPage() {
+  const [session, setSession] = useState<Session | null>(null)
+  const [sessionReady, setSessionReady] = useState(false)
+
   // Filter state
   const [search, setSearch] = useState('')
   const [thaiId, setThaiId] = useState('')
@@ -54,6 +59,8 @@ export default function QaPage() {
   const to = from + PAGE_SIZE - 1
 
   const fetchData = useCallback(async () => {
+    if (!session) return
+
     setLoading(true)
     setError(null)
 
@@ -168,7 +175,23 @@ export default function QaPage() {
     } finally {
       setLoading(false)
     }
-  }, [search, thaiId, condition, hyStage, province, startDate, endDate, currentPage])
+  }, [session, search, thaiId, condition, hyStage, province, startDate, endDate, currentPage])
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session)
+      setSessionReady(true)
+    })
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession)
+      setSessionReady(true)
+    })
+
+    return () => subscription.unsubscribe()
+  }, [])
 
   const handleEdit = (patient: QaPatient) => {
     const row = rows.find((r) => r.patient.id === patient.id)
@@ -199,13 +222,15 @@ export default function QaPage() {
   }
 
   useEffect(() => {
+    if (!sessionReady || !session) return
     fetchData()
-  }, [fetchData])
+  }, [fetchData, sessionReady, session])
 
   return (
-    <div className="max-w-9xl mx-auto bg-white rounded-lg shadow-lg p-6">
+    <SidebarLayout activePath="/pages/qa" mainClassName="bg-gray-50">
+    <div className="mx-auto max-w-9xl p-6">
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-3xl font-semibold text-gray-900">QA — Parkinson System</h1>
+        <h1 className="text-2xl font-semibold text-gray-900">QA — Parkinson System</h1>
         <Button
           onClick={() => { setEditPatient(null); setEditDiag(null); setCreateOpen(true) }}
           className="gap-2 bg-blue-600 hover:bg-blue-700 text-white"
@@ -258,7 +283,7 @@ export default function QaPage() {
         </div>
       )}
 
-      {loading ? (
+      {!sessionReady || loading ? (
         <div className="flex justify-center items-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500" />
         </div>
@@ -284,5 +309,6 @@ export default function QaPage() {
         Tables: patients_v2, patient_diagnosis_v2, moca_v2, hamd_v2, mds_updrs_v2, epworth_v2, smell_test_v2, tmse_v2, rbd_questionnaire_v2, rome4_v2
       </p>
     </div>
+    </SidebarLayout>
   )
 }
