@@ -13,6 +13,7 @@ import { UserRow, RecordRow, extractProvince } from "./types";
 import { Card, CardContent } from "@/components/ui/card";
 import QaCreateModal from "@/app/component/qa/QaCreateModal";
 import { QaPatient, QaDiagnosisRow } from "@/app/component/qa/types";
+import SidebarLayout from "@/app/component/layout/SidebarLayout";
 
 const ITEMS_PER_PAGE = 50;
 
@@ -413,6 +414,7 @@ export default function ExportTestPage() {
 
   // ===== Render =====
   return (
+    <SidebarLayout activePath="/pages/pdf">
     <div className="relative min-h-screen overflow-hidden">
       {/* Background Image */}
       <Image
@@ -521,5 +523,6 @@ export default function ExportTestPage() {
         />
       </div>
     </div>
+    </SidebarLayout>
   );
 }

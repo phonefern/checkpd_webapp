@@ -2,27 +2,14 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { Session } from '@supabase/supabase-js'
-import AuthRedirect from '@/components/AuthRedirect'
 import UserTable from '@/app/component/users/UserTable'
 import Pagination from '@/app/component/users/Pagination'
 import SearchFilters from '@/app/component/users/SearchFilters'
 import PatientHistoryModal from '@/app/component/users/PatientHistoryModal'
 import { User } from '@/app/types/user'
-import { Button } from '@/components/ui/button'
-import { LogOut } from 'lucide-react'
-
-const handleLogout = async () => {
-  const { error } = await supabase.auth.signOut()
-  if (error) {
-    console.error('Logout error:', error)
-  } else {
-    window.location.href = '/pages/login'
-  }
-}
+import SidebarLayout from '@/app/component/layout/SidebarLayout'
 
 export default function UsersClientPage() {
-  const [session, setSession] = useState<Session | null>(null)
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [searchId, setSearchId] = useState('')
@@ -67,33 +54,15 @@ export default function UsersClientPage() {
       query = query.lt('timestamp', nextDay.toISOString())
     }
 
-    if (searchCondition.trim()) {
-      query = query.eq('condition', searchCondition)
-    }
-
+    if (searchCondition.trim()) query = query.eq('condition', searchCondition)
     if (searchRisk.trim()) {
-      if (searchRisk === 'null') {
-        query = query.is('prediction_risk', null)
-      } else {
-        query = query.eq('prediction_risk', searchRisk === 'true')
-      }
+      if (searchRisk === 'null') query = query.is('prediction_risk', null)
+      else query = query.eq('prediction_risk', searchRisk === 'true')
     }
-
-    if (searchOther.trim()) {
-      query = query.eq('other', searchOther)
-    }
-
-    if (searchArea.trim()) {
-      query = query.eq('area', searchArea)
-    }
-
-    if (searchSource.trim()) {
-      query = query.eq('source', searchSource)
-    }
-
-    if (searchProvince.trim()) {
-      query = query.eq('province', searchProvince)
-    }
+    if (searchOther.trim()) query = query.eq('other', searchOther)
+    if (searchArea.trim()) query = query.eq('area', searchArea)
+    if (searchSource.trim()) query = query.eq('source', searchSource)
+    if (searchProvince.trim()) query = query.eq('province', searchProvince)
 
     const { data, error, count } = await query
 
@@ -103,78 +72,42 @@ export default function UsersClientPage() {
       setUsers(data || [])
       setTotalCount(count || 0)
 
-      // Determine which users have screening data (pd_screenings) by thaiid
       const thaiids = (data ?? []).map((u) => u.thaiid).filter((id): id is string => Boolean(id))
       if (thaiids.length > 0) {
         const { data: screeningData, error: screeningError } = await supabase
           .from('pd_screenings')
           .select('thaiid')
           .in('thaiid', thaiids)
-
-        if (screeningError) {
-          console.error('❌ Error loading screening thaiids:', screeningError)
-        } else {
-          const uniqueThaiids = Array.from(new Set(screeningData?.map((row) => row.thaiid).filter(Boolean)))
-          setScreeningThaiIds(uniqueThaiids)
+        if (!screeningError) {
+          setScreeningThaiIds(Array.from(new Set(screeningData?.map((row) => row.thaiid).filter(Boolean))))
         }
       } else {
         setScreeningThaiIds([])
       }
     }
-
     setLoading(false)
   }
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-    })
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session)
-    })
-
-    return () => subscription.unsubscribe()
-  }, [])
+    fetchUsers()
+  }, [currentPage, searchId, startDate, endDate, searchCondition, searchRisk, searchOther, searchArea, searchSource, searchProvince])
 
   useEffect(() => {
-    if (session) {
-      fetchUsers()
-    }
-  }, [currentPage, searchId, startDate, endDate, searchCondition, searchRisk, searchOther, searchArea, searchSource, searchProvince, session])
-
-  useEffect(() => {
-    if (!session) return
-
     const loadOtherOptions = async () => {
       const { data, error } = await supabase
         .from('user_record_summary_with_users')
         .select('other')
         .order('other', { ascending: true })
-
-      if (error) {
-        console.error('❌ Error loading other options:', error)
-        return
-      }
-
-      const options = Array.from(
-        new Set(
-          (data ?? [])
-            .map(({ other }) => (typeof other === 'string' ? other.trim() : ''))
-            .filter((value) => value.length > 0)
-        )
+      if (error) return
+      setOtherOptions(
+        Array.from(new Set((data ?? []).map(({ other }) => (typeof other === 'string' ? other.trim() : '')).filter((v) => v.length > 0)))
       )
-
-      setOtherOptions(options)
     }
 
     const loadAreaOptions = async () => {
       const areaSet = new Set<string>()
       const pageSize = 1000
       let from = 0
-
       while (true) {
         const { data, error } = await supabase
           .from('user_record_summary_with_users')
@@ -182,84 +115,43 @@ export default function UsersClientPage() {
           .not('area', 'is', null)
           .order('area', { ascending: true })
           .range(from, from + pageSize - 1)
-
-        if (error) {
-          console.error('Error loading area options:', error)
-          return
-        }
-
-        if (!data || data.length === 0) break
-
+        if (error || !data || data.length === 0) break
         for (const row of data) {
-          if (typeof row.area !== 'string') continue
-          const value = row.area.trim()
-          if (value.length > 0) {
-            areaSet.add(value)
-          }
+          if (typeof row.area === 'string' && row.area.trim()) areaSet.add(row.area.trim())
         }
-
         if (data.length < pageSize) break
         from += pageSize
       }
-
       setAreaOptions(Array.from(areaSet).sort((a, b) => a.localeCompare(b)))
     }
 
-
     loadOtherOptions()
     loadAreaOptions()
-  }, [session])
-
-
+  }, [])
 
   const handleConditionChange = (id: string, value: string) => {
-    setUsers((prev) =>
-      prev.map((user) => (user.id === id ? { ...user, condition: value || 'Not specified' } : user))
-    )
+    setUsers((prev) => prev.map((user) => (user.id === id ? { ...user, condition: value || 'Not specified' } : user)))
   }
-
   const handleProvinceChange = (id: string, value: string) => {
-    setUsers((prev) =>
-      prev.map((user) => (user.id === id ? { ...user, province: value || null as any } : user))
-    )
+    setUsers((prev) => prev.map((user) => (user.id === id ? { ...user, province: value || null as any } : user)))
   }
-
   const handleOtherChange = (id: string, value: string) => {
-    setUsers((prev) =>
-      prev.map((user) => (user.id === id ? { ...user, other: value } : user))
-    )
+    setUsers((prev) => prev.map((user) => (user.id === id ? { ...user, other: value } : user)))
   }
-
   const handleAreaChange = (id: string, value: string) => {
-    setUsers((prev) =>
-      prev.map((user) => (user.id === id ? { ...user, area: value } : user))
-    )
+    setUsers((prev) => prev.map((user) => (user.id === id ? { ...user, area: value } : user)))
   }
 
-  const handleSave = async (
-    id: string,
-    condition: string | null,
-    province: string | undefined,
-    other?: string,
-    area?: string
-  ) => {
-    console.log("Saving:", { id, condition, province, other, area });
-
+  const handleSave = async (id: string, condition: string | null, province: string | undefined, other?: string, area?: string) => {
     const { error: conditionError } = await supabase
       .from('user_record_summary')
       .update({ condition, other })
       .eq('user_id', id)
-
-    const { data, error: provinceError } = await supabase
+    const { error: provinceError } = await supabase
       .from('users')
       .update({ province: province || null, area: area || null })
       .eq('id', id)
-      .select()
-
-    console.log("Update result:", data, provinceError)
-
     if (conditionError || provinceError) {
-      console.error('❌ Failed to update:', { conditionError, provinceError })
       alert('Failed to update')
     } else {
       alert('✅ Updated successfully')
@@ -268,100 +160,89 @@ export default function UsersClientPage() {
     setEditingId(null)
   }
 
-  if (!session) {
-    return <AuthRedirect />
-  }
-
   const totalPages = Math.ceil(totalCount / itemsPerPage)
 
   return (
-    <div className="max-w-9xl mx-auto bg-white rounded-lg shadow-lg p-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-semibold mb-4 text-gray-900">
-          Patient Data Management System
-        </h1>
-        <Button variant="destructive" size="lg" className="gap-2 cursor-pointer" onClick={handleLogout}>
-          <LogOut className="h-4 w-4" />
-          ออกจากระบบ
-        </Button>
-      </div>
+    <SidebarLayout activePath="/pages/users" mainClassName="bg-gray-50">
+      <div className="mx-auto max-w-9xl p-6">
+        <h1 className="text-2xl font-semibold mb-4 text-gray-900">Patient Data Management System</h1>
 
-      <SearchFilters
-        searchId={searchId}
-        setSearchId={setSearchId}
-        setCurrentPage={setCurrentPage}
-        searchCondition={searchCondition}
-        setSearchCondition={setSearchCondition}
-        searchRisk={searchRisk}
-        setSearchRisk={setSearchRisk}
-        searchOther={searchOther}
-        setSearchOther={setSearchOther}
-        otherOptions={otherOptions}
-        searchArea={searchArea}
-        setSearchArea={setSearchArea}
-        areaOptions={areaOptions}
-        searchSource={searchSource}
-        setSearchSource={setSearchSource}
-        searchProvince={searchProvince}
-        setSearchProvince={setSearchProvince}
-        startDate={startDate}
-        setStartDate={setStartDate}
-        endDate={endDate}
-        setEndDate={setEndDate}
-        fetchUsers={fetchUsers}
-        totalCount={totalCount}
-        currentPage={currentPage}
-        itemsPerPage={itemsPerPage}
-      />
-
-      {loading ? (
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-        </div>
-      ) : (
-        <>
-          <UserTable
-            users={users}
-            editingId={editingId}
-            currentPage={currentPage}
-            itemsPerPage={itemsPerPage}
-            handleConditionChange={handleConditionChange}
-            handleProvinceChange={handleProvinceChange}
-            handleOtherChange={handleOtherChange}
-            handleAreaChange={handleAreaChange}
-            handleSave={handleSave}
-            setEditingId={setEditingId}
-            onViewDetail={setViewingUser}
-            hasScreeningThaiId={(thaiid) => screeningThaiIds.includes(thaiid)}
-          />
-
-          <Pagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            totalCount={totalCount}
-            itemsPerPage={itemsPerPage}
-            setCurrentPage={setCurrentPage}
-          />
-        </>
-      )}
-
-      {viewingUser && (
-        <PatientHistoryModal
-          thaiid={viewingUser.thaiid}
-          userData={{
-            id: viewingUser.id,
-            firstname: viewingUser.firstname,
-            lastname: viewingUser.lastname,
-            age: viewingUser.age,
-            gender: viewingUser.gender,
-            province: viewingUser.province,
-            prediction_risk: viewingUser.prediction_risk,
-            condition: viewingUser.condition,
-            other: viewingUser.other,
-          }}
-          onClose={() => setViewingUser(null)}
+        <SearchFilters
+          searchId={searchId}
+          setSearchId={setSearchId}
+          setCurrentPage={setCurrentPage}
+          searchCondition={searchCondition}
+          setSearchCondition={setSearchCondition}
+          searchRisk={searchRisk}
+          setSearchRisk={setSearchRisk}
+          searchOther={searchOther}
+          setSearchOther={setSearchOther}
+          otherOptions={otherOptions}
+          searchArea={searchArea}
+          setSearchArea={setSearchArea}
+          areaOptions={areaOptions}
+          searchSource={searchSource}
+          setSearchSource={setSearchSource}
+          searchProvince={searchProvince}
+          setSearchProvince={setSearchProvince}
+          startDate={startDate}
+          setStartDate={setStartDate}
+          endDate={endDate}
+          setEndDate={setEndDate}
+          fetchUsers={fetchUsers}
+          totalCount={totalCount}
+          currentPage={currentPage}
+          itemsPerPage={itemsPerPage}
         />
-      )}
-    </div>
+
+        {loading ? (
+          <div className="flex justify-center items-center h-64">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500" />
+          </div>
+        ) : (
+          <>
+            <UserTable
+              users={users}
+              editingId={editingId}
+              currentPage={currentPage}
+              itemsPerPage={itemsPerPage}
+              handleConditionChange={handleConditionChange}
+              handleProvinceChange={handleProvinceChange}
+              handleOtherChange={handleOtherChange}
+              handleAreaChange={handleAreaChange}
+              handleSave={handleSave}
+              setEditingId={setEditingId}
+              onViewDetail={setViewingUser}
+              hasScreeningThaiId={(thaiid) => screeningThaiIds.includes(thaiid)}
+            />
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalCount={totalCount}
+              itemsPerPage={itemsPerPage}
+              setCurrentPage={setCurrentPage}
+            />
+          </>
+        )}
+
+        {viewingUser && (
+          <PatientHistoryModal
+            thaiid={viewingUser.thaiid}
+            userData={{
+              id: viewingUser.id,
+              firstname: viewingUser.firstname,
+              lastname: viewingUser.lastname,
+              age: viewingUser.age,
+              gender: viewingUser.gender,
+              province: viewingUser.province,
+              prediction_risk: viewingUser.prediction_risk,
+              condition: viewingUser.condition,
+              other: viewingUser.other,
+            }}
+            onClose={() => setViewingUser(null)}
+          />
+        )}
+      </div>
+    </SidebarLayout>
   )
 }

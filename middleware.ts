@@ -1,34 +1,79 @@
-// middleware.ts
-import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs'
-import { NextResponse } from 'next/server'
-import type { NextRequest } from 'next/server'
+import { createMiddlewareClient } from "@supabase/auth-helpers-nextjs";
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+
+import { canAccessFeature, getDefaultAuthorizedPath, getFeatureFromPathname, isAppRole, type AppRole } from "@/lib/access";
+
+async function resolveRole(request: NextRequest, response: NextResponse) {
+  const supabase = createMiddlewareClient({ req: request, res: response });
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session) {
+    return { session: null, role: null as AppRole | null, isActive: false };
+  }
+
+  const email = session.user.email?.toLowerCase();
+
+  if (!email) {
+    return { session, role: null as AppRole | null, isActive: false };
+  }
+
+  const { data, error } = await supabase
+    .from("admin_users")
+    .select("role,is_active")
+    .ilike("email", email)
+    .maybeSingle<{ role: AppRole; is_active: boolean }>();
+
+  if (!error && data && isAppRole(data.role)) {
+    return {
+      session,
+      role: data.role,
+      isActive: Boolean(data.is_active),
+    };
+  }
+
+  if (error) {
+    console.error("middleware admin_users lookup failed:", error.message);
+  }
+
+  const metadataRole = session.user.user_metadata?.role;
+  return {
+    session,
+    role: isAppRole(metadataRole) ? metadataRole : null,
+    isActive: isAppRole(metadataRole),
+  };
+}
 
 export async function middleware(request: NextRequest) {
-  const response = NextResponse.next()
+  const response = NextResponse.next();
+  const pathname = request.nextUrl.pathname;
+  const { session, role, isActive } = await resolveRole(request, response);
 
-  const supabase = createMiddlewareClient({ req: request, res: response })
+  if (pathname === "/pages/login") {
+    if (!session) return response;
+    if (!role || !isActive) return response;
 
-  const { data: { session }, error } = await supabase.auth.getSession()
-
-  console.log('Middleware session:', {
-    session: session ? 'Authenticated' : 'Not authenticated',
-    error: error?.message
-  })
-
-  // Block unauthenticated access to /pages/users/*
-  if (!session && request.nextUrl.pathname.startsWith('/pages/users')) {
-    return NextResponse.redirect(new URL('/pages/login', request.url))
+    return NextResponse.redirect(new URL(getDefaultAuthorizedPath(role), request.url));
   }
 
-  // Redirect logged-in users away from login page
-  if (session && request.nextUrl.pathname === '/pages/login') {
-    return NextResponse.redirect(new URL('/pages/users', request.url))
+  if (!session) {
+    return NextResponse.redirect(new URL("/pages/login", request.url));
   }
 
-  return response
+  const feature = getFeatureFromPathname(pathname);
+  if (!feature) {
+    return response;
+  }
+
+  if (!role || !isActive || !canAccessFeature(role, feature)) {
+    return NextResponse.redirect(new URL("/pages/login", request.url));
+  }
+
+  return response;
 }
 
-// Apply to specific routes
 export const config = {
-  matcher: ['/users/:path*', '/login'],
-}
+  matcher: ["/pages/:path*"],
+};

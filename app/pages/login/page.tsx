@@ -2,42 +2,55 @@
 
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import SessionListener from '@/components/SessionListener'
+import { getAccessProfile, getDefaultAuthorizedPath } from '@/lib/access'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const router = useRouter()
 
-// app/login/page.tsx
-const handleLogin = async (e: React.FormEvent) => {
-  e.preventDefault()
-  setLoading(true)
-  setError('')
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    setError('')
 
-  try {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
 
-    if (error) {
-      setError(error.message)
-      return
+      if (error) {
+        setError(error.message)
+        return
+      }
+
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+
+      const accessProfile = await getAccessProfile(supabase, session)
+
+      if (!accessProfile.role || !accessProfile.isActive) {
+        await supabase.auth.signOut()
+        setError(
+          accessProfile.debugError
+            ? `Access lookup failed: ${accessProfile.debugError}`
+            : 'บัญชีนี้ยังไม่ได้รับสิทธิ์เข้าใช้งานระบบ หรือถูกปิดการใช้งานอยู่'
+        )
+        return
+      }
+
+      window.location.href = getDefaultAuthorizedPath(accessProfile.role)
+    } catch (_err) {
+      setError('An unexpected error occurred')
+    } finally {
+      setLoading(false)
     }
-
-    // Force full page reload to ensure cookies are set
-    window.location.href = '/pages/index'
-  } catch (err) {
-    setError('An unexpected error occurred')
-  } finally {
-    setLoading(false)
   }
-}
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
@@ -173,8 +186,4 @@ const handleLogin = async (e: React.FormEvent) => {
       </div>
     </div>
   )
-}
-
-function timesleep(arg0: number) {
-  throw new Error('Function not implemented.')
 }
