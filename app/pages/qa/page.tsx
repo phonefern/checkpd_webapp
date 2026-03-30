@@ -11,6 +11,7 @@ import TablePagination from '@/app/component/users/Pagination'
 import { Button } from '@/components/ui/button'
 import { Plus } from 'lucide-react'
 import SidebarLayout from '@/app/component/layout/SidebarLayout'
+import { logActivity } from '@/lib/activityLog'
 import {
   PAGE_SIZE,
   QaPatient,
@@ -211,6 +212,7 @@ export default function QaPage() {
       setError(`Delete failed: ${delErr.message}`)
       return
     }
+    logActivity({ action: 'DELETE', page: 'qa', description: `ลบผู้ป่วย: ${name}`, userEmail: session?.user?.email })
     setRows((prev) => prev.filter((r) => r.patient.id !== patientId))
     setTotalCount((prev) => prev - 1)
   }
@@ -243,7 +245,17 @@ export default function QaPage() {
       <QaCreateModal
         open={createOpen}
         onClose={handleModalClose}
-        onCreated={fetchData}
+        onCreated={() => {
+          logActivity({
+            action: editPatient ? 'UPDATE' : 'CREATE',
+            page: 'qa',
+            description: editPatient
+              ? `แก้ไขข้อมูลผู้ป่วย: ${editPatient.first_name} ${editPatient.last_name}`
+              : 'เพิ่มผู้ป่วยใหม่',
+            userEmail: session?.user?.email,
+          })
+          fetchData()
+        }}
         editPatient={editPatient}
         editDiag={editDiag}
       />
@@ -252,7 +264,17 @@ export default function QaPage() {
         open={assessingPatient !== null}
         patient={assessingPatient}
         onClose={() => setAssessingPatient(null)}
-        onUpdated={fetchData}
+        onUpdated={() => {
+          if (assessingPatient) {
+            logActivity({
+              action: 'UPDATE',
+              page: 'qa',
+              description: `อัปเดตผลประเมิน: ${assessingPatient.first_name} ${assessingPatient.last_name}`,
+              userEmail: session?.user?.email,
+            })
+          }
+          fetchData()
+        }}
       />
 
       <QaSearchFilters

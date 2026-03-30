@@ -70,8 +70,8 @@ function TaskCard({ title, instruction, image, value, options, onChange }: {
   return (
     <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
       <div className="px-4 pt-3 pb-1">
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{title}</p>
-        <p className="text-sm text-slate-600 mt-1 leading-relaxed whitespace-pre-line">{instruction}</p>
+        <p className="text-sm font-semibold uppercase tracking-wide text-slate-400">{title}</p>
+        <p className="text-base text-slate-600 mt-1 leading-relaxed whitespace-pre-line">{instruction}</p>
       </div>
       {image && (
         <div className="px-4 py-2">
@@ -97,8 +97,8 @@ function TaskCard({ title, instruction, image, value, options, onChange }: {
 function SectionHeader({ title, score, max, color }: { title: string; score: number; max: number; color: string }) {
   return (
     <div className={`flex items-center justify-between px-4 py-2 rounded-xl ${color}`}>
-      <span className="text-sm font-bold uppercase tracking-wide">{title}</span>
-      <span className="text-sm font-semibold tabular-nums">{score} / {max}</span>
+      <span className="text-base font-bold uppercase tracking-wide">{title}</span>
+      <span className="text-base font-semibold tabular-nums">{score} / {max}</span>
     </div>
   )
 }
@@ -107,8 +107,8 @@ function SectionHeader({ title, score, max, color }: { title: string; score: num
 function PracticeCard({ instruction }: { instruction: string }) {
   return (
     <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-3">
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-1">MEMORY — Encoding (ฝึกฝน, ไม่คิดคะแนน)</p>
-      <p className="text-sm text-slate-600 leading-relaxed">{instruction}</p>
+      <p className="text-sm font-semibold uppercase tracking-wide text-slate-400 mb-1">MEMORY — Encoding (ฝึกฝน, ไม่คิดคะแนน)</p>
+      <p className="text-base text-slate-600 leading-relaxed">{instruction}</p>
     </div>
   )
 }
@@ -162,7 +162,7 @@ export default function QaMocaForm({ open, patientId, onClose, onSaved }: Props)
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-lg">MoCA — Montreal Cognitive Assessment</DialogTitle>
         </DialogHeader>
@@ -203,7 +203,7 @@ export default function QaMocaForm({ open, patientId, onClose, onSaved }: Props)
 
             {/* Combined score selector */}
             <div className="bg-purple-50 border border-purple-200 rounded-xl px-4 py-3">
-              <p className="text-xs font-semibold text-purple-700 mb-2">
+              <p className="text-sm font-semibold text-purple-700 mb-2">
                 คะแนนรวม Visuospatial / Executive &nbsp;
                 <span className="font-normal text-purple-500">(Trail 1 + Cube 1 + Clock 3 = max 5)</span>
               </p>

@@ -40,7 +40,7 @@ type SidebarItem = {
 const mainItems: SidebarItem[] = [
   { label: "Dashboard", icon: Building2, path: "/pages/index", feature: "dashboard" },
   { label: "Admin management", icon: ShieldCheck, path: "/pages/admin", feature: "admin" },
-  { label: "Log activity", icon: Bell, path: "/pages/tracking", feature: "tracking", badge: "Live" },
+  { label: "Activity Log", icon: Bell, path: "/pages/log", feature: "log" },
 ];
 
 const workspaceItems: SidebarItem[] = [

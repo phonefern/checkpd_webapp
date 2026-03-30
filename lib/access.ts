@@ -12,7 +12,8 @@ export type AppFeature =
   | "tracking"
   | "papers"
   | "export"
-  | "event";
+  | "event"
+  | "log";
 
 export type AccessSource = "admin_users" | "metadata" | "none";
 
@@ -48,6 +49,7 @@ export const APP_FEATURE_LABELS: Record<AppFeature, string> = {
   papers: "Papers",
   export: "Export",
   event: "Event",
+  log: "Activity Log",
 };
 
 export const APP_ROLE_LABELS: Record<AppRole, string> = {
@@ -57,8 +59,8 @@ export const APP_ROLE_LABELS: Record<AppRole, string> = {
 };
 
 export const ROLE_ACCESS: Record<AppRole, AppFeature[]> = {
-  super_admin: ["dashboard", "admin", "users", "storage", "qa", "pdf", "tracking", "papers", "export", "event"],
-  admin: ["dashboard", "users", "tracking", "storage", "qa", "papers", "export", "event"],
+  super_admin: ["dashboard", "admin", "users", "storage", "qa", "pdf", "tracking", "papers", "export", "event", "log"],
+  admin: ["dashboard", "users", "tracking", "storage", "qa", "papers", "export", "event", "log"],
   doctor: ["dashboard", "users", "storage", "qa", "pdf"],
 };
 
@@ -73,6 +75,7 @@ const FEATURE_ROUTE_PREFIXES: Array<{ prefix: string; feature: AppFeature }> = [
   { prefix: "/pages/export", feature: "export" },
   { prefix: "/pages/event", feature: "event" },
   { prefix: "/pages/index", feature: "dashboard" },
+  { prefix: "/pages/log", feature: "log" },
 ];
 
 export function isAppRole(value: unknown): value is AppRole {

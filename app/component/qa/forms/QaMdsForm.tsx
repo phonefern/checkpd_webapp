@@ -23,8 +23,8 @@ function ScoreSelect({ value, max = 4, onChange }: { value: number; max?: number
 function QRow({ num, label, value, max = 4, onChange }: { num: string; label: string; value: number; max?: number; onChange: (v: number) => void }) {
   return (
     <div className="flex items-center gap-2 py-1 border-b">
-      <span className="text-xs text-muted-foreground w-8 shrink-0">{num}</span>
-      <span className="text-xs flex-1">{label}</span>
+      <span className="text-sm text-muted-foreground w-10 shrink-0">{num}</span>
+      <span className="text-sm flex-1">{label}</span>
       <ScoreSelect value={value} max={max} onChange={onChange} />
     </div>
   )
@@ -108,7 +108,7 @@ export default function QaMdsForm({ open, patientId, onClose, onSaved }: Props) 
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader><DialogTitle>MDS-UPDRS — Movement Disorder Society Unified Parkinson's Disease Rating Scale</DialogTitle></DialogHeader>
 
         {/* Tab bar */}
@@ -127,7 +127,7 @@ export default function QaMdsForm({ open, patientId, onClose, onSaved }: Props) 
         {/* Part I */}
         {tab === 0 && (
           <div className="space-y-1 mt-2">
-            <p className="text-xs font-semibold text-muted-foreground mb-2">Non-Motor Experiences of Daily Living (0–4 ต่อข้อ)</p>
+            <p className="text-sm font-semibold text-muted-foreground mb-2">Non-Motor Experiences of Daily Living (0–4 ต่อข้อ)</p>
             {[
               ['1.1','ความบกพร่องทางการรับรู้ (Cognitive impairment)','q01'],
               ['1.2','ภาพหลอน/ความคิดผิดปกติ (Hallucinations/psychosis)','q02'],
@@ -145,14 +145,14 @@ export default function QaMdsForm({ open, patientId, onClose, onSaved }: Props) 
             ].map(([num, label, k]) => (
               <QRow key={k} num={num} label={label} value={p1[k as keyof P1]} onChange={(v) => set1(k as keyof P1, v)} />
             ))}
-            <p className="text-xs text-right text-muted-foreground mt-2">รวม Part I: {p1Total}</p>
+            <p className="text-sm text-right text-muted-foreground mt-2">รวม Part I: {p1Total}</p>
           </div>
         )}
 
         {/* Part II */}
         {tab === 1 && (
           <div className="space-y-1 mt-2">
-            <p className="text-xs font-semibold text-muted-foreground mb-2">Motor Experiences of Daily Living (0–4 ต่อข้อ)</p>
+            <p className="text-sm font-semibold text-muted-foreground mb-2">Motor Experiences of Daily Living (0–4 ต่อข้อ)</p>
             {[
               ['2.1','การพูด (Speech)','q01'],
               ['2.2','น้ำลายไหล (Saliva and drooling)','q02'],
@@ -170,14 +170,14 @@ export default function QaMdsForm({ open, patientId, onClose, onSaved }: Props) 
             ].map(([num, label, k]) => (
               <QRow key={k} num={num} label={label} value={p2[k as keyof P2]} onChange={(v) => set2(k as keyof P2, v)} />
             ))}
-            <p className="text-xs text-right text-muted-foreground mt-2">รวม Part II: {p2Total}</p>
+            <p className="text-sm text-right text-muted-foreground mt-2">รวม Part II: {p2Total}</p>
           </div>
         )}
 
         {/* Part III */}
         {tab === 2 && (
           <div className="space-y-1 mt-2">
-            <p className="text-xs font-semibold text-muted-foreground mb-2">Motor Examination (0–4 ต่อข้อ)</p>
+            <p className="text-sm font-semibold text-muted-foreground mb-2">Motor Examination (0–4 ต่อข้อ)</p>
             {[
               ['3.1','การพูด (Speech)','q01'],
               ['3.2','การแสดงสีหน้า (Facial expression)','q02'],
@@ -219,7 +219,7 @@ export default function QaMdsForm({ open, patientId, onClose, onSaved }: Props) 
             {/* Dyskinesia + H&Y */}
             <div className="mt-3 pt-2 border-t space-y-2">
               <div className="flex items-center gap-3">
-                <span className="text-xs flex-1">D1. มี dyskinesias ระหว่างการตรวจ?</span>
+                <span className="text-sm flex-1">D1. มี dyskinesias ระหว่างการตรวจ?</span>
                 <div className="flex gap-1">
                   {[true, false].map((v) => (
                     <button key={String(v)} onClick={() => setP3((p) => ({ ...p, dyskinesia_present: v }))}
@@ -230,7 +230,7 @@ export default function QaMdsForm({ open, patientId, onClose, onSaved }: Props) 
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <span className="text-xs flex-1">D2. Dyskinesias รบกวนการตรวจ?</span>
+                <span className="text-sm flex-1">D2. Dyskinesias รบกวนการตรวจ?</span>
                 <div className="flex gap-1">
                   {[true, false].map((v) => (
                     <button key={String(v)} onClick={() => setP3((p) => ({ ...p, dyskinesia_interfere: v }))}
@@ -241,21 +241,21 @@ export default function QaMdsForm({ open, patientId, onClose, onSaved }: Props) 
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <span className="text-xs flex-1">H&amp;Y Stage</span>
+                <span className="text-sm flex-1">H&amp;Y Stage</span>
                 <select value={p3.hy_stage} onChange={(e) => setP3((p) => ({ ...p, hy_stage: e.target.value }))}
                   className="border rounded p-1 text-sm w-20">
                   {['','1','1.5','2','2.5','3','4','5'].map((v) => <option key={v} value={v}>{v || '-'}</option>)}
                 </select>
               </div>
             </div>
-            <p className="text-xs text-right text-muted-foreground mt-2">รวม Part III: {p3Total}</p>
+            <p className="text-sm text-right text-muted-foreground mt-2">รวม Part III: {p3Total}</p>
           </div>
         )}
 
         {/* Part IV */}
         {tab === 3 && (
           <div className="space-y-1 mt-2">
-            <p className="text-xs font-semibold text-muted-foreground mb-2">Motor Complications (0–4 ต่อข้อ)</p>
+            <p className="text-sm font-semibold text-muted-foreground mb-2">Motor Complications (0–4 ต่อข้อ)</p>
             {[
               ['4.1','เวลาที่มี dyskinesias (Time spent with dyskinesias)','q01'],
               ['4.2','ผลกระทบจาก dyskinesias (Functional impact)','q02'],
@@ -266,7 +266,7 @@ export default function QaMdsForm({ open, patientId, onClose, onSaved }: Props) 
             ].map(([num, label, k]) => (
               <QRow key={k} num={num} label={label} value={p4[k as keyof P4]} onChange={(v) => set4(k as keyof P4, v)} />
             ))}
-            <p className="text-xs text-right text-muted-foreground mt-2">รวม Part IV: {p4Total}</p>
+            <p className="text-sm text-right text-muted-foreground mt-2">รวม Part IV: {p4Total}</p>
           </div>
         )}
 

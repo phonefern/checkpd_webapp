@@ -67,22 +67,22 @@ export default function QaRome4Form({ open, patientId, onClose, onSaved }: Props
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader><DialogTitle>ROME IV — เกณฑ์วินิจฉัยท้องผูก</DialogTitle></DialogHeader>
-        <p className="text-xs text-muted-foreground mb-3">
+        <p className="text-sm text-muted-foreground mb-3">
           อาการเหล่านี้เกิดขึ้นอย่างน้อย 6 เดือน และ 3 เดือนที่ผ่านมา
         </p>
         <div className="space-y-2">
           {QUESTIONS.map((q, i) => (
             <div
               key={q.key}
-              className={`flex items-center gap-3 p-3 rounded border cursor-pointer transition-colors ${form[q.key] ? 'bg-blue-50 border-blue-400' : 'hover:bg-muted/40'}`}
+              className={`flex items-center gap-3 p-4 rounded border cursor-pointer transition-colors ${form[q.key] ? 'bg-blue-50 border-blue-400' : 'hover:bg-muted/40'}`}
               onClick={() => toggleQ(q.key)}
             >
-              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${form[q.key] ? 'border-blue-600 bg-blue-600' : 'border-gray-400'}`}>
-                {form[q.key] ? <span className="text-white text-xs font-bold">✓</span> : null}
+              <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 ${form[q.key] ? 'border-blue-600 bg-blue-600' : 'border-gray-400'}`}>
+                {form[q.key] ? <span className="text-white text-sm font-bold">✓</span> : null}
               </div>
-              <span className="text-sm">{i + 1}. {q.label}</span>
+              <span className="text-base">{i + 1}. {q.label}</span>
             </div>
           ))}
         </div>

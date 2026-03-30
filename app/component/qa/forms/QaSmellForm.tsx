@@ -78,16 +78,16 @@ export default function QaSmellForm({ open, patientId, onClose, onSaved }: Props
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader><DialogTitle>แบบทดสอบความสามารถในการดมกลิ่น (Thai Smell Test)</DialogTitle></DialogHeader>
         <div className="grid grid-cols-2 gap-3 mt-2">
           {QUESTIONS.map((q, i) => {
             const chosen = form[q.key]
             const isCorrect = chosen === q.correct
             return (
-              <div key={q.key} className="border rounded p-2">
-                <p className="text-xs font-medium mb-1 text-muted-foreground">{i + 1}. {q.label}</p>
-                <div className="flex flex-wrap gap-1">
+              <div key={q.key} className="border rounded p-3">
+                <p className="text-sm font-medium mb-2 text-muted-foreground">{i + 1}. {q.label}</p>
+                <div className="flex flex-wrap gap-1.5">
                   {q.options.map((opt) => {
                     const val = opt.charAt(0)
                     const active = chosen === val
@@ -95,14 +95,14 @@ export default function QaSmellForm({ open, patientId, onClose, onSaved }: Props
                       <button
                         key={val}
                         onClick={() => setForm((p) => ({ ...p, [q.key]: val }))}
-                        className={`px-2 py-1 text-xs rounded border transition-colors ${active ? 'bg-blue-600 text-white border-blue-600' : 'hover:bg-muted/60'}`}
+                        className={`px-2.5 py-1 text-sm rounded border transition-colors ${active ? 'bg-blue-600 text-white border-blue-600' : 'hover:bg-muted/60'}`}
                       >
                         {opt}
                       </button>
                     )
                   })}
                   {chosen && (
-                    <span className={`ml-1 text-xs self-center ${isCorrect ? 'text-green-600' : 'text-red-500'}`}>
+                    <span className={`ml-1 text-sm self-center ${isCorrect ? 'text-green-600' : 'text-red-500'}`}>
                       {isCorrect ? '✓' : `✗ (${q.correct})`}
                     </span>
                   )}

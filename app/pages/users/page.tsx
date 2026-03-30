@@ -8,6 +8,7 @@ import SearchFilters from '@/app/component/users/SearchFilters'
 import PatientHistoryModal from '@/app/component/users/PatientHistoryModal'
 import { User } from '@/app/types/user'
 import SidebarLayout from '@/app/component/layout/SidebarLayout'
+import { logActivity } from '@/lib/activityLog'
 
 export default function UsersClientPage() {
   const [users, setUsers] = useState<User[]>([])
@@ -154,6 +155,7 @@ export default function UsersClientPage() {
     if (conditionError || provinceError) {
       alert('Failed to update')
     } else {
+      logActivity({ action: 'UPDATE', page: 'users', description: `อัปเดตข้อมูลผู้ป่วย ID: ${id}` })
       alert('✅ Updated successfully')
       fetchUsers()
     }

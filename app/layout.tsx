@@ -1,9 +1,90 @@
 import './globals.css'
-import { Sarabun } from 'next/font/google'
+import localFont from 'next/font/local'
 
-const sarabun = Sarabun({
-  subsets: ['thai', 'latin'],
-  weight: ['200', '300', '400', '500', '600', '700', '800'],
+const sarabun = localFont({
+  src: [
+    {
+      path: '../fonts/Sarabun-Thin.ttf',
+      weight: '100',
+      style: 'normal',
+    },
+    {
+      path: '../fonts/Sarabun-ThinItalic.ttf',
+      weight: '100',
+      style: 'italic',
+    },
+    {
+      path: '../fonts/Sarabun-ExtraLight.ttf',
+      weight: '200',
+      style: 'normal',
+    },
+    {
+      path: '../fonts/Sarabun-ExtraLightItalic.ttf',
+      weight: '200',
+      style: 'italic',
+    },
+    {
+      path: '../fonts/Sarabun-Light.ttf',
+      weight: '300',
+      style: 'normal',
+    },
+    {
+      path: '../fonts/Sarabun-LightItalic.ttf',
+      weight: '300',
+      style: 'italic',
+    },
+    {
+      path: '../fonts/Sarabun-Regular.ttf',
+      weight: '400',
+      style: 'normal',
+    },
+    {
+      path: '../fonts/Sarabun-Italic.ttf',
+      weight: '400',
+      style: 'italic',
+    },
+    {
+      path: '../fonts/Sarabun-Medium.ttf',
+      weight: '500',
+      style: 'normal',
+    },
+    {
+      path: '../fonts/Sarabun-MediumItalic.ttf',
+      weight: '500',
+      style: 'italic',
+    },
+    {
+      path: '../fonts/Sarabun-SemiBold.ttf',
+      weight: '600',
+      style: 'normal',
+    },
+    {
+      path: '../fonts/Sarabun-SemiBoldItalic.ttf',
+      weight: '600',
+      style: 'italic',
+    },
+    {
+      path: '../fonts/Sarabun-Bold.ttf',
+      weight: '700',
+      style: 'normal',
+    },
+    {
+      path: '../fonts/Sarabun-BoldItalic.ttf',
+      weight: '700',
+      style: 'italic',
+    },
+    {
+      path: '../fonts/Sarabun-ExtraBold.ttf',
+      weight: '800',
+      style: 'normal',
+    },
+    {
+      path: '../fonts/Sarabun-ExtraBoldItalic.ttf',
+      weight: '800',
+      style: 'italic',
+    },
+  ],
+  variable: '--font-sarabun',
   display: 'swap',
 })
 
@@ -14,7 +95,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="th">
-      <body className={sarabun.className}>
+      <body className={`${sarabun.className} ${sarabun.variable}`}>
         {children}
       </body>
     </html>

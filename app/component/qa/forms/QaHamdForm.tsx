@@ -196,13 +196,13 @@ function RadioQuestion({
   q, value, onChange,
 }: { q: QuestionDef; value: number; onChange: (v: number) => void }) {
   return (
-    <div className="border rounded p-3 bg-white space-y-2">
-      <p className="text-sm font-medium">{q.title}</p>
-      {q.subtitle   && <p className="text-xs text-muted-foreground italic">{q.subtitle}</p>}
-      {q.description && <p className="text-xs text-blue-700 bg-blue-50 rounded p-2">{q.description}</p>}
-      <div className="space-y-1 pt-1">
+    <div className="border rounded p-4 bg-white space-y-2">
+      <p className="text-base font-medium">{q.title}</p>
+      {q.subtitle   && <p className="text-sm text-muted-foreground italic">{q.subtitle}</p>}
+      {q.description && <p className="text-sm text-blue-700 bg-blue-50 rounded p-2">{q.description}</p>}
+      <div className="space-y-2 pt-1">
         {q.options.map((opt) => (
-          <label key={opt.value} className="flex items-start gap-2 cursor-pointer hover:bg-slate-50 rounded p-1 transition-colors">
+          <label key={opt.value} className="flex items-start gap-2 cursor-pointer hover:bg-slate-50 rounded p-1.5 transition-colors">
             <input
               type="radio"
               name={q.key}
@@ -210,7 +210,7 @@ function RadioQuestion({
               onChange={() => onChange(opt.value)}
               className="mt-0.5 shrink-0"
             />
-            <span className={`text-sm ${value === opt.value ? 'font-medium text-blue-700' : 'text-slate-700'}`}>
+            <span className={`text-base ${value === opt.value ? 'font-medium text-blue-700' : 'text-slate-700'}`}>
               {opt.label}
             </span>
           </label>
@@ -282,7 +282,7 @@ export default function QaHamdForm({ open, patientId, onClose, onSaved }: Props)
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader><DialogTitle>HAM-D — Hamilton Depression Rating Scale</DialogTitle></DialogHeader>
 
         <div className="space-y-3 mt-2">
@@ -292,13 +292,13 @@ export default function QaHamdForm({ open, patientId, onClose, onSaved }: Props)
 
           {/* Question 16: Weight loss */}
           <div className="border rounded p-3 bg-white space-y-3">
-            <p className="text-sm font-medium">16. น้ำหนักลด (LOSS OF WEIGHT) — เลือกวิธีประเมิน</p>
+            <p className="text-base font-medium">16. น้ำหนักลด (LOSS OF WEIGHT) — เลือกวิธีประเมิน</p>
             <div className="flex gap-6">
-              <label className="flex items-center gap-2 cursor-pointer text-sm">
+              <label className="flex items-center gap-2 cursor-pointer text-base">
                 <input type="radio" checked={form.q16method === 'a'} onChange={() => setForm((p) => ({ ...p, q16method: 'a' }))} />
                 ก. ซักประวัติ
               </label>
-              <label className="flex items-center gap-2 cursor-pointer text-sm">
+              <label className="flex items-center gap-2 cursor-pointer text-base">
                 <input type="radio" checked={form.q16method === 'b'} onChange={() => setForm((p) => ({ ...p, q16method: 'b' }))} />
                 ข. ชั่งน้ำหนักจริง
               </label>
@@ -313,7 +313,7 @@ export default function QaHamdForm({ open, patientId, onClose, onSaved }: Props)
                 ].map((opt) => (
                   <label key={opt.value} className="flex items-start gap-2 cursor-pointer hover:bg-slate-50 rounded p-1">
                     <input type="radio" checked={form.q16a === opt.value} onChange={() => set('q16a', opt.value)} className="mt-0.5 shrink-0" />
-                    <span className={`text-sm ${form.q16a === opt.value ? 'font-medium text-blue-700' : 'text-slate-700'}`}>{opt.label}</span>
+                    <span className={`text-base ${form.q16a === opt.value ? 'font-medium text-blue-700' : 'text-slate-700'}`}>{opt.label}</span>
                   </label>
                 ))}
               </div>
@@ -328,7 +328,7 @@ export default function QaHamdForm({ open, patientId, onClose, onSaved }: Props)
                 ].map((opt) => (
                   <label key={opt.value} className="flex items-start gap-2 cursor-pointer hover:bg-slate-50 rounded p-1">
                     <input type="radio" checked={form.q16b === opt.value} onChange={() => set('q16b', opt.value)} className="mt-0.5 shrink-0" />
-                    <span className={`text-sm ${form.q16b === opt.value ? 'font-medium text-blue-700' : 'text-slate-700'}`}>{opt.label}</span>
+                    <span className={`text-base ${form.q16b === opt.value ? 'font-medium text-blue-700' : 'text-slate-700'}`}>{opt.label}</span>
                   </label>
                 ))}
               </div>
