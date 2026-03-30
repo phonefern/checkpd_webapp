@@ -71,19 +71,19 @@ export default function QaEpworthForm({ open, patientId, onClose, onSaved }: Pro
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader><DialogTitle>Epworth Sleepiness Scale</DialogTitle></DialogHeader>
-        <p className="text-xs text-muted-foreground mb-3">
+        <p className="text-sm text-muted-foreground mb-3">
           0 = ไม่เคยเลย &nbsp;|&nbsp; 1 = มีโอกาสเล็กน้อย &nbsp;|&nbsp; 2 = มีโอกาสปานกลาง &nbsp;|&nbsp; 3 = มีโอกาสสูงมาก
         </p>
         <div className="space-y-1">
           {QUESTIONS.map((q, i) => (
-            <div key={q.key} className="flex items-center gap-3 py-2 border-b">
-              <span className="text-sm flex-1">{i + 1}. {q.label}</span>
+            <div key={q.key} className="flex items-center gap-3 py-3 border-b">
+              <span className="text-base flex-1">{i + 1}. {q.label}</span>
               <select
                 value={form[q.key]}
                 onChange={(e) => setForm((p) => ({ ...p, [q.key]: Number(e.target.value) }))}
-                className="border rounded p-1 text-sm w-16"
+                className="border rounded p-1.5 text-base w-20"
               >
                 {[0, 1, 2, 3].map((v) => <option key={v} value={v}>{v}</option>)}
               </select>

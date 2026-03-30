@@ -87,13 +87,13 @@ export default function QaTmseForm({ open, patientId, onClose, onSaved }: Props)
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader><DialogTitle>TMSE — Thai Mental State Examination</DialogTitle></DialogHeader>
 
         <div className="space-y-4 mt-2">
           {/* Orientation */}
           <div className="rounded border p-3 bg-purple-50">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+            <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-2">
               Orientation (6 pts) — รวม: {orientationTotal}
             </p>
             {[
@@ -105,18 +105,18 @@ export default function QaTmseForm({ open, patientId, onClose, onSaved }: Props)
               { key: 'orientation_picture', label: 'ภาพ (picture)' },
             ].map((item) => (
               <div key={item.key} className="flex items-center gap-3 py-1">
-                <span className="text-sm flex-1">{item.label}</span>
+                <span className="text-base flex-1">{item.label}</span>
                 <ScoreSelect value={form[item.key as keyof FormState]} max={1} onChange={(v) => set(item.key as keyof FormState, v)} />
-                <span className="text-xs text-muted-foreground w-6">/ 1</span>
+                <span className="text-sm text-muted-foreground w-8">/1</span>
               </div>
             ))}
           </div>
 
           {/* Registration */}
           <div className="rounded border p-3 bg-blue-50">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Registration (3 pts)</p>
+            <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-2">Registration (3 pts)</p>
             <div className="flex items-center gap-3">
-              <span className="text-sm flex-1">ทวนคำ 3 คำ (ต้นไม้ รถยนต์ มือ)</span>
+              <span className="text-base flex-1">ทวนคำ 3 คำ (ต้นไม้ รถยนต์ มือ)</span>
               <ScoreSelect value={form.registration} max={3} onChange={(v) => set('registration', v)} />
               <span className="text-xs text-muted-foreground w-6">/ 3</span>
             </div>
@@ -124,9 +124,9 @@ export default function QaTmseForm({ open, patientId, onClose, onSaved }: Props)
 
           {/* Attention */}
           <div className="rounded border p-3 bg-yellow-50">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Attention (5 pts)</p>
+            <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-2">Attention (5 pts)</p>
             <div className="flex items-center gap-3">
-              <span className="text-sm flex-1">นับถอยหลัง 93, 86, 79, 72, 65 (ลบ 100-7)</span>
+              <span className="text-base flex-1">นับถอยหลัง 93, 86, 79, 72, 65 (ลบ 100-7)</span>
               <ScoreSelect value={form.attention} max={5} onChange={(v) => set('attention', v)} />
               <span className="text-xs text-muted-foreground w-6">/ 5</span>
             </div>
@@ -134,9 +134,9 @@ export default function QaTmseForm({ open, patientId, onClose, onSaved }: Props)
 
           {/* Calculation */}
           <div className="rounded border p-3 bg-green-50">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Calculation (3 pts)</p>
+            <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-2">Calculation (3 pts)</p>
             <div className="flex items-center gap-3">
-              <span className="text-sm flex-1">คำนวณ: มี 20 บาท ซื้อ 3 บาท เหลือเท่าไร ×3</span>
+              <span className="text-base flex-1">คำนวณ: มี 20 บาท ซื้อ 3 บาท เหลือเท่าไร ×3</span>
               <ScoreSelect value={form.calculation} max={3} onChange={(v) => set('calculation', v)} />
               <span className="text-xs text-muted-foreground w-6">/ 3</span>
             </div>
@@ -144,7 +144,7 @@ export default function QaTmseForm({ open, patientId, onClose, onSaved }: Props)
 
           {/* Language */}
           <div className="rounded border p-3 bg-orange-50">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+            <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-2">
               Language (10 pts) — รวม: {languageTotal}
             </p>
             {[
@@ -159,18 +159,18 @@ export default function QaTmseForm({ open, patientId, onClose, onSaved }: Props)
               { key: 'language_similarity', label: 'อธิบายความเหมือน (2 คู่)', max: 2 },
             ].map((item) => (
               <div key={item.key} className="flex items-center gap-3 py-1">
-                <span className="text-sm flex-1">{item.label}</span>
+                <span className="text-base flex-1">{item.label}</span>
                 <ScoreSelect value={form[item.key as keyof FormState]} max={item.max} onChange={(v) => set(item.key as keyof FormState, v)} />
-                <span className="text-xs text-muted-foreground w-6">/ {item.max}</span>
+                <span className="text-sm text-muted-foreground w-8">/{item.max}</span>
               </div>
             ))}
           </div>
 
           {/* Recall */}
           <div className="rounded border p-3 bg-red-50">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Recall (3 pts)</p>
+            <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-2">Recall (3 pts)</p>
             <div className="flex items-center gap-3">
-              <span className="text-sm flex-1">ทวนคำ 3 คำจากก่อนหน้า (ต้นไม้ รถยนต์ มือ)</span>
+              <span className="text-base flex-1">ทวนคำ 3 คำจากก่อนหน้า (ต้นไม้ รถยนต์ มือ)</span>
               <ScoreSelect value={form.recall} max={3} onChange={(v) => set('recall', v)} />
               <span className="text-xs text-muted-foreground w-6">/ 3</span>
             </div>

@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import SessionListener from '@/components/SessionListener'
 import { getAccessProfile, getDefaultAuthorizedPath } from '@/lib/access'
+import { logActivity } from '@/lib/activityLog'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -44,6 +45,7 @@ export default function LoginPage() {
         return
       }
 
+      logActivity({ action: 'LOGIN', page: 'auth', description: `เข้าสู่ระบบ: ${email}`, userEmail: email })
       window.location.href = getDefaultAuthorizedPath(accessProfile.role)
     } catch (_err) {
       setError('An unexpected error occurred')

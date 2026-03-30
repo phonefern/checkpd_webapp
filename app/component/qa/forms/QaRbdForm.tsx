@@ -58,7 +58,7 @@ function AnswerToggle({ value, onChange }: { value: Answer; onChange: (v: Answer
         <button
           key={v}
           onClick={() => onChange(v)}
-          className={`px-2 py-1 text-xs rounded border transition-colors ${value === v ? 'bg-blue-600 text-white border-blue-600' : 'hover:bg-muted/60'}`}
+          className={`px-3 py-1.5 text-sm rounded border transition-colors ${value === v ? 'bg-blue-600 text-white border-blue-600' : 'hover:bg-muted/60'}`}
         >
           {labels[v]}
         </button>
@@ -120,29 +120,29 @@ export default function QaRbdForm({ open, patientId, onClose, onSaved }: Props) 
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader><DialogTitle>RBD Questionnaire — แบบประเมินพฤติกรรมการนอนหลับ</DialogTitle></DialogHeader>
-        <p className="text-xs text-muted-foreground mb-3">
+        <p className="text-sm text-muted-foreground mb-3">
           กลุ่ม A: ตอบใช่ = คะแนนตามความถี่ (1–4) &nbsp;|&nbsp; กลุ่ม B: ตอบใช่ = ความถี่ × 2 (2–8)
         </p>
         <div className="space-y-3">
           {QUESTIONS.map((q) => {
             const state = form[q.key]
             return (
-              <div key={q.key} className="border rounded p-3">
+              <div key={q.key} className="border rounded p-4">
                 <div className="flex items-start gap-3">
-                  <p className="text-sm flex-1">{q.label} <span className="text-xs text-muted-foreground">(กลุ่ม {q.group})</span></p>
+                  <p className="text-base flex-1">{q.label} <span className="text-sm text-muted-foreground">(กลุ่ม {q.group})</span></p>
                   <AnswerToggle value={state.answer} onChange={(v) => setQ(q.key, { answer: v, frequency: v !== 'yes' ? '' : state.frequency })} />
                 </div>
                 {state.answer === 'yes' && (
                   <div className="mt-2 flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground">ความถี่:</span>
-                    <div className="flex gap-1 flex-wrap">
+                    <span className="text-sm text-muted-foreground">ความถี่:</span>
+                    <div className="flex gap-1.5 flex-wrap">
                       {FREQ_OPTIONS.map((f) => (
                         <button
                           key={f.value}
                           onClick={() => setQ(q.key, { frequency: f.value })}
-                          className={`px-2 py-1 text-xs rounded border transition-colors ${state.frequency === f.value ? 'bg-blue-600 text-white border-blue-600' : 'hover:bg-muted/60'}`}
+                          className={`px-3 py-1.5 text-sm rounded border transition-colors ${state.frequency === f.value ? 'bg-blue-600 text-white border-blue-600' : 'hover:bg-muted/60'}`}
                         >
                           {f.label}
                         </button>

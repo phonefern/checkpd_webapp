@@ -35,15 +35,15 @@ const EMPTY_SCORES: TestScores = {
 }
 
 const TESTS: { key: TestKey; name: string; nameEn: string; maxScore: number; emoji: string }[] = [
-  { key: 'moca',    name: 'MoCA',                        nameEn: 'Montreal Cognitive Assessment',          maxScore: 30,  emoji: '🧠' },
-  { key: 'tmse',    name: 'TMSE',                        nameEn: 'Thai Mental State Examination',          maxScore: 30,  emoji: '🧠' },
-  { key: 'hamd',    name: 'HAM-D',                       nameEn: 'Hamilton Depression Rating Scale',       maxScore: 52,  emoji: '💊' },
-  { key: 'mds',     name: 'MDS-UPDRS',                   nameEn: 'MDS Unified Parkinson\'s Rating Scale',  maxScore: 260, emoji: '🦾' },
-  { key: 'epworth', name: 'Epworth',                     nameEn: 'Epworth Sleepiness Scale',               maxScore: 21,  emoji: '😴' },
-  { key: 'smell',   name: 'Smell Test',                  nameEn: 'Thai Smell Identification Test',         maxScore: 16,  emoji: '👃' },
-  { key: 'rbd',     name: 'RBD Questionnaire',           nameEn: 'REM Sleep Behavior Disorder',            maxScore: 52,  emoji: '🌙' },
-  { key: 'rome4',   name: 'ROME IV',                     nameEn: 'Rome IV Constipation Criteria',          maxScore: 6,   emoji: '🏥' },
-  { key: 'food',    name: 'Food (มีดี)',                  nameEn: 'Thai MIND Diet Assessment',              maxScore: 10,  emoji: '🥗' },
+  { key: 'moca', name: 'MoCA', nameEn: 'Montreal Cognitive Assessment', maxScore: 30, emoji: '🧠' },
+  { key: 'tmse', name: 'TMSE', nameEn: 'Thai Mental State Examination', maxScore: 30, emoji: '🧠' },
+  { key: 'hamd', name: 'HAM-D', nameEn: 'Hamilton Depression Rating Scale', maxScore: 52, emoji: '💊' },
+  { key: 'mds', name: 'MDS-UPDRS', nameEn: 'MDS Unified Parkinson\'s Rating Scale', maxScore: 260, emoji: '🦾' },
+  { key: 'epworth', name: 'Epworth', nameEn: 'Epworth Sleepiness Scale', maxScore: 21, emoji: '😴' },
+  { key: 'smell', name: 'Smell Test', nameEn: 'Thai Smell Identification Test', maxScore: 16, emoji: '👃' },
+  { key: 'rbd', name: 'RBD Questionnaire', nameEn: 'REM Sleep Behavior Disorder', maxScore: 52, emoji: '🌙' },
+  { key: 'rome4', name: 'ROME IV', nameEn: 'Rome IV Constipation Criteria', maxScore: 6, emoji: '🏥' },
+  { key: 'food', name: 'Food (มีดี)', nameEn: 'Thai MIND Diet Assessment', maxScore: 10, emoji: '🥗' },
 ]
 
 interface Props {
@@ -75,14 +75,14 @@ export default function QaAssessmentModal({ open, patient, onClose, onUpdated }:
     ])
     setScores({
       epworth: (epwRes.data as { total_score: number } | null)?.total_score ?? null,
-      hamd:    (hamdRes.data as { total_score: number } | null)?.total_score ?? null,
-      moca:    (mocaRes.data as { total_score: number } | null)?.total_score ?? null,
-      tmse:    (tmseRes.data as { total_score: number } | null)?.total_score ?? null,
-      smell:   (smellRes.data as { total_score: number } | null)?.total_score ?? null,
-      mds:     (mdsRes.data as { total_score: number } | null)?.total_score ?? null,
-      rome4:   (rome4Res.data as { total_score: number } | null)?.total_score ?? null,
-      rbd:     (rbdRes.data as { total_score: number } | null)?.total_score ?? null,
-      food:    (foodRes.data as { total_score: number } | null)?.total_score ?? null,
+      hamd: (hamdRes.data as { total_score: number } | null)?.total_score ?? null,
+      moca: (mocaRes.data as { total_score: number } | null)?.total_score ?? null,
+      tmse: (tmseRes.data as { total_score: number } | null)?.total_score ?? null,
+      smell: (smellRes.data as { total_score: number } | null)?.total_score ?? null,
+      mds: (mdsRes.data as { total_score: number } | null)?.total_score ?? null,
+      rome4: (rome4Res.data as { total_score: number } | null)?.total_score ?? null,
+      rbd: (rbdRes.data as { total_score: number } | null)?.total_score ?? null,
+      food: (foodRes.data as { total_score: number } | null)?.total_score ?? null,
     })
     setLoadingScores(false)
   }, [patient])
@@ -108,7 +108,6 @@ export default function QaAssessmentModal({ open, patient, onClose, onUpdated }:
           <DialogHeader>
             <DialogTitle className="flex items-center justify-between">
               <span>แบบทดสอบ — {patient.first_name} {patient.last_name}</span>
-              <Button variant="ghost" size="sm" onClick={onClose} className="h-7 w-7 p-0"><X className="h-4 w-4" /></Button>
             </DialogTitle>
           </DialogHeader>
 
@@ -154,14 +153,14 @@ export default function QaAssessmentModal({ open, patient, onClose, onUpdated }:
 
       {/* Individual test forms */}
       <QaEpworthForm open={activeForm === 'epworth'} {...formProps} />
-      <QaHamdForm    open={activeForm === 'hamd'}    {...formProps} />
-      <QaMocaForm    open={activeForm === 'moca'}    {...formProps} />
-      <QaTmseForm    open={activeForm === 'tmse'}    {...formProps} />
-      <QaSmellForm   open={activeForm === 'smell'}   {...formProps} />
-      <QaMdsForm     open={activeForm === 'mds'}     {...formProps} />
-      <QaRome4Form   open={activeForm === 'rome4'}   {...formProps} />
-      <QaRbdForm     open={activeForm === 'rbd'}     {...formProps} />
-      <QaFoodForm    open={activeForm === 'food'}    {...formProps} />
+      <QaHamdForm open={activeForm === 'hamd'}    {...formProps} />
+      <QaMocaForm open={activeForm === 'moca'}    {...formProps} />
+      <QaTmseForm open={activeForm === 'tmse'}    {...formProps} />
+      <QaSmellForm open={activeForm === 'smell'}   {...formProps} />
+      <QaMdsForm open={activeForm === 'mds'}     {...formProps} />
+      <QaRome4Form open={activeForm === 'rome4'}   {...formProps} />
+      <QaRbdForm open={activeForm === 'rbd'}     {...formProps} />
+      <QaFoodForm open={activeForm === 'food'}    {...formProps} />
     </>
   )
 }
