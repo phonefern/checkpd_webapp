@@ -58,12 +58,14 @@ const roleStyles: Record<AppRole, string> = {
   super_admin: "border-red-200 bg-red-50 text-red-700",
   admin: "border-emerald-200 bg-emerald-50 text-emerald-700",
   doctor: "border-sky-200 bg-sky-50 text-sky-700",
+  medical_staff: "border-purple-200 bg-purple-50 text-purple-700",
 };
 
 const roleDescriptions: Record<AppRole, string> = {
   super_admin: "Full platform control including admin access and grants.",
   admin: "Users, tracking, storage, QA, papers, export, and event access.",
   doctor: "Users, storage, QA, and PDF access.",
+  medical_staff: "Medical staff access to patient records and assessments.",
 };
 
 export default function AdminPage() {

@@ -7,15 +7,30 @@ import { CalendarIcon } from 'lucide-react'
 import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
 import { provinceOptions } from '@/app/types/user'
-import { QA_CONDITION_OPTIONS, QA_HY_OPTIONS } from './types'
+import { QA_HY_OPTIONS, type QaConditionFilter } from './types'
+
+const CONDITION_FILTER_OPTIONS = [
+  { value: '', label: 'All Conditions' },
+  { value: 'pd', label: 'PD' },
+  { value: 'pdm', label: 'PDM' },
+  { value: 'other', label: 'OTHER' },
+  { value: 'ctrl', label: 'CTRL' },
+]
+
+const GP2_FILTER_OPTIONS = [
+  { value: '', label: 'All Blood Tests' },
+  { value: 'gp2', label: 'GP2' },
+]
 
 interface QaSearchFiltersProps {
   search: string
   setSearch: (v: string) => void
   thaiId: string
   setThaiId: (v: string) => void
-  condition: string
-  setCondition: (v: string) => void
+  condition: QaConditionFilter
+  setCondition: (v: QaConditionFilter) => void
+  gp2: string
+  setGp2: (v: string) => void
   hyStage: string
   setHyStage: (v: string) => void
   province: string
@@ -38,6 +53,8 @@ export default function QaSearchFilters({
   setThaiId,
   condition,
   setCondition,
+  gp2,
+  setGp2,
   hyStage,
   setHyStage,
   province,
@@ -59,6 +76,7 @@ export default function QaSearchFilters({
     setSearch('')
     setThaiId('')
     setCondition('')
+    setGp2('')
     setHyStage('')
     setProvince('')
     setStartDate('')
@@ -66,11 +84,11 @@ export default function QaSearchFilters({
     setCurrentPage(1)
   }
 
-  const hasActiveFilter = search || thaiId || condition || hyStage || province || startDate || endDate
+  const hasActiveFilter = search || thaiId || condition || gp2 || hyStage || province || startDate || endDate
 
   return (
     <div className="mb-6 p-6 bg-card border border-border rounded-lg shadow-sm">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-9 gap-4">
         {/* Search */}
         <div className="xl:col-span-2">
           <label className="block text-sm font-medium text-foreground mb-2">Search Patient</label>
@@ -101,10 +119,23 @@ export default function QaSearchFilters({
           <label className="block text-sm font-medium text-foreground mb-2">Condition</label>
           <select
             value={condition}
-            onChange={(e) => { setCondition(e.target.value); setCurrentPage(1) }}
+            onChange={(e) => { setCondition(e.target.value as QaConditionFilter); setCurrentPage(1) }}
             className="w-full border border-gray-300 p-2 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer"
           >
-            {QA_CONDITION_OPTIONS.map((o) => (
+            {CONDITION_FILTER_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-2">Blood Test</label>
+          <select
+            value={gp2}
+            onChange={(e) => { setGp2(e.target.value); setCurrentPage(1) }}
+            className="w-full border border-gray-300 p-2 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer"
+          >
+            {GP2_FILTER_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>{o.label}</option>
             ))}
           </select>

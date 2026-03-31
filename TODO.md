@@ -1,10 +1,21 @@
 # TODO.md
-> Last updated: 2026-03-27
-> Branch: `ui/chadcn01`
+> Last updated: 2026-03-31
+> Branch: `main`
 
 ---
 
 ## ✅ Done (session นี้)
+
+### QA — medical_staff Role
+- [x] `lib/access.ts` — เพิ่ม `medical_staff` ใน `AppRole` union, `APP_ROLES`, `APP_ROLE_LABELS`, `ROLE_ACCESS: ["users", "qa"]`
+- [x] `app/component/qa/QaPatientSummaryModal.tsx` — สร้าง modal สรุปข้อมูลผู้ป่วย (ข้อมูลทั่วไป, การวินิจฉัย + prodromal flags, คะแนนแบบทดสอบ 8 รายการ)
+- [x] `app/component/qa/QaTable.tsx` — เอาคอลัมน์คะแนนแบบทดสอบออก 8 คอลัมน์, เพิ่มคอลัมน์ "Diag Status" (วินิจฉัยแล้ว/รอวินิจฉัย), เพิ่ม Detail dropdown item, ล็อก Tests สำหรับ `medical_staff` เมื่อ patient ถูก diagnose แล้ว
+- [x] `app/component/qa/QaCreateModal.tsx` — เพิ่ม `role` prop + `canEditDiag` flag ล็อก condition, H&Y, prodromal flags, clinical scores, FDOPA สำหรับ `medical_staff`
+- [x] `app/pages/qa/page.tsx` — ดึง `role` ด้วย `useAccessProfile`, เพิ่ม `summaryRow` state, ส่ง `role` และ `onDetail` ให้ QaTable และ QaCreateModal, render `QaPatientSummaryModal`
+
+---
+
+## ✅ Done (session ก่อนหน้า)
 
 ### Layout & Navigation
 - [x] สร้าง `AppSidebar` — collapsible sidebar พร้อม localStorage persistence

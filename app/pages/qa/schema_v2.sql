@@ -79,6 +79,8 @@ CREATE TABLE core.patient_diagnosis_v2 (
   ans_dysfunction          BOOLEAN DEFAULT FALSE,
   ans_onset_age            TEXT NULL,
   ans_duration             TEXT NULL,
+  mild_parkinsonian_sign   BOOLEAN DEFAULT FALSE,
+  family_history_pd        BOOLEAN DEFAULT FALSE,
 
   -- Standalone clinical scores (no detailed sub-questions in form)
   adl_score                NUMERIC NULL,
