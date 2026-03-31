@@ -7,32 +7,40 @@ import QaSearchFilters from '@/app/component/qa/QaSearchFilters'
 import QaTable from '@/app/component/qa/QaTable'
 import QaCreateModal from '@/app/component/qa/QaCreateModal'
 import QaAssessmentModal from '@/app/component/qa/QaAssessmentModal'
+import QaPatientSummaryModal from '@/app/component/qa/QaPatientSummaryModal'
 import TablePagination from '@/app/component/users/Pagination'
 import { Button } from '@/components/ui/button'
 import { Plus } from 'lucide-react'
 import SidebarLayout from '@/app/component/layout/SidebarLayout'
 import { logActivity } from '@/lib/activityLog'
+import { useAccessProfile } from '@/app/hooks/useAccessProfile'
 import {
   PAGE_SIZE,
+  QaConditionFilter,
   QaPatient,
   QaDiagnosisRow,
   QaScoreRow,
   QaHamdRow,
   QaRow,
-  detectQaCondition,
+  formatQaConditionLabel,
+  hasQaGp2,
+  matchesQaConditionFilter,
 } from '@/app/component/qa/types'
 
 const DIAG_SELECT =
-  'patient_id,condition,hy_stage,disease_duration,other_diagnosis_text,constipation,constipation_onset_age,constipation_duration,rbd_suspected,rbd_onset_age,rbd_duration,hyposmia,hyposmia_onset_age,hyposmia_duration,depression,depression_onset_age,depression_duration,eds,eds_onset_age,eds_duration,ans_dysfunction,ans_onset_age,ans_duration,adl_score,scopa_aut_score,blood_test_note,fdopa_pet_requested,fdopa_pet_score'
+  'patient_id,condition,hy_stage,disease_duration,other_diagnosis_text,constipation,constipation_onset_age,constipation_duration,rbd_suspected,rbd_onset_age,rbd_duration,hyposmia,hyposmia_onset_age,hyposmia_duration,depression,depression_onset_age,depression_duration,eds,eds_onset_age,eds_duration,ans_dysfunction,ans_onset_age,ans_duration,mild_parkinsonian_sign,family_history_pd,adl_score,scopa_aut_score,blood_test_note,fdopa_pet_requested,fdopa_pet_score'
 
 export default function QaPage() {
   const [session, setSession] = useState<Session | null>(null)
   const [sessionReady, setSessionReady] = useState(false)
+  const { accessProfile } = useAccessProfile(session)
+  const role = accessProfile.role
 
   // Filter state
   const [search, setSearch] = useState('')
   const [thaiId, setThaiId] = useState('')
-  const [condition, setCondition] = useState('')
+  const [condition, setCondition] = useState<QaConditionFilter>('')
+  const [gp2, setGp2] = useState('')
   const [hyStage, setHyStage] = useState('')
   const [province, setProvince] = useState('')
   const [startDate, setStartDate] = useState('')
@@ -55,6 +63,9 @@ export default function QaPage() {
   // Assessment modal state
   const [assessingPatient, setAssessingPatient] = useState<QaPatient | null>(null)
 
+  // Patient summary modal state
+  const [summaryRow, setSummaryRow] = useState<QaRow | null>(null)
+
   const totalPages = Math.ceil(totalCount / PAGE_SIZE)
   const from = (currentPage - 1) * PAGE_SIZE
   const to = from + PAGE_SIZE - 1
@@ -69,7 +80,7 @@ export default function QaPage() {
       // --- Step 1: resolve patient IDs from diagnosis filters (condition / H&Y) ---
       let diagFilteredIds: number[] | null = null
 
-      if (condition || hyStage) {
+      if (condition || hyStage || gp2) {
         let diagQuery = supabase
           .schema('core')
           .from('patient_diagnosis_v2')
@@ -80,9 +91,11 @@ export default function QaPage() {
         const { data: diagData, error: diagErr } = await diagQuery
         if (diagErr) throw new Error(`patient_diagnosis_v2: ${diagErr.message}`)
         const diagRows = (diagData ?? []) as QaDiagnosisRow[]
-        const filteredRows = condition
-          ? diagRows.filter((d) => detectQaCondition(d) === condition)
-          : diagRows
+        const filteredRows = diagRows.filter((d) => {
+          if (condition && !matchesQaConditionFilter(d, condition)) return false
+          if (gp2 && !hasQaGp2(d)) return false
+          return true
+        })
         diagFilteredIds = filteredRows.map((d) => d.patient_id)
       }
 
@@ -161,7 +174,7 @@ export default function QaPage() {
       setRows(patients.map((p) => ({
         patient: p,
         diag:  diagMap[p.id] as QaDiagnosisRow | undefined,
-        conditionLabel: detectQaCondition(diagMap[p.id] as QaDiagnosisRow | undefined),
+        conditionLabel: formatQaConditionLabel(diagMap[p.id] as QaDiagnosisRow | undefined),
         moca:  mocaMap[p.id] as QaScoreRow | undefined,
         hamd:  hamdMap[p.id] as QaHamdRow | undefined,
         mds:   mdsMap[p.id] as QaScoreRow | undefined,
@@ -176,7 +189,7 @@ export default function QaPage() {
     } finally {
       setLoading(false)
     }
-  }, [session, search, thaiId, condition, hyStage, province, startDate, endDate, currentPage])
+  }, [session, search, thaiId, condition, gp2, hyStage, province, startDate, endDate, currentPage])
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -242,9 +255,15 @@ export default function QaPage() {
         </Button>
       </div>
 
+      <QaPatientSummaryModal
+        row={summaryRow}
+        onClose={() => setSummaryRow(null)}
+      />
+
       <QaCreateModal
         open={createOpen}
         onClose={handleModalClose}
+        role={role}
         onCreated={() => {
           logActivity({
             action: editPatient ? 'UPDATE' : 'CREATE',
@@ -284,6 +303,8 @@ export default function QaPage() {
         setThaiId={setThaiId}
         condition={condition}
         setCondition={setCondition}
+        gp2={gp2}
+        setGp2={setGp2}
         hyStage={hyStage}
         setHyStage={setHyStage}
         province={province}
@@ -313,9 +334,11 @@ export default function QaPage() {
         <>
           <QaTable
             rows={rows}
+            role={role}
             onAssess={setAssessingPatient}
             onEdit={handleEdit}
             onDelete={handleDelete}
+            onDetail={setSummaryRow}
           />
           <TablePagination
             currentPage={currentPage}

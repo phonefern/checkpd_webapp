@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { QA_CONDITION_OPTIONS, QA_HY_OPTIONS, QaPatient, QaDiagnosisRow } from './types'
+import { QA_HY_OPTIONS, QaPatient, QaDiagnosisRow, normalizeQaConditionValue } from './types'
+import type { AppRole } from '@/lib/access'
 import { provinceOptions } from '@/app/types/user'
 import {
   Dialog,
@@ -14,6 +15,39 @@ import {
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
+
+const CONDITION_OPTIONS = [
+  { value: '', label: '-- Select condition --' },
+  { value: 'pd', label: 'PD' },
+  { value: 'pdm', label: 'PDM' },
+  { value: 'other', label: 'OTHER' },
+  { value: 'ctrl', label: 'CTRL' },
+]
+
+const DIAGNOSIS_GUIDES = [
+  'Suspected RBD: History of acting out of dream or vocalization or RBDQ >= 17 or PSG confirmed',
+  'Hyposmia: History ได้กลิ่นลดลง หรือ Sniffin stick <= 9',
+  'Constipation: History ถ่ายอุจจาระความถี่นานกว่าวันเว้นวัน หรือต้องใช้ยาระบาย หรืออุจจาระแข็งขึ้นเรื้อรังในช่วง 3 เดือนที่ผ่านมาเมื่อเทียบกับก่อนหน้า หรือ ROME IV >= 2',
+  'Depression: ประวัติการได้รับการวินิจฉัยและรักษา หรือ HAM-D >= 13',
+  'Excessive daytime sleepiness: ง่วงนอนมากผิดปกติในช่วงกลางวัน หรือ ESS >= 10',
+  'Autonomic dysfunction: มีอาการระบบประสาทอัตโนมัติผิดปกติข้อใดข้อหนึ่ง เช่น หน้ามืดหรือเป็นลมเมื่อเปลี่ยนท่า, กลั้นปัสสาวะไม่อยู่, อวัยวะเพศไม่แข็งตัว',
+  'Mild parkinsonian sign: UPDRS part III > 3 (ไม่รวม postural and kinetic tremor) หรือ total UPDRS > 6 โดยยังไม่เข้า criteria PD และไม่ได้นับคะแนน potential confounder เช่น โรคข้อ',
+  'Family history of PD (first degree): ญาติสายตรงเป็น PD',
+]
+
+// const HAMD_GUIDES = [
+//   'Score 0-7: No depression',
+//   'Score 8-12: Mild depression',
+//   'Score 13-17: Moderate depression (less than major depression)',
+//   'Score 18-29: Moderate depression (major depression)',
+//   'Score 30+: Severe depression',
+// ]
+
+// const EPWORTH_GUIDES = [
+//   '<7: Normal',
+//   '7-9: Borderline',
+//   '>9: Severe',
+// ]
 
 interface FormState {
   first_name: string
@@ -56,6 +90,8 @@ interface FormState {
   ans_dysfunction: boolean
   ans_onset_age: string
   ans_duration: string
+  mild_parkinsonian_sign: boolean
+  family_history_pd: boolean
   adl_score: string
   scopa_aut_score: string
   blood_test_note: string
@@ -104,6 +140,8 @@ const EMPTY: FormState = {
   ans_dysfunction: false,
   ans_onset_age: '',
   ans_duration: '',
+  mild_parkinsonian_sign: false,
+  family_history_pd: false,
   adl_score: '',
   scopa_aut_score: '',
   blood_test_note: '',
@@ -112,11 +150,13 @@ const EMPTY: FormState = {
 }
 
 function buildDiagPayload(form: FormState) {
+  const otherDiagnosisText = form.other_diagnosis_text.trim()
+
   return {
-    condition: form.condition || null,
+    condition: form.condition || (otherDiagnosisText ? 'other' : null),
     hy_stage: form.hy_stage || null,
     disease_duration: form.disease_duration.trim() || null,
-    other_diagnosis_text: form.other_diagnosis_text.trim() || null,
+    other_diagnosis_text: otherDiagnosisText || null,
     rbd_suspected: form.rbd_suspected,
     rbd_onset_age: form.rbd_suspected ? form.rbd_onset_age.trim() || null : null,
     rbd_duration: form.rbd_suspected ? form.rbd_duration.trim() || null : null,
@@ -135,6 +175,8 @@ function buildDiagPayload(form: FormState) {
     ans_dysfunction: form.ans_dysfunction,
     ans_onset_age: form.ans_dysfunction ? form.ans_onset_age.trim() || null : null,
     ans_duration: form.ans_dysfunction ? form.ans_duration.trim() || null : null,
+    mild_parkinsonian_sign: form.mild_parkinsonian_sign,
+    family_history_pd: form.family_history_pd,
     adl_score: form.adl_score ? Number(form.adl_score) : null,
     scopa_aut_score: form.scopa_aut_score ? Number(form.scopa_aut_score) : null,
     blood_test_note: form.blood_test_note.trim() || null,
@@ -150,10 +192,12 @@ interface Props {
   editPatient?: QaPatient | null
   editDiag?: QaDiagnosisRow | null
   prefillData?: Partial<FormState>
+  role?: AppRole | null
 }
 
-export default function QaCreateModal({ open, onClose, onCreated, editPatient, editDiag, prefillData }: Props) {
+export default function QaCreateModal({ open, onClose, onCreated, editPatient, editDiag, prefillData, role }: Props) {
   const isEdit = !!editPatient
+  const canEditDiag = role !== 'medical_staff'
   const [form, setForm] = useState<FormState>(EMPTY)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -183,7 +227,7 @@ export default function QaCreateModal({ open, onClose, onCreated, editPatient, e
         pr_supine: editPatient.pr_supine != null ? String(editPatient.pr_supine) : '',
         bp_upright: editPatient.bp_upright ?? '',
         pr_upright: editPatient.pr_upright != null ? String(editPatient.pr_upright) : '',
-        condition: editDiag?.condition ?? '',
+        condition: normalizeQaConditionValue(editDiag?.condition ?? (editDiag?.other_diagnosis_text ? 'other' : '')),
         hy_stage: editDiag?.hy_stage ?? '',
         disease_duration: editDiag?.disease_duration ?? '',
         other_diagnosis_text: editDiag?.other_diagnosis_text ?? '',
@@ -205,6 +249,8 @@ export default function QaCreateModal({ open, onClose, onCreated, editPatient, e
         ans_dysfunction: editDiag?.ans_dysfunction ?? false,
         ans_onset_age: editDiag?.ans_onset_age ?? '',
         ans_duration: editDiag?.ans_duration ?? '',
+        mild_parkinsonian_sign: editDiag?.mild_parkinsonian_sign ?? false,
+        family_history_pd: editDiag?.family_history_pd ?? false,
         adl_score: editDiag?.adl_score != null ? String(editDiag.adl_score) : '',
         scopa_aut_score: editDiag?.scopa_aut_score != null ? String(editDiag.scopa_aut_score) : '',
         blood_test_note: editDiag?.blood_test_note ?? '',
@@ -427,17 +473,34 @@ export default function QaCreateModal({ open, onClose, onCreated, editPatient, e
 
           {/* Diagnosis */}
           <div className="col-span-2 border-t pt-2">
-            <p className="text-sm font-medium text-muted-foreground">ข้อมูลการวินิจฉัย (ไม่บังคับ)</p>
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-medium text-muted-foreground">ข้อมูลการวินิจฉัย (ไม่บังคับ)</p>
+              {!canEditDiag && (
+                <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">
+                  เฉพาะแพทย์เท่านั้น
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="col-span-2 rounded-lg border border-slate-200 bg-slate-50 p-4">
+            <div className="mb-2 text-sm font-semibold text-slate-900">Diagnosis Guide</div>
+            <div className="space-y-2 text-sm leading-6 text-slate-700">
+              {DIAGNOSIS_GUIDES.map((guide) => (
+                <p key={guide}>{guide}</p>
+              ))}
+            </div>
           </div>
 
           <div className="space-y-1">
             <Label>Condition</Label>
             <select
               value={form.condition}
-              onChange={(e) => set('condition', e.target.value)}
-              className="w-full border border-gray-300 rounded-md p-2 text-sm"
+              onChange={(e) => set('condition', e.target.value.toLowerCase())}
+              disabled={!canEditDiag}
+              className="w-full border border-gray-300 rounded-md p-2 text-sm disabled:bg-gray-100 disabled:text-muted-foreground disabled:cursor-not-allowed"
             >
-              {QA_CONDITION_OPTIONS.map((o) => (
+              {CONDITION_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>{o.label}</option>
               ))}
             </select>
@@ -447,7 +510,8 @@ export default function QaCreateModal({ open, onClose, onCreated, editPatient, e
             <select
               value={form.hy_stage}
               onChange={(e) => set('hy_stage', e.target.value)}
-              className="w-full border border-gray-300 rounded-md p-2 text-sm"
+              disabled={!canEditDiag}
+              className="w-full border border-gray-300 rounded-md p-2 text-sm disabled:bg-gray-100 disabled:text-muted-foreground disabled:cursor-not-allowed"
             >
               {QA_HY_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>{o.label}</option>
@@ -456,11 +520,18 @@ export default function QaCreateModal({ open, onClose, onCreated, editPatient, e
           </div>
           <div className="space-y-1">
             <Label>Disease duration</Label>
-            <Input value={form.disease_duration} onChange={(e) => set('disease_duration', e.target.value)} placeholder="เช่น 2 ปี" />
+            <Input value={form.disease_duration} onChange={(e) => set('disease_duration', e.target.value)} placeholder="เช่น 2 ปี" disabled={!canEditDiag} />
           </div>
-          <div className="space-y-1">
+          <div className="col-span-2 space-y-1">
             <Label>Other diagnosis</Label>
-            <Input value={form.other_diagnosis_text} onChange={(e) => set('other_diagnosis_text', e.target.value)} placeholder="รายละเอียดเพิ่มเติม" />
+            <textarea
+              value={form.other_diagnosis_text}
+              onChange={(e) => set('other_diagnosis_text', e.target.value)}
+              placeholder="Additional diagnosis details"
+              disabled={!canEditDiag}
+              rows={4}
+              className="w-full resize-y rounded-md border border-gray-300 px-3 py-2 text-sm disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-muted-foreground"
+            />
           </div>
 
           {/* Prodromal Flags */}
@@ -470,8 +541,8 @@ export default function QaCreateModal({ open, onClose, onCreated, editPatient, e
 
           {/* RBD */}
           <div className="col-span-2 space-y-2">
-            <label className="flex items-center gap-2 text-sm font-medium cursor-pointer">
-              <input type="checkbox" checked={form.rbd_suspected} onChange={(e) => set('rbd_suspected', e.target.checked)} className="h-4 w-4" />
+            <label className={`flex items-center gap-2 text-sm font-medium ${canEditDiag ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}>
+              <input type="checkbox" checked={form.rbd_suspected} onChange={(e) => canEditDiag && set('rbd_suspected', e.target.checked)} disabled={!canEditDiag} className="h-4 w-4" />
               Suspected RBD
             </label>
             {form.rbd_suspected && (
@@ -490,8 +561,8 @@ export default function QaCreateModal({ open, onClose, onCreated, editPatient, e
 
           {/* Hyposmia */}
           <div className="col-span-2 space-y-2">
-            <label className="flex items-center gap-2 text-sm font-medium cursor-pointer">
-              <input type="checkbox" checked={form.hyposmia} onChange={(e) => set('hyposmia', e.target.checked)} className="h-4 w-4" />
+            <label className={`flex items-center gap-2 text-sm font-medium ${canEditDiag ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}>
+              <input type="checkbox" checked={form.hyposmia} onChange={(e) => canEditDiag && set('hyposmia', e.target.checked)} disabled={!canEditDiag} className="h-4 w-4" />
               Hyposmia
             </label>
             {form.hyposmia && (
@@ -510,8 +581,8 @@ export default function QaCreateModal({ open, onClose, onCreated, editPatient, e
 
           {/* Constipation */}
           <div className="col-span-2 space-y-2">
-            <label className="flex items-center gap-2 text-sm font-medium cursor-pointer">
-              <input type="checkbox" checked={form.constipation} onChange={(e) => set('constipation', e.target.checked)} className="h-4 w-4" />
+            <label className={`flex items-center gap-2 text-sm font-medium ${canEditDiag ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}>
+              <input type="checkbox" checked={form.constipation} onChange={(e) => canEditDiag && set('constipation', e.target.checked)} disabled={!canEditDiag} className="h-4 w-4" />
               Constipation
             </label>
             {form.constipation && (
@@ -530,8 +601,8 @@ export default function QaCreateModal({ open, onClose, onCreated, editPatient, e
 
           {/* Depression */}
           <div className="col-span-2 space-y-2">
-            <label className="flex items-center gap-2 text-sm font-medium cursor-pointer">
-              <input type="checkbox" checked={form.depression} onChange={(e) => set('depression', e.target.checked)} className="h-4 w-4" />
+            <label className={`flex items-center gap-2 text-sm font-medium ${canEditDiag ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}>
+              <input type="checkbox" checked={form.depression} onChange={(e) => canEditDiag && set('depression', e.target.checked)} disabled={!canEditDiag} className="h-4 w-4" />
               Depression
             </label>
             {form.depression && (
@@ -550,8 +621,8 @@ export default function QaCreateModal({ open, onClose, onCreated, editPatient, e
 
           {/* EDS */}
           <div className="col-span-2 space-y-2">
-            <label className="flex items-center gap-2 text-sm font-medium cursor-pointer">
-              <input type="checkbox" checked={form.eds} onChange={(e) => set('eds', e.target.checked)} className="h-4 w-4" />
+            <label className={`flex items-center gap-2 text-sm font-medium ${canEditDiag ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}>
+              <input type="checkbox" checked={form.eds} onChange={(e) => canEditDiag && set('eds', e.target.checked)} disabled={!canEditDiag} className="h-4 w-4" />
               Excessive Daytime Sleepiness (EDS)
             </label>
             {form.eds && (
@@ -570,8 +641,8 @@ export default function QaCreateModal({ open, onClose, onCreated, editPatient, e
 
           {/* ANS dysfunction */}
           <div className="col-span-2 space-y-2">
-            <label className="flex items-center gap-2 text-sm font-medium cursor-pointer">
-              <input type="checkbox" checked={form.ans_dysfunction} onChange={(e) => set('ans_dysfunction', e.target.checked)} className="h-4 w-4" />
+            <label className={`flex items-center gap-2 text-sm font-medium ${canEditDiag ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}>
+              <input type="checkbox" checked={form.ans_dysfunction} onChange={(e) => canEditDiag && set('ans_dysfunction', e.target.checked)} disabled={!canEditDiag} className="h-4 w-4" />
               ANS Dysfunction
             </label>
             {form.ans_dysfunction && (
@@ -588,27 +659,65 @@ export default function QaCreateModal({ open, onClose, onCreated, editPatient, e
             )}
           </div>
 
+          <div className="col-span-2 space-y-2">
+            <label className={`flex items-center gap-2 text-sm font-medium ${canEditDiag ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}>
+              <input type="checkbox" checked={form.mild_parkinsonian_sign} onChange={(e) => canEditDiag && set('mild_parkinsonian_sign', e.target.checked)} disabled={!canEditDiag} className="h-4 w-4" />
+              Mild parkinsonian sign
+            </label>
+          </div>
+
+          <div className="col-span-2 space-y-2">
+            <label className={`flex items-center gap-2 text-sm font-medium ${canEditDiag ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}>
+              <input type="checkbox" checked={form.family_history_pd} onChange={(e) => canEditDiag && set('family_history_pd', e.target.checked)} disabled={!canEditDiag} className="h-4 w-4" />
+              Family history of PD (First degree)
+            </label>
+          </div>
+
           {/* Clinical Scores */}
           <div className="col-span-2 border-t pt-2">
             <p className="text-sm font-medium text-muted-foreground">Clinical Scores</p>
           </div>
+{/* 
+          <div className="col-span-2 grid gap-3 lg:grid-cols-2">
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+              {/* <div className="mb-2 text-sm font-semibold text-slate-900">HAM-D Severity Guide</div> */}
+              {/* <div className="space-y-1 text-sm text-slate-700">
+                {HAMD_GUIDES.map((guide) => (
+                  <p key={guide}>{guide}</p>
+                ))}
+              </div>
+            </div>
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+              <div className="mb-2 text-sm font-semibold text-slate-900">Epworth Interpretation Guide</div>
+              <div className="space-y-1 text-sm text-slate-700">
+                {EPWORTH_GUIDES.map((guide) => (
+                  <p key={guide}>{guide}</p>
+                ))}
+              </div> */}
+            {/* </div> */}
+          {/* </div> */}
 
           <div className="space-y-1">
             <Label>ADL Score</Label>
-            <Input type="number" value={form.adl_score} onChange={(e) => set('adl_score', e.target.value)} placeholder="คะแนน" />
+            <Input type="number" value={form.adl_score} onChange={(e) => set('adl_score', e.target.value)} placeholder="คะแนน" disabled={!canEditDiag} />
           </div>
           <div className="space-y-1">
             <Label>SCOPA-AUT Score</Label>
-            <Input type="number" value={form.scopa_aut_score} onChange={(e) => set('scopa_aut_score', e.target.value)} placeholder="คะแนน" />
+            <Input type="number" value={form.scopa_aut_score} onChange={(e) => set('scopa_aut_score', e.target.value)} placeholder="คะแนน" disabled={!canEditDiag} />
           </div>
           <div className="col-span-2 space-y-1">
             <Label>Blood Test Note</Label>
-            <Input value={form.blood_test_note} onChange={(e) => set('blood_test_note', e.target.value)} placeholder="หมายเหตุผลเลือด" />
+            <div className="flex items-center gap-2">
+              <Input value={form.blood_test_note} onChange={(e) => set('blood_test_note', e.target.value)} placeholder="เช่น Genetic test: GP2" disabled={!canEditDiag} className="flex-1" />
+              <button type="button" onClick={() => set('blood_test_note', 'Genetic test: GP2')} className="px-4 py-2 border border-gray-300 rounded text-sm text-gray-700 hover:bg-gray-50" disabled={!canEditDiag}>
+                Auto fill
+              </button>
+            </div>
           </div>
 
           <div className="col-span-2 space-y-2">
-            <label className="flex items-center gap-2 text-sm font-medium cursor-pointer">
-              <input type="checkbox" checked={form.fdopa_pet_requested} onChange={(e) => set('fdopa_pet_requested', e.target.checked)} className="h-4 w-4" />
+            <label className={`flex items-center gap-2 text-sm font-medium ${canEditDiag ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}>
+              <input type="checkbox" checked={form.fdopa_pet_requested} onChange={(e) => canEditDiag && set('fdopa_pet_requested', e.target.checked)} disabled={!canEditDiag} className="h-4 w-4" />
               FDOPA PET Requested
             </label>
             {form.fdopa_pet_requested && (

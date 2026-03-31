@@ -1,6 +1,6 @@
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
 
-export type AppRole = "super_admin" | "admin" | "doctor";
+export type AppRole = "super_admin" | "admin" | "doctor" | "medical_staff";
 
 export type AppFeature =
   | "dashboard"
@@ -36,7 +36,7 @@ export type AccessProfile = {
   debugError?: string | null;
 };
 
-export const APP_ROLES: AppRole[] = ["super_admin", "admin", "doctor"];
+export const APP_ROLES: AppRole[] = ["super_admin", "admin", "doctor", "medical_staff"];
 
 export const APP_FEATURE_LABELS: Record<AppFeature, string> = {
   dashboard: "Dashboard",
@@ -56,12 +56,14 @@ export const APP_ROLE_LABELS: Record<AppRole, string> = {
   super_admin: "Super Admin",
   admin: "Admin",
   doctor: "Doctor",
+  medical_staff: "Medical Staff",
 };
 
 export const ROLE_ACCESS: Record<AppRole, AppFeature[]> = {
   super_admin: ["dashboard", "admin", "users", "storage", "qa", "pdf", "tracking", "papers", "export", "event", "log"],
   admin: ["dashboard", "users", "tracking", "storage", "qa", "papers", "export", "event", "log"],
   doctor: ["dashboard", "users", "storage", "qa", "pdf"],
+  medical_staff: ["users", "qa"],
 };
 
 const FEATURE_ROUTE_PREFIXES: Array<{ prefix: string; feature: AppFeature }> = [

@@ -46,6 +46,8 @@ export type QaDiagnosisRow = {
   ans_dysfunction: boolean | null
   ans_onset_age: string | null
   ans_duration: string | null
+  mild_parkinsonian_sign: boolean | null
+  family_history_pd: boolean | null
   adl_score: number | null
   scopa_aut_score: number | null
   blood_test_note: string | null
@@ -55,20 +57,12 @@ export type QaDiagnosisRow = {
 
 export type QaScoreRow = { patient_id: number; total_score: number | null }
 export type QaHamdRow = { patient_id: number; total_score: number | null; severity_level: string | null }
-export type QaConditionCategory =
-  | 'Healthy'
-  | 'Prodromal / High risk'
-  | 'PD'
-  | 'Constipation'
-  | 'Suspected RBD'
-  | 'Normal'
-  | 'Other diagnosis'
-  | 'Hyposmia'
+export type QaConditionFilter = '' | 'pd' | 'pdm' | 'other' | 'ctrl'
 
 export type QaRow = {
   patient: QaPatient
   diag: QaDiagnosisRow | undefined
-  conditionLabel: QaConditionCategory
+  conditionLabel: string
   moca: QaScoreRow | undefined
   hamd: QaHamdRow | undefined
   mds: QaScoreRow | undefined
@@ -79,41 +73,42 @@ export type QaRow = {
   rome4: QaScoreRow | undefined
 }
 
-export const QA_CONDITION_OPTIONS = [
-  { value: '', label: 'All Conditions' },
-  { value: 'Healthy', label: 'Healthy' },
-  { value: 'Prodromal / High risk', label: 'Prodromal / High risk' },
-  { value: 'PD', label: 'PD' },
-  { value: 'Constipation', label: 'Constipation' },
-  { value: 'Suspected RBD', label: 'Suspected RBD' },
-  { value: 'Normal', label: 'Normal' },
-  { value: 'Other diagnosis', label: 'Other diagnosis' },
-  { value: 'Hyposmia', label: 'Hyposmia' },
-]
-
-const CONDITION_KEYWORDS: Record<QaConditionCategory, string[]> = {
-  Healthy: ['healthy'],
-  'Prodromal / High risk': ['prodromal', 'high risk', 'high-risk'],
-  PD: ['pd', 'parkinson'],
-  Constipation: ['constipation'],
-  'Suspected RBD': ['rbd', 'rem sleep behavior'],
-  Normal: ['normal'],
-  'Other diagnosis': ['other diagnosis', 'other'],
-  Hyposmia: ['hyposmia', 'smell', 'olfactory'],
-}
-
 const normalize = (value: string | null | undefined) => (value ?? '').toLowerCase().trim()
 
-export function detectQaCondition(diag?: QaDiagnosisRow): QaConditionCategory {
-  if (!diag) return 'Other diagnosis'
-  if (diag.constipation) return 'Constipation'
-  if (diag.rbd_suspected) return 'Suspected RBD'
+export function normalizeQaConditionValue(value?: string | null): QaConditionFilter {
+  const raw = normalize(value)
 
-  const raw = `${normalize(diag.condition)} ${normalize(diag.other_diagnosis_text)}`
-  for (const label of Object.keys(CONDITION_KEYWORDS) as QaConditionCategory[]) {
-    if (CONDITION_KEYWORDS[label].some((kw) => raw.includes(kw))) return label
-  }
-  return 'Other diagnosis'
+  if (!raw) return ''
+  if (raw === 'pd' || raw.includes('parkinson') || raw.includes('newly diagnosis')) return 'pd'
+  if (raw === 'pdm' || raw.includes('prodromal') || raw.includes('high risk') || raw.includes('high-risk')) return 'pdm'
+  if (raw === 'ctrl' || raw.includes('healthy') || raw.includes('control') || raw === 'normal') return 'ctrl'
+  if (raw === 'other' || raw.includes('other diagnosis')) return 'other'
+
+  return 'other'
+}
+
+export function formatQaConditionLabel(diag?: QaDiagnosisRow): string {
+  const normalized = normalizeQaConditionValue(diag?.condition)
+  if (normalized) return normalized.toUpperCase()
+
+  return '-'
+}
+
+export function isQaDiagnosed(diag?: QaDiagnosisRow): boolean {
+  return normalizeQaConditionValue(diag?.condition) !== '' || normalize(diag?.other_diagnosis_text) !== ''
+}
+
+export function matchesQaConditionFilter(diag: QaDiagnosisRow, filter: QaConditionFilter): boolean {
+  if (!filter) return true
+
+  const normalized = normalizeQaConditionValue(diag.condition)
+  if (normalized) return normalized === filter
+
+  return filter === 'other' && normalize(diag.other_diagnosis_text) !== ''
+}
+
+export function hasQaGp2(diag?: QaDiagnosisRow): boolean {
+  return normalize(diag?.blood_test_note).includes('gp2')
 }
 
 export const QA_HY_OPTIONS = [

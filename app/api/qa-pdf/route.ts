@@ -12,7 +12,7 @@ const PDF_RATE_LIMIT = 15
 const PDF_RATE_WINDOW_MS = 60 * 1000
 
 const DIAG_SELECT =
-  'patient_id,condition,hy_stage,disease_duration,other_diagnosis_text,constipation,constipation_onset_age,constipation_duration,rbd_suspected,rbd_onset_age,rbd_duration,hyposmia,hyposmia_onset_age,hyposmia_duration,depression,depression_onset_age,depression_duration,eds,eds_onset_age,eds_duration,ans_dysfunction,ans_onset_age,ans_duration,adl_score,scopa_aut_score,blood_test_note,fdopa_pet_requested,fdopa_pet_score'
+  'patient_id,condition,hy_stage,disease_duration,other_diagnosis_text,constipation,constipation_onset_age,constipation_duration,rbd_suspected,rbd_onset_age,rbd_duration,hyposmia,hyposmia_onset_age,hyposmia_duration,depression,depression_onset_age,depression_duration,eds,eds_onset_age,eds_duration,ans_dysfunction,ans_onset_age,ans_duration,mild_parkinsonian_sign,family_history_pd,adl_score,scopa_aut_score,blood_test_note,fdopa_pet_requested,fdopa_pet_score'
 
 const fontPath = path.join(process.cwd(), 'fonts', 'thsarabunnew-webfont.woff')
 let fontBase64 = ''
@@ -252,28 +252,26 @@ export async function GET(req: NextRequest) {
         ${cb(!!diag?.depression)} อายุที่เริ่มมีอาการซึมเศร้า ${field(diag?.depression_onset_age)} ปี มีอาการซึมเศร้ามานานเท่าไหร่ ${field(diag?.depression_duration)} ปี
       </div>
       <div class="indent">
-        ${cb(!!diag?.eds)} <strong>Excessive daytime sleepiness</strong>: ง่วงนอนมากผิดปกติในช่วงกลางวัน หรือ ESS ตั้งแต่ 10 คะแนน
+        ${cb(!!diag?.eds)} <strong>Excessive daytime sleepiness</strong>: ง่วงนอนมากผิดปกติในช่วงกลางวัน หรือ ESS ตั้งแต่ 10 คะแนน โดยที่กลางคืนนอนหลับได้ปกติ หรือไม่มีอาการกรนหยุดหายใจ
       </div>
       <div class="sub-question">
         ${cb(!!diag?.eds)} อายุที่เริ่มมีอาการ EDS ${field(diag?.eds_onset_age)} ปี หรือ มีอาการ EDS มานานเท่าไหร่ ${field(diag?.eds_duration)} ปี
       </div>
       <div class="indent">
-        ${cb(!!diag?.ans_dysfunction)} <strong>Autonomic dysfunction</strong>: มีอาการระบบประสาทอัตโนมัติผิดปกติข้อใดข้อหนึ่ง
+        ${cb(!!diag?.ans_dysfunction)} <strong>Autonomic dysfunction</strong>: มีอาการระบบประสาทอัตโนมัติผิดปกติข้อใดข้อหนึ่ง หน้ามืดหรือเป็นลมหมดสติเวลาเปลี่ยนท่าจากนอนหรือนั่งเป็นยืน, กลั้นปัสสาวะไม่อยู่, อวัยวะเพศไม่แข็งตัว
       </div>
       <div class="sub-question">
         ${cb(!!diag?.ans_dysfunction)} อายุที่เริ่มมีอาการ ANS dysfunction ${field(diag?.ans_onset_age)} ปี หรือ มีอาการมานาน ${field(diag?.ans_duration)} ปี
       </div>
       <div class="indent">
-        ${cb((mds?.p3_total ?? 0) > 3 || (mds?.total_score ?? 0) > 6)} <strong>Mild parkinsonian sign</strong>: UPDRS part III &gt; 3 หรือ total UPDRS &gt; 6
+        ${cb(!!diag?.mild_parkinsonian_sign)} <strong>Mild parkinsonian sign</strong>: (UPDRS part III > 3 โดยไม่รวม postural and kinetic tremor หรือ total UPDRS > 6 โดยยังไม่เข้า criteria การวินิจฉัยพาร์กินสัน และไม่นับคะแนนจาก potential confounder
       </div>
       <div class="indent">
-        ${cb(false)} <strong>Family history of PD (First degree)</strong>
+        ${cb(!!diag?.family_history_pd)} <strong>Family history of PD (First degree)</strong>: ประวัติญาติสายตรงเป็นพาร์กินสัน
       </div>
     </div>
 
-    <div class="section">
-      <div>${cb(isNormal)}<strong> Normal</strong></div>
-    </div>
+
 
     <div class="section">
       <div>${cb(isOther)}<strong> Other diagnosis </strong>${field(otherText, 300)}</div>
