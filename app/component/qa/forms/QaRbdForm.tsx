@@ -120,7 +120,7 @@ export default function QaRbdForm({ open, patientId, onClose, onSaved }: Props) 
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-h-[90vh] w-[95vw] sm:w-[90vw] lg:w-[84vw] sm:!max-w-[90vw] lg:!max-w-5xl overflow-y-auto p-4 sm:p-6">
         <DialogHeader><DialogTitle>RBD Questionnaire — แบบประเมินพฤติกรรมการนอนหลับ</DialogTitle></DialogHeader>
         <p className="text-sm text-muted-foreground mb-3">
           กลุ่ม A: ตอบใช่ = คะแนนตามความถี่ (1–4) &nbsp;|&nbsp; กลุ่ม B: ตอบใช่ = ความถี่ × 2 (2–8)

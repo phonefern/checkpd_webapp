@@ -396,7 +396,7 @@ export default function QaCreateModal({ open, onClose, onCreated, editPatient, e
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && handleClose()}>
-      <DialogContent className="w-[96vw] max-w-5xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-h-[90vh] w-[95vw] sm:w-[92vw] lg:w-[88vw] sm:!max-w-[92vw] lg:!max-w-[88vw] xl:!max-w-6xl overflow-y-auto p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle>
             {isEdit

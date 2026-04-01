@@ -78,7 +78,7 @@ export default function QaSmellForm({ open, patientId, onClose, onSaved }: Props
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-h-[90vh] w-[95vw] sm:w-[92vw] lg:w-[86vw] sm:!max-w-[92vw] lg:!max-w-5xl overflow-y-auto p-4 sm:p-6">
         <DialogHeader><DialogTitle>แบบทดสอบความสามารถในการดมกลิ่น (Thai Smell Test)</DialogTitle></DialogHeader>
         <div className="grid grid-cols-2 gap-3 mt-2">
           {QUESTIONS.map((q, i) => {

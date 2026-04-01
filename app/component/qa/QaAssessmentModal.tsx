@@ -104,7 +104,7 @@ export default function QaAssessmentModal({ open, patient, onClose, onUpdated }:
   return (
     <>
       <Dialog open={open && activeForm === null} onOpenChange={(v) => !v && onClose()}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-h-[90vh] w-[95vw] sm:w-[90vw] lg:w-[84vw] sm:!max-w-[90vw] lg:!max-w-5xl overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle className="flex items-center justify-between">
               <span>แบบทดสอบ — {patient.first_name} {patient.last_name}</span>
