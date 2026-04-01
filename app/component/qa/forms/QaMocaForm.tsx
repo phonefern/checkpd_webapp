@@ -80,7 +80,7 @@ function TaskCard({ title, instruction, image, value, options, onChange }: {
             alt={title}
             width={600}
             height={300}
-            className="w-full h-auto rounded-lg border bg-white object-contain"
+            className="mx-auto w-full max-w-[220px] sm:max-w-[260px] md:max-w-[300px] h-auto rounded-lg border bg-white object-contain"
           />
         </div>
       )}
@@ -162,7 +162,7 @@ export default function QaMocaForm({ open, patientId, onClose, onSaved }: Props)
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-h-[90vh] w-[95vw] sm:w-[90vw] lg:w-[84vw] sm:!max-w-[90vw] lg:!max-w-5xl overflow-y-auto p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle className="text-lg">MoCA — Montreal Cognitive Assessment</DialogTitle>
         </DialogHeader>

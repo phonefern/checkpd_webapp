@@ -282,7 +282,7 @@ export default function QaHamdForm({ open, patientId, onClose, onSaved }: Props)
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-h-[90vh] w-[95vw] sm:w-[90vw] lg:w-[84vw] sm:!max-w-[90vw] lg:!max-w-5xl overflow-y-auto p-4 sm:p-6">
         <DialogHeader><DialogTitle>HAM-D — Hamilton Depression Rating Scale</DialogTitle></DialogHeader>
 
         <div className="space-y-3 mt-2">
