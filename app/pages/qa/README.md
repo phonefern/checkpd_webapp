@@ -61,3 +61,20 @@ Save writes to both tables in parallel:
 ## Pagination
 
 Page size: **20 rows**. Handled via `useState` + `.range(from, to)` on the Supabase query. Total count returned by `count: 'exact'`.
+
+## Visit No design (multi-visit per patient)
+
+Current implementation supports multi-visit history in **Detail** without a schema migration:
+- Group visits by patient identity priority: `thaiid` -> `hn_number` -> (`first_name` + `last_name`)
+- Sort by `collection_date` asc, then `id` asc
+- Derive `visit_no` in UI as 1..N from sorted visits
+- Allow doctor/staff to switch visits inside the same detail modal
+
+### DB field requirement
+
+Short answer: **not required for phase 1** because `visit_no` can be derived from existing `patients_v2` rows and `collection_date`.
+
+Recommended for phase 2 (data quality hardening):
+- Add a stable cross-visit identity key (example: `patient_master_id` or `patient_uid`)
+- Add uniqueness guard such as `(patient_uid, collection_date)` when business rules require one visit per day
+- Optionally materialize `visit_no` in a SQL view (window function) if needed for list-wide sorting/filtering

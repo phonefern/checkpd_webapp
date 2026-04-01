@@ -1,0 +1,24 @@
+HAMD_GUIDES = [
+  'Score 0-7: No depression',
+  'Score 8-12: Mild depression',
+  'Score 13-17: Moderate depression (less than major depression)',
+  'Score 18-29: Moderate depression (major depression)',
+  'Score 30+: Severe depression',
+]
+
+EPWORTH_GUIDES = [
+  '<7: Normal',
+  '7-9: Borderline',
+  '>9: Severe',
+]
+
+DIAGNOSIS_GUIDES = [
+  'Suspected RBD: History of acting out of dream or vocalization or RBDQ >= 17 or PSG confirmed',
+  'Hyposmia: History ได้กลิ่นลดลง หรือ Sniffin stick <= 9',
+  'Constipation: History ถ่ายอุจจาระความถี่นานกว่าวันเว้นวัน หรือต้องใช้ยาระบาย หรืออุจจาระแข็งขึ้นเรื้อรังในช่วง 3 เดือนที่ผ่านมาเมื่อเทียบกับก่อนหน้า หรือ ROME IV >= 2',
+  'Depression: ประวัติการได้รับการวินิจฉัยและรักษา หรือ HAM-D >= 13',
+  'Excessive daytime sleepiness: ง่วงนอนมากผิดปกติในช่วงกลางวัน หรือ ESS >= 10',
+  'Autonomic dysfunction: มีอาการระบบประสาทอัตโนมัติผิดปกติข้อใดข้อหนึ่ง เช่น หน้ามืดหรือเป็นลมเมื่อเปลี่ยนท่า, กลั้นปัสสาวะไม่อยู่, อวัยวะเพศไม่แข็งตัว',
+  'Mild parkinsonian sign: UPDRS part III > 3 (ไม่รวม postural and kinetic tremor) หรือ total UPDRS > 6 โดยยังไม่เข้า criteria PD และไม่ได้นับคะแนน potential confounder เช่น โรคข้อ',
+
+]

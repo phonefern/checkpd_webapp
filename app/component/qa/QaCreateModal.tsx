@@ -35,19 +35,19 @@ const DIAGNOSIS_GUIDES = [
   'Family history of PD (first degree): ญาติสายตรงเป็น PD',
 ]
 
-// const HAMD_GUIDES = [
-//   'Score 0-7: No depression',
-//   'Score 8-12: Mild depression',
-//   'Score 13-17: Moderate depression (less than major depression)',
-//   'Score 18-29: Moderate depression (major depression)',
-//   'Score 30+: Severe depression',
-// ]
+const HAMD_GUIDES = [
+  'Score 0-7: No depression',
+  'Score 8-12: Mild depression',
+  'Score 13-17: Moderate depression (less than major depression)',
+  'Score 18-29: Moderate depression (major depression)',
+  'Score 30+: Severe depression',
+]
 
-// const EPWORTH_GUIDES = [
-//   '<7: Normal',
-//   '7-9: Borderline',
-//   '>9: Severe',
-// ]
+const EPWORTH_GUIDES = [
+  '<7: Normal',
+  '7-9: Borderline',
+  '>9: Severe',
+]
 
 interface FormState {
   first_name: string
@@ -191,11 +191,12 @@ interface Props {
   onCreated: () => void
   editPatient?: QaPatient | null
   editDiag?: QaDiagnosisRow | null
+  prefillPatient?: QaPatient | null
   prefillData?: Partial<FormState>
   role?: AppRole | null
 }
 
-export default function QaCreateModal({ open, onClose, onCreated, editPatient, editDiag, prefillData, role }: Props) {
+export default function QaCreateModal({ open, onClose, onCreated, editPatient, editDiag, prefillPatient, prefillData, role }: Props) {
   const isEdit = !!editPatient
   const canEditDiag = role !== 'medical_staff'
   const [form, setForm] = useState<FormState>(EMPTY)
@@ -205,9 +206,11 @@ export default function QaCreateModal({ open, onClose, onCreated, editPatient, e
   const set = (field: keyof FormState, value: string | boolean) =>
     setForm((prev) => ({ ...prev, [field]: value }))
 
-  // Pre-fill form in edit mode or from prefillData
+  // Pre-fill form in edit mode, add-visit mode, or from prefillData
   useEffect(() => {
-    if (open && editPatient) {
+    if (!open) return
+
+    if (editPatient) {
       setForm({
         first_name: editPatient.first_name ?? '',
         last_name: editPatient.last_name ?? '',
@@ -257,10 +260,33 @@ export default function QaCreateModal({ open, onClose, onCreated, editPatient, e
         fdopa_pet_requested: editDiag?.fdopa_pet_requested ?? false,
         fdopa_pet_score: editDiag?.fdopa_pet_score ?? '',
       })
-    } else if (open && !editPatient) {
+    } else if (prefillPatient) {
+      const today = new Date().toISOString().slice(0, 10)
+      setForm({
+        ...EMPTY,
+        first_name: prefillPatient.first_name ?? '',
+        last_name: prefillPatient.last_name ?? '',
+        thaiid: prefillPatient.thaiid ?? '',
+        hn_number: prefillPatient.hn_number ?? '',
+        age: prefillPatient.age != null ? String(prefillPatient.age) : '',
+        province: prefillPatient.province ?? '',
+        collection_date: today,
+        bmi: prefillPatient.bmi != null ? String(prefillPatient.bmi) : '',
+        weight: prefillPatient.weight != null ? String(prefillPatient.weight) : '',
+        height: prefillPatient.height != null ? String(prefillPatient.height) : '',
+        chest_cm: prefillPatient.chest_cm != null ? String(prefillPatient.chest_cm) : '',
+        waist_cm: prefillPatient.waist_cm != null ? String(prefillPatient.waist_cm) : '',
+        hip_cm: prefillPatient.hip_cm != null ? String(prefillPatient.hip_cm) : '',
+        neck_cm: prefillPatient.neck_cm != null ? String(prefillPatient.neck_cm) : '',
+        bp_supine: prefillPatient.bp_supine ?? '',
+        pr_supine: prefillPatient.pr_supine != null ? String(prefillPatient.pr_supine) : '',
+        bp_upright: prefillPatient.bp_upright ?? '',
+        pr_upright: prefillPatient.pr_upright != null ? String(prefillPatient.pr_upright) : '',
+      })
+    } else {
       setForm(prefillData ? { ...EMPTY, ...prefillData } : EMPTY)
     }
-  }, [open, editPatient, editDiag, prefillData])
+  }, [open, editPatient, editDiag, prefillPatient, prefillData])
 
   const handleSubmit = async () => {
     if (!form.first_name.trim() || !form.last_name.trim()) {
@@ -372,7 +398,13 @@ export default function QaCreateModal({ open, onClose, onCreated, editPatient, e
     <Dialog open={open} onOpenChange={(v) => !v && handleClose()}>
       <DialogContent className="w-[96vw] max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{isEdit ? 'แก้ไขข้อมูลผู้ป่วย' : 'เพิ่มผู้ป่วยใหม่ (core schema)'}</DialogTitle>
+          <DialogTitle>
+            {isEdit
+              ? 'แก้ไขข้อมูลผู้ป่วย'
+              : prefillPatient
+                ? `เพิ่ม Visit - ${prefillPatient.first_name ?? ''} ${prefillPatient.last_name ?? ''}`.trim()
+                : 'เพิ่มผู้ป่วยใหม่ (core schema)'}
+          </DialogTitle>
         </DialogHeader>
 
         <div className="grid grid-cols-2 gap-4 py-2">

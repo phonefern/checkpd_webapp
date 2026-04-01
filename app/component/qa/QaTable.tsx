@@ -10,7 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { MoreHorizontal, ClipboardList, Pencil, Trash2, Printer, FileSearch } from 'lucide-react'
+import { MoreHorizontal, ClipboardList, Pencil, Trash2, Printer, FileSearch, CalendarPlus } from 'lucide-react'
 import type { AppRole } from '@/lib/access'
 
 interface QaTableProps {
@@ -20,9 +20,10 @@ interface QaTableProps {
   onEdit: (patient: QaPatient) => void
   onDelete: (patientId: number, name: string) => void
   onDetail: (row: QaRow) => void
+  onAddVisit: (patient: QaPatient) => void
 }
 
-export default function QaTable({ rows, role, onAssess, onEdit, onDelete, onDetail }: QaTableProps) {
+export default function QaTable({ rows, role, onAssess, onEdit, onDelete, onDetail, onAddVisit }: QaTableProps) {
   if (rows.length === 0) {
     return (
       <div className="text-muted-foreground border rounded p-6 text-center">
@@ -37,6 +38,7 @@ export default function QaTable({ rows, role, onAssess, onEdit, onDelete, onDeta
         <thead className="bg-muted text-muted-foreground">
           <tr>
             <th className="px-3 py-2 text-left font-medium">ID</th>
+            <th className="px-3 py-2 text-center font-medium">Visit No</th>
             <th className="px-3 py-2 text-left font-medium">Name</th>
             <th className="px-3 py-2 text-left font-medium">HN</th>
             <th className="px-3 py-2 text-center font-medium">Age</th>
@@ -53,7 +55,7 @@ export default function QaTable({ rows, role, onAssess, onEdit, onDelete, onDeta
         </thead>
         <tbody className="divide-y">
           {rows.map((row) => {
-            const { patient: p, diag, conditionLabel } = row
+            const { patient: p, diag, conditionLabel, visitNo } = row
             const isDiagnosedRow = isQaDiagnosed(diag)
             const hasGp2Value = hasQaGp2(diag)
             const isMedicalStaff = role === 'medical_staff'
@@ -62,6 +64,11 @@ export default function QaTable({ rows, role, onAssess, onEdit, onDelete, onDeta
             return (
               <tr key={p.id} className="hover:bg-muted/30 transition-colors">
                 <td className="px-3 py-2 font-mono text-xs text-muted-foreground">{p.id}</td>
+                <td className="px-3 py-2 text-center">
+                  <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700">
+                    {visitNo}
+                  </span>
+                </td>
                 <td className="px-3 py-2 whitespace-nowrap">{p.first_name} {p.last_name}</td>
                 <td className="px-3 py-2 font-mono text-xs">{p.hn_number ?? '-'}</td>
                 <td className="px-3 py-2 text-center">{p.age ?? '-'}</td>
@@ -116,6 +123,13 @@ export default function QaTable({ rows, role, onAssess, onEdit, onDelete, onDeta
                       >
                         <FileSearch className="mr-2 h-4 w-4 text-slate-500" />
                         Detail
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => onAddVisit(p)}
+                        className="cursor-pointer rounded-md px-2.5 py-2 text-slate-700 focus:bg-slate-100 focus:text-slate-950"
+                      >
+                        <CalendarPlus className="mr-2 h-4 w-4 text-slate-500" />
+                        Add Visit
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={() => window.open(`/api/qa-pdf?patient_id=${p.id}`, '_blank')}
