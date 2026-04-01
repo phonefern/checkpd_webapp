@@ -1,10 +1,21 @@
 # TODO.md
-> Last updated: 2026-03-31
+> Last updated: 2026-04-01
 > Branch: `main`
 
 ---
 
-## ✅ Done (session นี้)
+## 🟡 Today (2026-04-01)
+
+### Plans พร้อมส่ง Codex
+- [ ] **PLAN-002**: Add Visit Feature — เพิ่ม "Add Visit" ใน QaTable dropdown, prefill ข้อมูลผู้ป่วย+body measurements (`docs/PLAN_VISIT_FEATURE.md`)
+- [ ] **PLAN-003**: Assessment Thresholds — เปลี่ยน preliminary thresholds เป็น production clinical cutoffs 8 tests (`docs/PLAN_ASSESSMENT_REDESIGN.md`)
+- [ ] **PLAN-004**: Summary Modal UI Redesign — Hero header, horizontal visit timeline, Bento Grid assessments, soft pastel colors (`docs/PLAN_SUMMARY_UI_REDESIGN.md`)
+
+Implementation order: PLAN-002 → PLAN-003 → PLAN-004
+
+---
+
+## ✅ Done (session 31 มี.ค.)
 
 ### QA — medical_staff Role
 - [x] `lib/access.ts` — เพิ่ม `medical_staff` ใน `AppRole` union, `APP_ROLES`, `APP_ROLE_LABELS`, `ROLE_ACCESS: ["users", "qa"]`
@@ -12,6 +23,11 @@
 - [x] `app/component/qa/QaTable.tsx` — เอาคอลัมน์คะแนนแบบทดสอบออก 8 คอลัมน์, เพิ่มคอลัมน์ "Diag Status" (วินิจฉัยแล้ว/รอวินิจฉัย), เพิ่ม Detail dropdown item, ล็อก Tests สำหรับ `medical_staff` เมื่อ patient ถูก diagnose แล้ว
 - [x] `app/component/qa/QaCreateModal.tsx` — เพิ่ม `role` prop + `canEditDiag` flag ล็อก condition, H&Y, prodromal flags, clinical scores, FDOPA สำหรับ `medical_staff`
 - [x] `app/pages/qa/page.tsx` — ดึง `role` ด้วย `useAccessProfile`, เพิ่ม `summaryRow` state, ส่ง `role` และ `onDetail` ให้ QaTable และ QaCreateModal, render `QaPatientSummaryModal`
+
+### Plans Created
+- [x] `docs/PLAN_VISIT_FEATURE.md` — PLAN-002: Add Visit Feature
+- [x] `docs/PLAN_ASSESSMENT_REDESIGN.md` — PLAN-003: Assessment Thresholds
+- [x] `docs/PLAN_SUMMARY_UI_REDESIGN.md` — PLAN-004: Summary Modal UI Redesign
 
 ---
 

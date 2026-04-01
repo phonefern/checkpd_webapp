@@ -30,6 +30,26 @@ import {
 const DIAG_SELECT =
   'patient_id,condition,hy_stage,disease_duration,other_diagnosis_text,constipation,constipation_onset_age,constipation_duration,rbd_suspected,rbd_onset_age,rbd_duration,hyposmia,hyposmia_onset_age,hyposmia_duration,depression,depression_onset_age,depression_duration,eds,eds_onset_age,eds_duration,ans_dysfunction,ans_onset_age,ans_duration,mild_parkinsonian_sign,family_history_pd,adl_score,scopa_aut_score,blood_test_note,fdopa_pet_requested,fdopa_pet_score'
 
+function getVisitIdentityKey(p: QaPatient): string {
+  const thaiId = p.thaiid?.trim()
+  if (thaiId) return `thaiid:${thaiId}`
+
+  const hn = p.hn_number?.trim()
+  if (hn) return `hn:${hn}`
+
+  const first = p.first_name?.trim().toLowerCase() ?? ''
+  const last = p.last_name?.trim().toLowerCase() ?? ''
+  if (first || last) return `name:${first}|${last}`
+
+  return `id:${p.id}`
+}
+
+function toSortDateValue(date: string | null): number {
+  if (!date) return Number.MAX_SAFE_INTEGER
+  const ms = new Date(date).getTime()
+  return Number.isNaN(ms) ? Number.MAX_SAFE_INTEGER : ms
+}
+
 export default function QaPage() {
   const [session, setSession] = useState<Session | null>(null)
   const [sessionReady, setSessionReady] = useState(false)
@@ -59,6 +79,7 @@ export default function QaPage() {
   const [createOpen, setCreateOpen] = useState(false)
   const [editPatient, setEditPatient] = useState<QaPatient | null>(null)
   const [editDiag, setEditDiag] = useState<QaDiagnosisRow | null>(null)
+  const [prefillPatient, setPrefillPatient] = useState<QaPatient | null>(null)
 
   // Assessment modal state
   const [assessingPatient, setAssessingPatient] = useState<QaPatient | null>(null)
@@ -141,6 +162,28 @@ export default function QaPage() {
       }
 
       const patientIds = patients.map((p) => p.id)
+      const visitNoByPatientId: Record<number, number> = {}
+      const groupedPatients = new Map<string, QaPatient[]>()
+
+      patients.forEach((p) => {
+        const key = getVisitIdentityKey(p)
+        const list = groupedPatients.get(key)
+        if (list) list.push(p)
+        else groupedPatients.set(key, [p])
+      })
+
+      groupedPatients.forEach((list) => {
+        list
+          .slice()
+          .sort((a, b) => {
+            const dateDiff = toSortDateValue(a.collection_date) - toSortDateValue(b.collection_date)
+            if (dateDiff !== 0) return dateDiff
+            return a.id - b.id
+          })
+          .forEach((p, idx) => {
+            visitNoByPatientId[p.id] = idx + 1
+          })
+      })
 
       // --- Step 3: fetch related data for this page's patients ---
       const [diagRes, mocaRes, hamdRes, mdsRes, epwRes, smellRes, tmseRes, rbdRes, rome4Res] =
@@ -172,6 +215,7 @@ export default function QaPage() {
       const rome4Map  = Object.fromEntries((rome4Res.data  ?? []).map((d: QaScoreRow)    => [d.patient_id, d]))
 
       setRows(patients.map((p) => ({
+        visitNo: visitNoByPatientId[p.id] ?? 1,
         patient: p,
         diag:  diagMap[p.id] as QaDiagnosisRow | undefined,
         conditionLabel: formatQaConditionLabel(diagMap[p.id] as QaDiagnosisRow | undefined),
@@ -211,6 +255,14 @@ export default function QaPage() {
     const row = rows.find((r) => r.patient.id === patient.id)
     setEditPatient(patient)
     setEditDiag(row?.diag ?? null)
+    setPrefillPatient(null)
+    setCreateOpen(true)
+  }
+
+  const handleAddVisit = (patient: QaPatient) => {
+    setEditPatient(null)
+    setEditDiag(null)
+    setPrefillPatient(patient)
     setCreateOpen(true)
   }
 
@@ -234,6 +286,7 @@ export default function QaPage() {
     setCreateOpen(false)
     setEditPatient(null)
     setEditDiag(null)
+    setPrefillPatient(null)
   }
 
   useEffect(() => {
@@ -247,7 +300,7 @@ export default function QaPage() {
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-semibold text-gray-900">QA — Parkinson System</h1>
         <Button
-          onClick={() => { setEditPatient(null); setEditDiag(null); setCreateOpen(true) }}
+          onClick={() => { setEditPatient(null); setEditDiag(null); setPrefillPatient(null); setCreateOpen(true) }}
           className="gap-2 bg-blue-600 hover:bg-blue-700 text-white"
         >
           <Plus className="h-4 w-4" />
@@ -264,6 +317,7 @@ export default function QaPage() {
         open={createOpen}
         onClose={handleModalClose}
         role={role}
+        prefillPatient={prefillPatient}
         onCreated={() => {
           logActivity({
             action: editPatient ? 'UPDATE' : 'CREATE',
@@ -339,6 +393,7 @@ export default function QaPage() {
             onEdit={handleEdit}
             onDelete={handleDelete}
             onDetail={setSummaryRow}
+            onAddVisit={handleAddVisit}
           />
           <TablePagination
             currentPage={currentPage}

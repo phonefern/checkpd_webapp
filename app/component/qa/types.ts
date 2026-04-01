@@ -60,6 +60,7 @@ export type QaHamdRow = { patient_id: number; total_score: number | null; severi
 export type QaConditionFilter = '' | 'pd' | 'pdm' | 'other' | 'ctrl'
 
 export type QaRow = {
+  visitNo: number
   patient: QaPatient
   diag: QaDiagnosisRow | undefined
   conditionLabel: string
