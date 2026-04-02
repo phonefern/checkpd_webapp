@@ -2,6 +2,9 @@ export const PAGE_SIZE = 20
 
 export type QaPatient = {
   id: number
+  patient_uid: string
+  created_at: string | null
+  submission_timestamp: string | null
   first_name: string | null
   last_name: string | null
   age: number | null
@@ -20,6 +23,10 @@ export type QaPatient = {
   pr_supine: number | null
   bp_upright: string | null
   pr_upright: number | null
+  visit_no: number
+  total_visits: number
+  same_day_visit_seq: number
+  same_day_visit_count: number
 }
 
 export type QaDiagnosisRow = {
@@ -60,7 +67,6 @@ export type QaHamdRow = { patient_id: number; total_score: number | null; severi
 export type QaConditionFilter = '' | 'pd' | 'pdm' | 'other' | 'ctrl'
 
 export type QaRow = {
-  visitNo: number
   patient: QaPatient
   diag: QaDiagnosisRow | undefined
   conditionLabel: string

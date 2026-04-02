@@ -6,6 +6,7 @@
 -- ============================================================
 
 CREATE SCHEMA IF NOT EXISTS core;
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 
 -- ============================================================
@@ -14,6 +15,7 @@ CREATE SCHEMA IF NOT EXISTS core;
 -- ============================================================
 CREATE TABLE core.patients_v2 (
   id                     SERIAL PRIMARY KEY,
+  patient_uid            UUID NOT NULL DEFAULT gen_random_uuid(),
   form_submission_hash   TEXT NOT NULL UNIQUE,  -- MD5(timestamp+firstname+lastname)
   submission_timestamp   TIMESTAMPTZ NULL,
   first_name             TEXT NULL,
@@ -36,10 +38,13 @@ CREATE TABLE core.patients_v2 (
   created_at             TIMESTAMPTZ DEFAULT TIMEZONE('utc', NOW()),
   updated_at             TIMESTAMPTZ DEFAULT TIMEZONE('utc', NOW()),
   thaiid                 TEXT NULL,
+
+  CONSTRAINT uq_patient_visit_date UNIQUE (patient_uid, collection_date)
 );
 
 CREATE INDEX idx_patients_v2_hash         ON core.patients_v2 (form_submission_hash);
 CREATE INDEX idx_patients_v2_collection   ON core.patients_v2 (collection_date);
+CREATE INDEX idx_patients_v2_patient_uid  ON core.patients_v2 (patient_uid);
 
 
 -- ============================================================
@@ -509,3 +514,27 @@ CREATE INDEX idx_rbd_patient_id           ON core.rbd_questionnaire_v2     (pati
 CREATE INDEX idx_epworth_patient_id       ON core.epworth_v2               (patient_id);
 CREATE INDEX idx_vision_patient_id        ON core.vision_tests_v2          (patient_id);
 CREATE INDEX idx_food_patient_id          ON core.food_questionnaire_v2    (patient_id);
+
+
+-- ============================================================
+-- VIEW: patient_visits_v2
+-- Server-side visit numbering and visit total per patient_uid
+-- ============================================================
+CREATE OR REPLACE VIEW public.patient_visits_v2 AS
+SELECT
+  p.*,
+  ROW_NUMBER() OVER (
+    PARTITION BY p.patient_uid
+    ORDER BY COALESCE(p.submission_timestamp, p.created_at, p.collection_date::timestamptz) ASC NULLS LAST, p.id ASC
+  ) AS visit_no,
+  COUNT(*) OVER (
+    PARTITION BY p.patient_uid
+  ) AS total_visits,
+  ROW_NUMBER() OVER (
+    PARTITION BY p.patient_uid, COALESCE((p.submission_timestamp AT TIME ZONE 'UTC')::date, p.collection_date)
+    ORDER BY COALESCE(p.submission_timestamp, p.created_at, p.collection_date::timestamptz) ASC NULLS LAST, p.id ASC
+  ) AS same_day_visit_seq,
+  COUNT(*) OVER (
+    PARTITION BY p.patient_uid, COALESCE((p.submission_timestamp AT TIME ZONE 'UTC')::date, p.collection_date)
+  ) AS same_day_visit_count
+FROM core.patients_v2 p;
