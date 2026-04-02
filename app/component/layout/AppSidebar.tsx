@@ -133,8 +133,64 @@ export default function AppSidebar({ activePath, role, user, onNavigate, onLogou
           </div>
         </div>
 
+        {/* User card */}
+        <div className="mt-4">
+          <div className="rounded-2xl border border-white/15 bg-white/10 p-3 backdrop-blur-sm">
+            <div className="flex items-center gap-3">
+              <Avatar className="h-11 w-11 shrink-0 border border-white/10">
+                <AvatarFallback className="bg-white/15 text-sm font-semibold text-white">
+                  {getUserInitials(user.name)}
+                </AvatarFallback>
+              </Avatar>
+              <div
+                className={`min-w-0 flex-1 overflow-hidden transition-all duration-300 ease-in-out ${
+                  collapsed ? "w-0 opacity-0" : "w-auto opacity-100"
+                }`}
+              >
+                <p className="truncate whitespace-nowrap text-sm font-medium text-white">{user.name}</p>
+                <p className="truncate whitespace-nowrap text-xs text-indigo-100/75">{user.email}</p>
+              </div>
+            </div>
+            <div
+              className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                collapsed ? "mt-0 h-0 opacity-0" : "mt-3 h-auto opacity-100"
+              }`}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <Badge variant="outline" className="border-white/20 bg-white/10 text-white">
+                  {user.roleLabel}
+                </Badge>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 rounded-full text-indigo-100 hover:bg-white/15 hover:text-white"
+                  onClick={onLogout}
+                  aria-label="Log out"
+                >
+                  <LogOut className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            {/* Collapsed logout */}
+            {collapsed && (
+              <div className="mt-2 flex justify-center">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 rounded-full text-indigo-100 hover:bg-white/15 hover:text-white"
+                  onClick={onLogout}
+                  aria-label="Log out"
+                >
+                  <LogOut className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+          </div>
+          <Separator className="mt-4 bg-white/15" />
+        </div>
+
         {/* Nav */}
-        <nav className="mt-8 flex-1 overflow-y-auto overflow-x-hidden">
+        <nav className="mt-6 flex-1 overflow-y-auto overflow-x-hidden">
           <div className="space-y-1">
             {visibleMainItems.map((item) => {
               const isActive = activePath === item.path;
@@ -203,61 +259,6 @@ export default function AppSidebar({ activePath, role, user, onNavigate, onLogou
           </div>
         </nav>
 
-        {/* User card */}
-        <div className="mt-6">
-          <Separator className="bg-white/15" />
-          <div className="mt-4 rounded-2xl border border-white/15 bg-white/10 p-3 backdrop-blur-sm">
-            <div className="flex items-center gap-3">
-              <Avatar className="h-11 w-11 shrink-0 border border-white/10">
-                <AvatarFallback className="bg-white/15 text-sm font-semibold text-white">
-                  {getUserInitials(user.name)}
-                </AvatarFallback>
-              </Avatar>
-              <div
-                className={`min-w-0 flex-1 overflow-hidden transition-all duration-300 ease-in-out ${
-                  collapsed ? "w-0 opacity-0" : "w-auto opacity-100"
-                }`}
-              >
-                <p className="truncate whitespace-nowrap text-sm font-medium text-white">{user.name}</p>
-                <p className="truncate whitespace-nowrap text-xs text-indigo-100/75">{user.email}</p>
-              </div>
-            </div>
-            <div
-              className={`overflow-hidden transition-all duration-300 ease-in-out ${
-                collapsed ? "mt-0 h-0 opacity-0" : "mt-3 h-auto opacity-100"
-              }`}
-            >
-              <div className="flex items-center justify-between gap-2">
-                <Badge variant="outline" className="border-white/20 bg-white/10 text-white">
-                  {user.roleLabel}
-                </Badge>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 rounded-full text-indigo-100 hover:bg-white/15 hover:text-white"
-                  onClick={onLogout}
-                  aria-label="Log out"
-                >
-                  <LogOut className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-            {/* Collapsed logout */}
-            {collapsed && (
-              <div className="mt-2 flex justify-center">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 rounded-full text-indigo-100 hover:bg-white/15 hover:text-white"
-                  onClick={onLogout}
-                  aria-label="Log out"
-                >
-                  <LogOut className="h-4 w-4" />
-                </Button>
-              </div>
-            )}
-          </div>
-        </div>
       </div>
     </aside>
   );

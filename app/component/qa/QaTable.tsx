@@ -55,25 +55,37 @@ export default function QaTable({ rows, role, onAssess, onEdit, onDelete, onDeta
         </thead>
         <tbody className="divide-y">
           {rows.map((row) => {
-            const { patient: p, diag, conditionLabel, visitNo } = row
+            const { patient: p, diag, conditionLabel } = row
             const isDiagnosedRow = isQaDiagnosed(diag)
             const hasGp2Value = hasQaGp2(diag)
             const isMedicalStaff = role === 'medical_staff'
             const testsLocked = isMedicalStaff && isDiagnosedRow
+            const hasSameDayDup = p.same_day_visit_count > 1
+            const submissionTimeLabel = formatVisitCreatedAt(p.submission_timestamp ?? p.created_at)
 
             return (
               <tr key={p.id} className="hover:bg-muted/30 transition-colors">
                 <td className="px-3 py-2 font-mono text-xs text-muted-foreground">{p.id}</td>
                 <td className="px-3 py-2 text-center">
                   <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700">
-                    {visitNo}
+                    {p.visit_no}
                   </span>
+                  {hasSameDayDup && (
+                    <div className="mt-1">
+                      <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700">
+                        Same-day {p.same_day_visit_seq}/{p.same_day_visit_count}
+                      </span>
+                    </div>
+                  )}
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap">{p.first_name} {p.last_name}</td>
                 <td className="px-3 py-2 font-mono text-xs">{p.hn_number ?? '-'}</td>
                 <td className="px-3 py-2 text-center">{p.age ?? '-'}</td>
                 <td className="px-3 py-2">{p.province ?? '-'}</td>
-                <td className="px-3 py-2 whitespace-nowrap text-xs">{p.collection_date ?? '-'}</td>
+                <td className="px-3 py-2 whitespace-nowrap text-xs">
+                  <div>{p.collection_date ?? '-'}</div>
+                  {submissionTimeLabel && <div className="text-[10px] text-muted-foreground">{submissionTimeLabel}</div>}
+                </td>
                 <td className="px-3 py-2 text-center">{p.bmi != null ? Number(p.bmi).toFixed(1) : '-'}</td>
                 <td className="px-3 py-2">{conditionLabel}</td>
                 <td className="px-3 py-2 text-center">{diag?.hy_stage ?? '-'}</td>
@@ -176,4 +188,11 @@ export default function QaTable({ rows, role, onAssess, onEdit, onDelete, onDeta
       </table>
     </div>
   )
+}
+
+function formatVisitCreatedAt(value: string | null | undefined): string | null {
+  if (!value) return null
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return null
+  return `submitted ${date.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}`
 }

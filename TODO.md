@@ -4,14 +4,15 @@
 
 ---
 
-## 🟡 Today (2026-04-01)
+## 🟡 Today (2026-04-02)
 
 ### Plans พร้อมส่ง Codex
 - [ ] **PLAN-002**: Add Visit Feature — เพิ่ม "Add Visit" ใน QaTable dropdown, prefill ข้อมูลผู้ป่วย+body measurements (`docs/PLAN_VISIT_FEATURE.md`)
 - [ ] **PLAN-003**: Assessment Thresholds — เปลี่ยน preliminary thresholds เป็น production clinical cutoffs 8 tests (`docs/PLAN_ASSESSMENT_REDESIGN.md`)
 - [ ] **PLAN-004**: Summary Modal UI Redesign — Hero header, horizontal visit timeline, Bento Grid assessments, soft pastel colors (`docs/PLAN_SUMMARY_UI_REDESIGN.md`)
+- [ ] **PLAN-005**: Patient UID & Server-Side Visit — เพิ่ม `patient_uid` UUID, SQL view `patient_visits_v2` + `visit_no` window function, ลบ client-side computation (`docs/PLAN-005_PATIENT_UID_VISIT_SYSTEM.md`)
 
-Implementation order: PLAN-002 → PLAN-003 → PLAN-004
+Implementation order: PLAN-002 → PLAN-005 → PLAN-003 → PLAN-004
 
 ---
 

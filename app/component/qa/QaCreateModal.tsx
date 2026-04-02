@@ -50,6 +50,7 @@ const EPWORTH_GUIDES = [
 ]
 
 interface FormState {
+  patient_uid: string
   first_name: string
   last_name: string
   thaiid: string
@@ -100,6 +101,7 @@ interface FormState {
 }
 
 const EMPTY: FormState = {
+  patient_uid: '',
   first_name: '',
   last_name: '',
   thaiid: '',
@@ -147,6 +149,14 @@ const EMPTY: FormState = {
   blood_test_note: '',
   fdopa_pet_requested: false,
   fdopa_pet_score: '',
+}
+
+function generatePatientUid() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+  const randomHex = () => Math.floor((1 + Math.random()) * 0x10000).toString(16).slice(1)
+  return `${randomHex()}${randomHex()}-${randomHex()}-4${randomHex().slice(0, 3)}-a${randomHex().slice(0, 3)}-${randomHex()}${randomHex()}${randomHex()}`
 }
 
 function buildDiagPayload(form: FormState) {
@@ -212,6 +222,7 @@ export default function QaCreateModal({ open, onClose, onCreated, editPatient, e
 
     if (editPatient) {
       setForm({
+        patient_uid: editPatient.patient_uid,
         first_name: editPatient.first_name ?? '',
         last_name: editPatient.last_name ?? '',
         thaiid: editPatient.thaiid ?? '',
@@ -264,6 +275,7 @@ export default function QaCreateModal({ open, onClose, onCreated, editPatient, e
       const today = new Date().toISOString().slice(0, 10)
       setForm({
         ...EMPTY,
+        patient_uid: prefillPatient.patient_uid,
         first_name: prefillPatient.first_name ?? '',
         last_name: prefillPatient.last_name ?? '',
         thaiid: prefillPatient.thaiid ?? '',
@@ -284,7 +296,11 @@ export default function QaCreateModal({ open, onClose, onCreated, editPatient, e
         pr_upright: prefillPatient.pr_upright != null ? String(prefillPatient.pr_upright) : '',
       })
     } else {
-      setForm(prefillData ? { ...EMPTY, ...prefillData } : EMPTY)
+      setForm({
+        ...EMPTY,
+        patient_uid: generatePatientUid(),
+        ...(prefillData ?? {}),
+      })
     }
   }, [open, editPatient, editDiag, prefillPatient, prefillData])
 
@@ -307,6 +323,7 @@ export default function QaCreateModal({ open, onClose, onCreated, editPatient, e
           .schema('core')
           .from('patients_v2')
           .update({
+            patient_uid: form.patient_uid,
             first_name: form.first_name.trim() || null,
             last_name: form.last_name.trim() || null,
             thaiid: form.thaiid.trim() || null,
@@ -342,7 +359,9 @@ export default function QaCreateModal({ open, onClose, onCreated, editPatient, e
           .schema('core')
           .from('patients_v2')
           .insert({
+            patient_uid: form.patient_uid,
             form_submission_hash: `qa-manual-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+            submission_timestamp: new Date().toISOString(),
             first_name: form.first_name.trim() || null,
             last_name: form.last_name.trim() || null,
             thaiid: form.thaiid.trim() || null,

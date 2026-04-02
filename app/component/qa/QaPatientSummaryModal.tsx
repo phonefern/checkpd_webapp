@@ -46,8 +46,6 @@ type FeatureItem = {
   duration?: string | null
 }
 
-type QaVisitRow = QaRow & { visitNo: number }
-
 const DIAG_SELECT =
   'patient_id,condition,hy_stage,disease_duration,other_diagnosis_text,constipation,constipation_onset_age,constipation_duration,rbd_suspected,rbd_onset_age,rbd_duration,hyposmia,hyposmia_onset_age,hyposmia_duration,depression,depression_onset_age,depression_duration,eds,eds_onset_age,eds_duration,ans_dysfunction,ans_onset_age,ans_duration,mild_parkinsonian_sign,family_history_pd,adl_score,scopa_aut_score,blood_test_note,fdopa_pet_requested,fdopa_pet_score'
 
@@ -106,7 +104,7 @@ const TEST_MAX_SCORES: Record<string, number | undefined> = {
 export default function QaPatientSummaryModal({ row, onClose }: Props) {
   if (!row) return null
 
-  const [visitRows, setVisitRows] = useState<QaVisitRow[]>([])
+  const [visitRows, setVisitRows] = useState<QaRow[]>([])
   const [selectedPatientId, setSelectedPatientId] = useState<number | null>(row.patient.id)
   const [loadingHistory, setLoadingHistory] = useState(false)
   const [historyError, setHistoryError] = useState<string | null>(null)
@@ -124,33 +122,25 @@ export default function QaPatientSummaryModal({ row, onClose }: Props) {
       try {
         const base = row.patient
         const patientSelect =
-          'id,first_name,last_name,age,province,collection_date,hn_number,thaiid,bmi,weight,height,chest_cm,waist_cm,hip_cm,neck_cm,bp_supine,pr_supine,bp_upright,pr_upright'
+          'id,patient_uid,created_at,submission_timestamp,first_name,last_name,age,province,collection_date,hn_number,thaiid,bmi,weight,height,chest_cm,waist_cm,hip_cm,neck_cm,bp_supine,pr_supine,bp_upright,pr_upright,visit_no,total_visits,same_day_visit_seq,same_day_visit_count'
 
-        let patientQuery = supabase.schema('core').from('patients_v2').select(patientSelect)
-        const thaiId = base.thaiid?.trim()
-        const hn = base.hn_number?.trim()
-        const firstName = base.first_name?.trim()
-        const lastName = base.last_name?.trim()
-
-        if (thaiId) {
-          patientQuery = patientQuery.eq('thaiid', thaiId)
-        } else if (hn) {
-          patientQuery = patientQuery.eq('hn_number', hn)
-        } else if (firstName && lastName) {
-          patientQuery = patientQuery.eq('first_name', firstName).eq('last_name', lastName)
-        } else {
+        const patientUid = base.patient_uid?.trim()
+        if (!patientUid) {
           if (!active) return
-          setVisitRows([{ ...row, visitNo: 1 }])
+          setVisitRows([row])
           setSelectedPatientId(seedPatientId)
           setLoadingHistory(false)
           return
         }
 
-        const { data: patientsData, error: patientsError } = await patientQuery
+        const { data: patientsData, error: patientsError } = await supabase
+          .from('patient_visits_v2')
+          .select(patientSelect)
+          .eq('patient_uid', patientUid)
           .order('collection_date', { ascending: true, nullsFirst: false })
           .order('id', { ascending: true })
 
-        if (patientsError) throw new Error(`patients_v2: ${patientsError.message}`)
+        if (patientsError) throw new Error(`patient_visits_v2: ${patientsError.message}`)
 
         const patients = (patientsData ?? []) as QaPatient[]
         const visitPatients = patients.length > 0 ? patients : [base]
@@ -185,10 +175,9 @@ export default function QaPatientSummaryModal({ row, onClose }: Props) {
         const rbdMap = Object.fromEntries((rbdRes.data ?? []).map((d: QaScoreRow) => [d.patient_id, d]))
         const rome4Map = Object.fromEntries((rome4Res.data ?? []).map((d: QaScoreRow) => [d.patient_id, d]))
 
-        const mappedRows: QaVisitRow[] = visitPatients.map((patient, index) => {
+        const mappedRows: QaRow[] = visitPatients.map((patient) => {
           const diag = diagMap[patient.id] as QaDiagnosisRow | undefined
           return {
-            visitNo: index + 1,
             patient,
             diag,
             conditionLabel: formatQaConditionLabel(diag),
@@ -209,7 +198,7 @@ export default function QaPatientSummaryModal({ row, onClose }: Props) {
       } catch (err) {
         if (!active) return
         setHistoryError(err instanceof Error ? err.message : String(err))
-        setVisitRows([{ ...row, visitNo: 1 }])
+        setVisitRows([row])
         setSelectedPatientId(seedPatientId)
       } finally {
         if (active) setLoadingHistory(false)
@@ -224,7 +213,7 @@ export default function QaPatientSummaryModal({ row, onClose }: Props) {
 
   const activeRow = useMemo(() => {
     if (!row) return null
-    if (visitRows.length === 0) return { ...row, visitNo: 1 }
+    if (visitRows.length === 0) return row
     if (selectedPatientId != null) {
       const selected = visitRows.find((v) => v.patient.id === selectedPatientId)
       if (selected) return selected
@@ -234,7 +223,7 @@ export default function QaPatientSummaryModal({ row, onClose }: Props) {
 
   if (!activeRow) return null
 
-  const { patient: p, diag, moca, hamd, mds, epw, smell, tmse, rbd, rome4, conditionLabel, visitNo } = activeRow
+  const { patient: p, diag, moca, hamd, mds, epw, smell, tmse, rbd, rome4, conditionLabel } = activeRow
   const diagnosed = isQaDiagnosed(diag)
   const hasGp2 = hasQaGp2(diag)
 
@@ -310,7 +299,7 @@ export default function QaPatientSummaryModal({ row, onClose }: Props) {
               <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-500">
                 <span>HN: {p.hn_number ?? '-'}</span>
                 <span>Age: {p.age ?? '-'}</span>
-                <span>Visit {visitNo}</span>
+                <span>Visit {p.visit_no}</span>
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -334,7 +323,7 @@ export default function QaPatientSummaryModal({ row, onClose }: Props) {
             </div>
           {!loadingHistory && (
             <div className="flex gap-2 overflow-x-auto pb-1">
-              {(visitRows.length > 0 ? visitRows : [{ ...row, visitNo: 1 }]).map((visit) => {
+              {(visitRows.length > 0 ? visitRows : [row]).map((visit) => {
                 const active = visit.patient.id === p.id
                 return (
                   <button
@@ -346,8 +335,16 @@ export default function QaPatientSummaryModal({ row, onClose }: Props) {
                         : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50'
                       }`}
                   >
-                    <div className="font-semibold">Visit {visit.visitNo}</div>
+                    <div className="font-semibold">Visit {visit.patient.visit_no}</div>
                     <div className="text-xs opacity-70">Collection date: {visit.patient.collection_date ?? '-'}</div>
+                    <div className="text-[10px] opacity-70">
+                      {formatSubmittedTime(visit.patient.submission_timestamp ?? visit.patient.created_at)}
+                    </div>
+                    {visit.patient.same_day_visit_count > 1 && (
+                      <div className="mt-1 text-[10px] font-medium text-amber-700">
+                        Same-day {visit.patient.same_day_visit_seq}/{visit.patient.same_day_visit_count}
+                      </div>
+                    )}
                   </button>
                 )
               })}
@@ -632,6 +629,13 @@ function formatFdopa(requested: boolean | null | undefined, score: string | null
   if (requested && score?.trim()) return `Requested / ${score.trim()}`
   if (requested) return 'Requested'
   return score?.trim() || null
+}
+
+function formatSubmittedTime(value: string | null | undefined) {
+  if (!value) return 'Submitted time: -'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return 'Submitted time: -'
+  return `Submitted time: ${date.toLocaleString('th-TH')}`
 }
 
 const STATUS_STYLES = {
