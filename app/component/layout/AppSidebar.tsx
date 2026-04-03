@@ -39,17 +39,18 @@ type SidebarItem = {
 
 const mainItems: SidebarItem[] = [
   { label: "Dashboard", icon: Building2, path: "/pages/index", feature: "dashboard" },
-  { label: "Admin management", icon: ShieldCheck, path: "/pages/admin", feature: "admin" },
-  { label: "Activity Log", icon: Bell, path: "/pages/log", feature: "log" },
+  { label: "User Management", icon: ShieldCheck, path: "/pages/admin", feature: "admin" },
+  { label: "Activity Logs", icon: Bell, path: "/pages/log", feature: "log" },
 ];
 
 const workspaceItems: SidebarItem[] = [
-  { label: "CheckPD Label Dashboard", icon: ShieldCheck, path: "/pages/users", feature: "users" },
-  { label: "Questionnaire Management V1", icon: FileText, path: "/pages/papers", feature: "papers" },
-  { label: "Realtime Download Tracking", icon: Clock, path: "/pages/tracking", feature: "tracking" },
-  { label: "CheckPD PDF export", icon: FileDown, path: "/pages/pdf", feature: "pdf" },
-  { label: "Raw Data Storage", icon: Package, path: "/pages/storage", feature: "storage" },
-  { label: "Questionnaire Management V2", icon: Download, path: "/pages/qa", feature: "qa" },
+  { label: "Diagnosis Management", icon: ShieldCheck, path: "/pages/users", feature: "users" },
+  // { label: "Questionnaire Management V1", icon: FileText, path: "/pages/papers", feature: "papers" },
+    { label: "Screening Assessments", icon: Download, path: "/pages/qa", feature: "qa" },
+  { label: "Usage Analytics", icon: Clock, path: "/pages/tracking", feature: "tracking" },
+  { label: "CheckPD Report Export (PDF)", icon: FileDown, path: "/pages/pdf", feature: "pdf" },
+  { label: "Raw Data Access", icon: Package, path: "/pages/storage", feature: "storage" },
+
 ];
 
 function getUserInitials(name: string) {
@@ -73,10 +74,12 @@ type AppSidebarProps = {
 
 export default function AppSidebar({ activePath, role, user, onNavigate, onLogout }: AppSidebarProps) {
   const router = useRouter();
-  const [collapsed, setCollapsed] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return localStorage.getItem("sidebar_collapsed") === "1";
-  });
+  const [collapsed, setCollapsed] = useState(false);
+
+  useEffect(() => {
+    const stored = localStorage.getItem("sidebar_collapsed") === "1";
+    setCollapsed(stored);
+  }, []);
 
 
   const visibleMainItems = useMemo(

@@ -62,7 +62,7 @@ export default function TrackingPage() {
     from: new Date('2026-01-01'),
     to: new Date('2026-01-27'),
   })
-  const [lastUpdated, setLastUpdated] = useState<Date>(new Date())
+  const [lastUpdated, setLastUpdated] = useState<Date>(() => new Date())
   const [riskSummary, setRiskSummary] = useState({ risk: 0, normal: 0, pending: 0, noTest: 0 })
   const [loadingRisk, setLoadingRisk] = useState(false)
   const [provinceFilter, setProvinceFilter] = useState('')
