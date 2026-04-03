@@ -1,7 +1,13 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(npm ls:*)",
+      "Bash(npm install:*)",
+      "Bash(npm view:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(node -e \"console.log\\('react:', require\\('react/package.json'\\).version\\); console.log\\('react-dom:', require\\('react-dom/package.json'\\).version\\)\")",
+      "Bash(npx next:*)"
     ]
   }
 }
