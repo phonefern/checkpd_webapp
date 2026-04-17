@@ -18,10 +18,12 @@ import {
   type QaRow,
   type QaScoreRow,
 } from './types'
+import CheckpdDataSection from './CheckpdDataSection'
 
 interface Props {
   row: QaRow | null
   onClose: () => void
+  onUpdated?: () => void | Promise<void>
 }
 
 type ScoreCategory = {
@@ -101,7 +103,7 @@ const TEST_MAX_SCORES: Record<string, number | undefined> = {
   rome4: 6,
 }
 
-export default function QaPatientSummaryModal({ row, onClose }: Props) {
+export default function QaPatientSummaryModal({ row, onClose, onUpdated }: Props) {
   if (!row) return null
 
   const [visitRows, setVisitRows] = useState<QaRow[]>([])
@@ -181,6 +183,7 @@ export default function QaPatientSummaryModal({ row, onClose }: Props) {
             patient,
             diag,
             conditionLabel: formatQaConditionLabel(diag),
+            has_checkpd: row.has_checkpd,
             moca: mocaMap[patient.id] as QaScoreRow | undefined,
             hamd: hamdMap[patient.id] as QaHamdRow | undefined,
             mds: mdsMap[patient.id] as QaScoreRow | undefined,
@@ -469,6 +472,13 @@ export default function QaPatientSummaryModal({ row, onClose }: Props) {
               />
             </div>
           </section>
+
+          <CheckpdDataSection
+            patientId={p.id}
+            thaiid={p.thaiid}
+            coreCondition={diag?.condition}
+            onSynced={onUpdated}
+          />
         </div>
       </DialogContent>
     </Dialog>

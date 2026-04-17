@@ -130,24 +130,63 @@ export default function UsersClientPage() {
     loadAreaOptions()
   }, [])
 
-  const handleConditionChange = (id: string, value: string) => {
-    setUsers((prev) => prev.map((user) => (user.id === id ? { ...user, condition: value || 'Not specified' } : user)))
+  const handleConditionChange = (id: string, recordId: string | undefined, value: string) => {
+    setUsers((prev) =>
+      prev.map((user) =>
+        user.id === id && user.record_id === recordId
+          ? { ...user, condition: value || 'Not specified' }
+          : user
+      )
+    )
   }
-  const handleProvinceChange = (id: string, value: string) => {
-    setUsers((prev) => prev.map((user) => (user.id === id ? { ...user, province: value || null as any } : user)))
+  const handleProvinceChange = (id: string, recordId: string | undefined, value: string) => {
+    setUsers((prev) =>
+      prev.map((user) =>
+        user.id === id && user.record_id === recordId
+          ? { ...user, province: value || null as any }
+          : user
+      )
+    )
   }
-  const handleOtherChange = (id: string, value: string) => {
-    setUsers((prev) => prev.map((user) => (user.id === id ? { ...user, other: value } : user)))
+  const handleOtherChange = (id: string, recordId: string | undefined, value: string) => {
+    setUsers((prev) =>
+      prev.map((user) =>
+        user.id === id && user.record_id === recordId
+          ? { ...user, other: value }
+          : user
+      )
+    )
   }
-  const handleAreaChange = (id: string, value: string) => {
-    setUsers((prev) => prev.map((user) => (user.id === id ? { ...user, area: value } : user)))
+  const handleAreaChange = (id: string, recordId: string | undefined, value: string) => {
+    setUsers((prev) =>
+      prev.map((user) =>
+        user.id === id && user.record_id === recordId
+          ? { ...user, area: value }
+          : user
+      )
+    )
   }
 
-  const handleSave = async (id: string, condition: string | null, province: string | undefined, other?: string, area?: string) => {
-    const { error: conditionError } = await supabase
-      .from('user_record_summary')
-      .update({ condition, other })
-      .eq('user_id', id)
+  const handleSave = async (
+    id: string,
+    recordId: string | undefined,
+    condition: string | null,
+    province: string | undefined,
+    other?: string,
+    area?: string
+  ) => {
+    let conditionError: { message?: string } | null = null
+    if (recordId) {
+      const { error } = await supabase
+        .from('user_record_summary')
+        .update({ condition, other })
+        .eq('user_id', id)
+        .eq('record_id', recordId)
+      conditionError = error
+    } else {
+      conditionError = { message: 'record_id is required for condition update' }
+    }
+
     const { error: provinceError } = await supabase
       .from('users')
       .update({ province: province || null, area: area || null })

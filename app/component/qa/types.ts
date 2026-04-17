@@ -66,10 +66,36 @@ export type QaScoreRow = { patient_id: number; total_score: number | null }
 export type QaHamdRow = { patient_id: number; total_score: number | null; severity_level: string | null }
 export type QaConditionFilter = '' | 'pd' | 'pdm' | 'other' | 'ctrl'
 
+export type CheckpdRecordSummary = {
+  user_id: string
+  recorder: string
+  record_id: string | null
+  source_collection: string | null
+  prediction_risk: boolean | null
+  condition: string | null
+  condition_status: string | null
+  condition_changed_at: string | null
+  test_result: string | null
+  other: string | null
+  tremor_resting_hz: number | null
+  tremor_postural_hz: number | null
+  balance_hz: number | null
+  gait_hz: number | null
+  dual_tap_left_score: number | null
+  dual_tap_right_score: number | null
+  questionnaire_total: number | null
+  voice_ahh_ts: string | null
+  voice_ypl_ts: string | null
+  last_record_at: string | null
+  updated_at: string | null
+  thaiid: string | null
+}
+
 export type QaRow = {
   patient: QaPatient
   diag: QaDiagnosisRow | undefined
   conditionLabel: string
+  has_checkpd: boolean
   moca: QaScoreRow | undefined
   hamd: QaHamdRow | undefined
   mds: QaScoreRow | undefined

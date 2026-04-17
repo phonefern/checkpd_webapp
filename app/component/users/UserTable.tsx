@@ -14,12 +14,13 @@ interface UserTableProps {
   editingId: string | null
   currentPage: number
   itemsPerPage: number
-  handleConditionChange: (id: string, value: string) => void
-  handleProvinceChange: (id: string, value: string) => void
-  handleOtherChange: (id: string, value: string) => void
-  handleAreaChange: (id: string, value: string) => void
+  handleConditionChange: (id: string, recordId: string | undefined, value: string) => void
+  handleProvinceChange: (id: string, recordId: string | undefined, value: string) => void
+  handleOtherChange: (id: string, recordId: string | undefined, value: string) => void
+  handleAreaChange: (id: string, recordId: string | undefined, value: string) => void
   handleSave: (
     id: string,
+    recordId: string | undefined,
     condition: string | null,
     province: string | undefined,
     other?: string,
@@ -114,7 +115,7 @@ export default function UserTable({
           </TableHeader>
           <TableBody>
             {users.map((user, index) => (
-              <TableRow key={user.id} className="hover:bg-muted/30">
+              <TableRow key={`${user.id}-${user.record_id ?? index}`} className="hover:bg-muted/30">
                 <TableCell className="text-muted-foreground">{(currentPage - 1) * itemsPerPage + index + 1}</TableCell>
                 <TableCell>
                   <div className="font-medium text-foreground">{user.id}</div>
@@ -133,7 +134,7 @@ export default function UserTable({
                 </TableCell>
                 <TableCell>
                   {editingId === user.id ? (
-                    <Select value={user.province || ""} onValueChange={(value) => handleProvinceChange(user.id, value)}>
+                    <Select value={user.province || ""} onValueChange={(value) => handleProvinceChange(user.id, user.record_id, value)}>
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="Select province" />
                       </SelectTrigger>
@@ -158,7 +159,7 @@ export default function UserTable({
                   {editingId === user.id ? (
                     <Select
                       value={user.condition || ""}
-                      onValueChange={(value) => handleConditionChange(user.id, value)}
+                      onValueChange={(value) => handleConditionChange(user.id, user.record_id, value)}
                     >
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="Select condition" />
@@ -182,7 +183,7 @@ export default function UserTable({
                     <Input
                       type="text"
                       value={user.other || ""}
-                      onChange={(e) => handleOtherChange(user.id, e.target.value)}
+                      onChange={(e) => handleOtherChange(user.id, user.record_id, e.target.value)}
                       className="w-full"
                     />
                   ) : (
@@ -194,7 +195,7 @@ export default function UserTable({
                     <Input
                       type="text"
                       value={user.area || ""}
-                      onChange={(e) => handleAreaChange(user.id, e.target.value)}
+                      onChange={(e) => handleAreaChange(user.id, user.record_id, e.target.value)}
                       className="w-full"
                     />
                   ) : (
@@ -204,12 +205,12 @@ export default function UserTable({
                 <TableCell className="text-right">
                   {editingId === user.id ? (
                     <div className="flex items-center justify-end gap-2">
-                      <Button
-                        size="sm"
-                        variant="default"
-                        onClick={() => handleSave(user.id, user.condition, user.province, user.other, user.area)}
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                      >
+                        <Button
+                          size="sm"
+                          variant="default"
+                          onClick={() => handleSave(user.id, user.record_id, user.condition, user.province, user.other, user.area)}
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                        >
                         <Check className="mr-1 h-4 w-4" />
                         Save
                       </Button>
@@ -256,7 +257,7 @@ export default function UserTable({
       {/* MOBILE CARD VIEW */}
       <div className="md:hidden space-y-4">
         {users.map((user, index) => (
-          <Card key={user.id} className="shadow-sm">
+          <Card key={`${user.id}-${user.record_id ?? index}`} className="shadow-sm">
             <CardHeader className="pb-3">
               <div className="flex justify-between items-start mb-2">
                 <Badge variant="outline" className="text-xs">

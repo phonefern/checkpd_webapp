@@ -78,7 +78,15 @@ export default function QaTable({ rows, role, onAssess, onEdit, onDelete, onDeta
                     </div>
                   )}
                 </td>
-                <td className="px-3 py-2 whitespace-nowrap">{p.first_name} {p.last_name}</td>
+                <td className="px-3 py-2 whitespace-nowrap">
+                  <span>{p.first_name} {p.last_name}</span>
+                  {row.has_checkpd && (
+                    <span
+                      className="ml-2 inline-block h-1.5 w-1.5 rounded-full bg-emerald-500 align-middle"
+                      title="มีข้อมูล CheckPD"
+                    />
+                  )}
+                </td>
                 <td className="px-3 py-2 font-mono text-xs">{p.hn_number ?? '-'}</td>
                 <td className="px-3 py-2 text-center">{p.age ?? '-'}</td>
                 <td className="px-3 py-2">{p.province ?? '-'}</td>

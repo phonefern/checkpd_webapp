@@ -141,6 +141,32 @@ export default function QaPage() {
       }
 
       const patientIds = patients.map((p) => p.id)
+      const thaiIds = Array.from(
+        new Set(
+          patients
+            .map((p) => p.thaiid?.trim() ?? '')
+            .filter((v): v is string => v.length > 0)
+        )
+      )
+
+      let checkpdThaiIdSet = new Set<string>()
+      if (thaiIds.length > 0) {
+        const { data: cpRows, error: cpErr } = await supabase
+          .schema('checkpd')
+          .from('record_summary')
+          .select('thaiid')
+          .in('thaiid', thaiIds)
+
+        if (!cpErr && cpRows) {
+          checkpdThaiIdSet = new Set(
+            cpRows
+              .map((r: { thaiid: string | null }) => r.thaiid?.trim() ?? '')
+              .filter((v) => v.length > 0)
+          )
+        } else if (cpErr) {
+          console.warn('checkpd.record_summary query failed:', cpErr.message)
+        }
+      }
 
       // --- Step 3: fetch related data for this page's patients ---
       const [diagRes, mocaRes, hamdRes, mdsRes, epwRes, smellRes, tmseRes, rbdRes, rome4Res] =
@@ -175,6 +201,7 @@ export default function QaPage() {
         patient: p,
         diag:  diagMap[p.id] as QaDiagnosisRow | undefined,
         conditionLabel: formatQaConditionLabel(diagMap[p.id] as QaDiagnosisRow | undefined),
+        has_checkpd: !!p.thaiid?.trim() && checkpdThaiIdSet.has(p.thaiid.trim()),
         moca:  mocaMap[p.id] as QaScoreRow | undefined,
         hamd:  hamdMap[p.id] as QaHamdRow | undefined,
         mds:   mdsMap[p.id] as QaScoreRow | undefined,
@@ -266,6 +293,7 @@ export default function QaPage() {
 
       <QaPatientSummaryModal
         row={summaryRow}
+        onUpdated={fetchData}
         onClose={() => setSummaryRow(null)}
       />
 
