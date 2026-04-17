@@ -125,52 +125,58 @@ export default function UserEditModal({ open, user, onClose, onSaved }: UserEdit
     }
   }, [open, user, form])
 
-  const onSubmit = form.handleSubmit(async (values) => {
-    if (!user) return
-    setSaving(true)
-    try {
-      const usersPayload = {
-        perfixname: nullOrValue(values.perfixname),
-        firstname: nullOrValue(values.firstname),
-        lastname: nullOrValue(values.lastname),
-        thaiid: nullOrValue(values.thaiid),
-        bod: nullOrValue(values.bod),
-        gender: nullOrValue(values.gender),
-        phonenumber: nullOrValue(values.phonenumber),
-        email: nullOrValue(values.email),
-        liveaddress: nullOrValue(values.liveaddress),
-        idcardaddress: nullOrValue(values.idcardaddress),
-        province: nullOrValue(values.province),
-        area: nullOrValue(values.area),
-        educationstatus: nullOrValue(values.educationstatus),
-        maritalstatus: nullOrValue(values.maritalstatus),
-        ethnicity: nullOrValue(values.ethnicity),
-        congenital_disease: nullOrValue(values.congenital_disease),
+  const onSubmit = form.handleSubmit(
+    async (values) => {
+      if (!user) return
+      setSaving(true)
+      try {
+        const usersPayload = {
+          perfixname: nullOrValue(values.perfixname),
+          firstname: nullOrValue(values.firstname),
+          lastname: nullOrValue(values.lastname),
+          thaiid: nullOrValue(values.thaiid),
+          bod: nullOrValue(values.bod),
+          gender: nullOrValue(values.gender),
+          phonenumber: nullOrValue(values.phonenumber),
+          email: nullOrValue(values.email),
+          liveaddress: nullOrValue(values.liveaddress),
+          idcardaddress: nullOrValue(values.idcardaddress),
+          province: nullOrValue(values.province),
+          area: nullOrValue(values.area),
+          educationstatus: nullOrValue(values.educationstatus),
+          maritalstatus: nullOrValue(values.maritalstatus),
+          ethnicity: nullOrValue(values.ethnicity),
+          congenital_disease: nullOrValue(values.congenital_disease),
+        }
+
+        const { error: publicErr } = await supabase.from("users").update(usersPayload).eq("id", user.id)
+        if (publicErr) throw publicErr
+
+        if (user.recorder) {
+          const { error: summaryErr } = await supabase
+            .from("user_record_summary")
+            .update({
+              condition: nullOrValue(values.condition),
+              other: nullOrValue(values.other),
+            })
+            .eq("user_id", user.id)
+            .eq("recorder", user.recorder)
+          if (summaryErr) throw summaryErr
+        }
+
+        onSaved(user)
+        onClose()
+      } catch (err) {
+        alert(`Failed to update: ${err instanceof Error ? err.message : String(err)}`)
+      } finally {
+        setSaving(false)
       }
-
-      const { error: publicErr } = await supabase.from("users").update(usersPayload).eq("id", user.id)
-      if (publicErr) throw publicErr
-
-      if (user.recorder) {
-        const { error: summaryErr } = await supabase
-          .from("user_record_summary")
-          .update({
-            condition: nullOrValue(values.condition),
-            other: nullOrValue(values.other),
-          })
-          .eq("user_id", user.id)
-          .eq("recorder", user.recorder)
-        if (summaryErr) throw summaryErr
-      }
-
-      onSaved(user)
-      onClose()
-    } catch (err) {
-      alert(`Failed to update: ${err instanceof Error ? err.message : String(err)}`)
-    } finally {
-      setSaving(false)
+    },
+    (errors) => {
+      console.warn("UserEditModal validation errors:", errors)
+      alert("กรุณากรอก First Name และ Last Name ให้ครบ")
     }
-  })
+  )
 
   const lifestyleRows = useMemo(
     () => [
