@@ -39,7 +39,7 @@ type MenuItem = {
 
 const dashboardCards: MenuItem[] = [
   {
-    title: "CheckPD Label Dashboard",
+    title: "Diagnosis Management",
     subtitle: "Manage patient records and profile data for the CheckPD system.",
     icon: Users,
     path: "/pages/users",
@@ -47,15 +47,15 @@ const dashboardCards: MenuItem[] = [
     feature: "users",
   },
   {
-    title: "Questionnaire Management V1",
-    subtitle: "Review forms, screening sheets, and questionnaire submissions.",
-    icon: FileText,
-    path: "/pages/papers",
-    accent: "from-emerald-500/20 to-green-500/10 text-emerald-700",
-    feature: "papers",
+    title: "Screening Assessments",
+    subtitle: "Create, review, and assess questionnaire workflows in the new QA flow.",
+    icon: ShieldCheck,
+    path: "/pages/qa",
+    accent: "from-teal-500/20 to-emerald-500/10 text-teal-700",
+    feature: "qa",
   },
   {
-    title: "Realtime Download Tracking",
+    title: "Usage Analytics",
     subtitle: "Monitor downloads and usage activity in near real time.",
     icon: BarChart3,
     path: "/pages/tracking",
@@ -63,7 +63,7 @@ const dashboardCards: MenuItem[] = [
     feature: "tracking",
   },
   {
-    title: "CheckPD PDF export",
+    title: "CheckPD Report Export (PDF)",
     subtitle: "Export PDF results and work with assessment data in one place.",
     icon: FileDown,
     path: "/pages/pdf",
@@ -71,21 +71,14 @@ const dashboardCards: MenuItem[] = [
     feature: "pdf",
   },
   {
-    title: "Raw Data Storage",
+    title: "Raw Data Access",
     subtitle: "Download raw source data from CheckPD storage and records.",
     icon: Download,
     path: "/pages/storage",
     accent: "from-lime-500/20 to-emerald-500/10 text-lime-700",
     feature: "storage",
   },
-  {
-    title: "Questionnaire Management V2",
-    subtitle: "Create, review, and assess questionnaire workflows in the new QA flow.",
-    icon: ShieldCheck,
-    path: "/pages/qa",
-    accent: "from-teal-500/20 to-emerald-500/10 text-teal-700",
-    feature: "qa",
-  },
+
 ];
 
 const defaultUser: UserProfile = {
