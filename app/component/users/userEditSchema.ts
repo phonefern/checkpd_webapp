@@ -4,21 +4,11 @@ export const userEditSchema = z.object({
   perfixname: z.string().max(50).optional().nullable(),
   firstname: z.string().min(1, "required").max(100),
   lastname: z.string().min(1, "required").max(100),
-  thaiid: z
-    .string()
-    .regex(/^\d{13}$/, "thai id must be 13 digits")
-    .or(z.literal(""))
-    .optional()
-    .nullable(),
+  thaiid: z.string().optional().nullable(),
   bod: z.string().optional().nullable(),
   gender: z.enum(["male", "female", "other"]).optional().nullable(),
-  phonenumber: z
-    .string()
-    .regex(/^\d{0,15}$/, "phone must be numeric")
-    .or(z.literal(""))
-    .optional()
-    .nullable(),
-  email: z.string().email().or(z.literal("")).optional().nullable(),
+  phonenumber: z.string().optional().nullable(),
+  email: z.string().optional().nullable(),
   liveaddress: z.string().max(500).optional().nullable(),
   idcardaddress: z.string().max(500).optional().nullable(),
   province: z.string().optional().nullable(),
@@ -32,4 +22,3 @@ export const userEditSchema = z.object({
 })
 
 export type UserEditValues = z.infer<typeof userEditSchema>
-
