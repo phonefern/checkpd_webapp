@@ -138,10 +138,22 @@ export default function AppSidebar({ activePath, role, user, onNavigate, onLogou
 
         {/* User card */}
         <div className="mt-4">
-          <div className="rounded-2xl border border-white/15 bg-white/10 p-3 backdrop-blur-sm">
-            <div className="flex items-center gap-3">
-              <Avatar className="h-11 w-11 shrink-0 border border-white/10">
-                <AvatarFallback className="bg-white/15 text-sm font-semibold text-white">
+          <div
+            className={`border border-white/15 bg-white/10 backdrop-blur-sm transition-all duration-300 ease-in-out ${
+              collapsed ? "rounded-xl p-2" : "rounded-2xl p-3"
+            }`}
+          >
+            <div className={`flex items-center ${collapsed ? "justify-center" : "gap-3"}`}>
+              <Avatar
+                className={`shrink-0 border border-white/10 transition-all duration-300 ease-in-out ${
+                  collapsed ? "h-8 w-8" : "h-11 w-11"
+                }`}
+              >
+                <AvatarFallback
+                  className={`bg-white/15 font-semibold text-white transition-all duration-300 ease-in-out ${
+                    collapsed ? "text-xs" : "text-sm"
+                  }`}
+                >
                   {getUserInitials(user.name)}
                 </AvatarFallback>
               </Avatar>

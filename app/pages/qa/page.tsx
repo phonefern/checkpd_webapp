@@ -265,6 +265,37 @@ export default function QaPage() {
     setTotalCount((prev) => prev - 1)
   }
 
+  const handleQuickDiag = useCallback(
+    async (patientId: number, conditionValue: 'pd' | 'ctrl' | 'pdm' | 'other' | '-') => {
+      const payload =
+        conditionValue === '-'
+          ? { patient_id: patientId, condition: null, other_diagnosis_text: null }
+          : { patient_id: patientId, condition: conditionValue }
+
+      const { error: diagErr } = await supabase
+        .schema('core')
+        .from('patient_diagnosis_v2')
+        .upsert(payload, { onConflict: 'patient_id' })
+
+      if (diagErr) {
+        setError(`Quick diagnosis update failed: ${diagErr.message}`)
+        throw new Error(diagErr.message)
+      }
+
+      const target = rows.find((r) => r.patient.id === patientId)?.patient
+      const patientName = target ? `${target.first_name ?? ''} ${target.last_name ?? ''}`.trim() : `ID ${patientId}`
+      logActivity({
+        action: 'UPDATE',
+        page: 'qa',
+        description: `อัปเดต condition แบบด่วน: ${patientName} -> ${conditionValue.toUpperCase()}`,
+        userEmail: session?.user?.email,
+      })
+
+      await fetchData()
+    },
+    [fetchData, rows, session?.user?.email]
+  )
+
   const handleModalClose = () => {
     setCreateOpen(false)
     setEditPatient(null)
@@ -375,6 +406,7 @@ export default function QaPage() {
             role={role}
             onAssess={setAssessingPatient}
             onEdit={handleEdit}
+            onQuickDiag={handleQuickDiag}
             onDelete={handleDelete}
             onDetail={setSummaryRow}
             onAddVisit={handleAddVisit}

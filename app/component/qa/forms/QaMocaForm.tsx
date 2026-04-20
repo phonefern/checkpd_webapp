@@ -290,7 +290,7 @@ export default function QaMocaForm({ open, patientId, onClose, onSaved }: Props)
 
             <TaskCard
               title="Sentence Repetition — 2 คะแนน"
-              instruction={`ให้พูดตามคำต่อคำ:\n1) "ฉันรู้ว่าจ้าวเป็นคนที่ช่วยได้คนเดียว"\n2) "แมวดำมักซ่อนตัวอยู่ใต้โซฟาหน้าเตาไฟเวลาสุนัขเข้ามา"`}
+              instruction={`ให้พูดตามคำต่อคำ:\n1) "ฉันรู้ว่าจอมเป็นคนเดียวที่มาช่วยงานวันนี้"\n2) "แมวมักซ่อนตัวอยู่หลังเก้าอี้เมื่อมีหมาอยู่ในห้อง"`}
               value={form.language_repeat}
               options={[
                 { label: 'ถูกทั้ง 2 (2)', score: 2 },
@@ -317,7 +317,7 @@ export default function QaMocaForm({ open, patientId, onClose, onSaved }: Props)
             <SectionHeader title="Abstraction" score={form.abstraction} max={2} color="bg-orange-100 text-orange-900" />
             <TaskCard
               title="Abstraction — 2 คะแนน"
-              instruction={`อธิบายความเหมือนระหว่างคู่คำ:\n1) "รถไฟ — จักรยาน" เหมือนกันอย่างไร? (ตอบ: พาหนะ)\n2) "นาฬิกา — ไม้บรรทัด" เหมือนกันอย่างไร? (ตอบ: เครื่องมือวัด)`}
+              instruction={`อธิบายความเหมือนระหว่างคู่คำ เช่น กล้วย-ส้ม เป็นผลไม้ :\n1) "รถไฟ — จักรยาน" เหมือนกันอย่างไร? (ตอบ: พาหนะ)\n2) "นาฬิกา — ไม้บรรทัด" เหมือนกันอย่างไร? (ตอบ: เครื่องมือวัด)`}
               value={form.abstraction}
               options={[
                 { label: 'ถูกทั้ง 2 คู่ (2)', score: 2 },
