@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
@@ -12,40 +12,55 @@ interface Props {
 }
 
 const QUESTIONS = [
-  { key: 'q01', label: '1. คุณฝันบ่อยหรือไม่',                                                     group: 'A' },
-  { key: 'q02', label: '2. คุณฝันร้ายบ่อยหรือไม่',                                                  group: 'A' },
-  { key: 'q03', label: '3. ความฝันมีเนื้อหาสะเทือนใจและน่าเศร้า',                                   group: 'A' },
-  { key: 'q04', label: '4. ความฝันมีเนื้อหารุนแรงหรือก้าวร้าว (ทะเลาะ ต่อสู้)',                     group: 'A' },
-  { key: 'q05', label: '5. ความฝันมีเนื้อหาน่ากลัวหรือน่าสยดสยอง (ผีไล่ตาม หลอกหลอน)',            group: 'A' },
-  { key: 'q06', label: '6. คุณละเมอพูดหรือออกเสียงระหว่างหลับ',                                     group: 'B' },
-  { key: 'q07', label: '7. คุณตะโกน โวยวาย หรือพูดคำหยาบระหว่างนอนหลับ',                           group: 'B' },
-  { key: 'q08', label: '8. คุณขยับแขนหรือขาตามเนื้อหาความฝัน',                                      group: 'B' },
-  { key: 'q09', label: '9. คุณเคยพลัดตกจากที่นอน',                                                  group: 'B' },
-  { key: 'q10', label: '10. คุณเคยทำร้ายตัวเองหรือคู่นอนระหว่างหลับ',                               group: 'B' },
-  { key: 'q11', label: '11. คุณเคยพยายามทำร้ายคู่นอนหรือเกือบทำร้ายตัวเอง',                        group: 'B' },
-  { key: 'q12', label: '12. เหตุการณ์ข้อ 10 หรือ 11 เกี่ยวข้องกับเนื้อหาความฝัน',                  group: 'B' },
-  { key: 'q13', label: '13. เหตุการณ์ต่างๆ รบกวนการนอนหลับของคุณ',                                  group: 'A' },
-]
+  { key: 'q01', label: '1. คุณฝันบ่อยหรือไม่', group: 'A' },
+  { key: 'q02', label: '2. คุณฝันร้ายบ่อยหรือไม่', group: 'A' },
+  { key: 'q03', label: '3. ความฝันมีเนื้อหาสะเทือนใจและน่าเศร้า', group: 'A' },
+  { key: 'q04', label: '4. ความฝันมีเนื้อหารุนแรงหรือก้าวร้าว (ทะเลาะ ต่อสู้)', group: 'A' },
+  { key: 'q05', label: '5. ความฝันมีเนื้อหาน่ากลัวหรือน่าสยดสยอง (ผีไล่ตาม หลอกหลอน)', group: 'A' },
+  { key: 'q06', label: '6. คุณละเมอพูดหรือออกเสียงระหว่างหลับ', group: 'B' },
+  { key: 'q07', label: '7. คุณตะโกน โวยวาย หรือพูดคำหยาบระหว่างนอนหลับ', group: 'B' },
+  { key: 'q08', label: '8. คุณขยับแขนหรือขาตามเนื้อหาความฝัน', group: 'B' },
+  { key: 'q09', label: '9. คุณเคยพลัดตกจากที่นอน', group: 'B' },
+  { key: 'q10', label: '10. คุณเคยทำร้ายตัวเองหรือคู่นอนระหว่างหลับ', group: 'B' },
+  { key: 'q11', label: '11. คุณเคยพยายามทำร้ายคู่นอนหรือเกือบทำร้ายตัวเอง', group: 'B' },
+  { key: 'q12', label: '12. เหตุการณ์ข้อ 10 หรือ 11 เกี่ยวข้องกับเนื้อหาความฝัน', group: 'B' },
+  { key: 'q13', label: '13. เหตุการณ์ต่างๆ รบกวนการนอนหลับของคุณ', group: 'A' },
+] as const
 
 const FREQ_OPTIONS = [
-  { value: '1', label: '1–3 ครั้ง/ปี' },
-  { value: '2', label: '1–3 ครั้ง/เดือน' },
-  { value: '3', label: '1–3 ครั้ง/สัปดาห์' },
+  { value: '1', label: '1-3 ครั้ง/ปี' },
+  { value: '2', label: '1-3 ครั้ง/เดือน' },
+  { value: '3', label: '1-3 ครั้ง/สัปดาห์' },
   { value: '4', label: 'มากกว่า 3 ครั้ง/สัปดาห์' },
 ]
 
 type Answer = 'yes' | 'no' | 'unknown'
 type QState = { answer: Answer; frequency: string }
 type FormState = Record<string, QState>
+
+const PLUS_ONE_KEYS = new Set(['q01', 'q02', 'q03', 'q04', 'q05', 'q13'])
+
 const makeEmpty = (): FormState =>
   Object.fromEntries(QUESTIONS.map((q) => [q.key, { answer: 'no' as Answer, frequency: '' }]))
+
+function getQScore(questionKey: string, answer: Answer): number {
+  if (answer !== 'yes') return 0
+  return PLUS_ONE_KEYS.has(questionKey) ? 1 : 2
+}
+
+function getFrequencyScore(questionKey: string, answer: Answer, frequency: string): number {
+  if (answer !== 'yes' || !frequency) return 0
+  const n = Number(frequency)
+  if (!Number.isFinite(n)) return 0
+  return PLUS_ONE_KEYS.has(questionKey) ? n : n * 2
+}
 
 function calcScore(form: FormState): number {
   return QUESTIONS.reduce((total, q) => {
     const { answer, frequency } = form[q.key]
-    if (answer !== 'yes' || !frequency) return total
-    const freq = Number(frequency)
-    return total + (q.group === 'A' ? freq : freq * 2)
+    const qScore = getQScore(q.key, answer)
+    const frequencyScore = getFrequencyScore(q.key, answer, frequency)
+    return total + qScore + frequencyScore
   }, 0)
 }
 
@@ -74,10 +89,18 @@ export default function QaRbdForm({ open, patientId, onClose, onSaved }: Props) 
 
   useEffect(() => {
     if (!open) return
-    const cols = QUESTIONS.flatMap((q) => [`${q.key}_answer`, `${q.key}_frequency`]).join(',')
-    supabase.schema('core').from('rbd_questionnaire_v2')
+    const cols = QUESTIONS.flatMap((q) => [
+      `${q.key}_answer`,
+      `${q.key}_frequency`,
+      `${q.key}_score`,
+    ]).join(',')
+
+    supabase
+      .schema('core')
+      .from('rbd_questionnaire_v2')
       .select(cols)
-      .eq('patient_id', patientId).maybeSingle()
+      .eq('patient_id', patientId)
+      .maybeSingle()
       .then(({ data }) => {
         if (data) {
           const d = data as unknown as Record<string, string | null>
@@ -97,43 +120,79 @@ export default function QaRbdForm({ open, patientId, onClose, onSaved }: Props) 
   }, [open, patientId])
 
   const score = calcScore(form)
-  const interpretation = score >= 17 ? 'มีความเสี่ยงสูงต่อ RBD (≥ 17)' : 'มีความเสี่ยงต่ำต่อ RBD (< 17)'
+  const interpretation = score >= 17 ? 'มีความเสี่ยงสูงต่อ RBD (>= 17)' : 'มีความเสี่ยงต่ำต่อ RBD (< 17)'
 
   const setQ = (key: string, patch: Partial<QState>) =>
     setForm((p) => ({ ...p, [key]: { ...p[key], ...patch } }))
 
   const handleSave = async () => {
-    setSaving(true); setError(null)
-    const payload: Record<string, string | number | null> = { patient_id: patientId, total_score: score }
+    setSaving(true)
+    setError(null)
+
+    const payload: Record<string, string | number | null> = {
+      patient_id: patientId,
+      total_score: score,
+    }
+
     for (const q of QUESTIONS) {
       const { answer, frequency } = form[q.key]
-      const freq = answer === 'yes' && frequency ? Number(frequency) : null
+      const qScore = getQScore(q.key, answer)
+
       payload[`${q.key}_answer`] = answer
       payload[`${q.key}_frequency`] = answer === 'yes' ? (frequency || null) : null
-      payload[`${q.key}_score`] = freq != null ? (q.group === 'A' ? freq : freq * 2) : 0
+      payload[`${q.key}_score`] = qScore
     }
-    const { error: err } = await supabase.schema('core').from('rbd_questionnaire_v2').upsert(payload, { onConflict: 'patient_id' })
+
+    const { error: err } = await supabase
+      .schema('core')
+      .from('rbd_questionnaire_v2')
+      .upsert(payload, { onConflict: 'patient_id' })
+
     setSaving(false)
-    if (err) { setError(err.message); return }
-    onSaved(); onClose()
+    if (err) {
+      setError(err.message)
+      return
+    }
+    onSaved()
+    onClose()
   }
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="max-h-[90vh] w-[95vw] sm:w-[90vw] lg:w-[84vw] sm:!max-w-[90vw] lg:!max-w-5xl overflow-y-auto p-4 sm:p-6">
-        <DialogHeader><DialogTitle>RBD Questionnaire — แบบประเมินพฤติกรรมการนอนหลับ</DialogTitle></DialogHeader>
+        <DialogHeader>
+          <DialogTitle>RBD Questionnaire — แบบประเมินพฤติกรรมการนอนหลับ</DialogTitle>
+        </DialogHeader>
+
         <p className="text-sm text-muted-foreground mb-3">
-          กลุ่ม A: ตอบใช่ = คะแนนตามความถี่ (1–4) &nbsp;|&nbsp; กลุ่ม B: ตอบใช่ = ความถี่ × 2 (2–8)
+          ถ้าตอบ "ใช่": ข้อ 1-5 และ 13 ได้ q_score = 1 และ frequency = 1/2/3/4, ข้ออื่นได้ q_score = 2 และ frequency x2 = 2/4/6/8
         </p>
+
         <div className="space-y-3">
           {QUESTIONS.map((q) => {
             const state = form[q.key]
+            const qScore = getQScore(q.key, state.answer)
+            const frequencyScore = getFrequencyScore(q.key, state.answer, state.frequency)
+            const rowTotal = qScore + frequencyScore
+
             return (
               <div key={q.key} className="border rounded p-4">
                 <div className="flex items-start gap-3">
-                  <p className="text-base flex-1">{q.label} <span className="text-sm text-muted-foreground">(กลุ่ม {q.group})</span></p>
-                  <AnswerToggle value={state.answer} onChange={(v) => setQ(q.key, { answer: v, frequency: v !== 'yes' ? '' : state.frequency })} />
+                  <p className="text-base flex-1">
+                    {q.label} <span className="text-sm text-muted-foreground">(กลุ่ม {q.group})</span>
+                  </p>
+                  <AnswerToggle
+                    value={state.answer}
+                    onChange={(v) =>
+                      setQ(q.key, { answer: v, frequency: v !== 'yes' ? '' : state.frequency })
+                    }
+                  />
                 </div>
+
+                <p className="mt-2 text-xs text-muted-foreground">
+                  คะแนนข้อ: q_score {qScore} + frequency {frequencyScore} = {rowTotal}
+                </p>
+
                 {state.answer === 'yes' && (
                   <div className="mt-2 flex items-center gap-2">
                     <span className="text-sm text-muted-foreground">ความถี่:</span>
@@ -154,10 +213,13 @@ export default function QaRbdForm({ open, patientId, onClose, onSaved }: Props) 
             )
           })}
         </div>
+
         <div className="mt-4 rounded bg-slate-50 p-3 text-sm font-semibold">
           คะแนนรวม: {score} &nbsp;—&nbsp; <span className={`font-normal ${score >= 17 ? 'text-red-600' : 'text-green-600'}`}>{interpretation}</span>
         </div>
+
         {error && <p className="text-sm text-red-600 mt-2">{error}</p>}
+
         <DialogFooter className="mt-4">
           <Button variant="outline" onClick={onClose} disabled={saving}>ยกเลิก</Button>
           <Button onClick={handleSave} disabled={saving} className="bg-blue-600 hover:bg-blue-700 text-white">

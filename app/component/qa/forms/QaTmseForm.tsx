@@ -107,8 +107,25 @@ export default function QaTmseForm({ open, patientId, onClose, onSaved }: Props)
     setSaving(true); setError(null)
     const payload = {
       patient_id: patientId,
-      ...form,
+      orientation_day: form.orientation_day,
+      orientation_date: form.orientation_date,
+      orientation_month: form.orientation_month,
+      orientation_time: form.orientation_time,
+      orientation_place: form.orientation_place,
+      orientation_picture: form.orientation_picture,
+      registration: form.registration,
+      attention: form.attention,
       calculation: calculationScore,
+      language_watch: form.language_watch,
+      language_shirt: form.language_shirt,
+      language_repeat: form.language_repeat,
+      language_3step_take_paper: form.language_3step_take_paper,
+      language_3step_fold_paper: form.language_3step_fold_paper,
+      language_3step_hand_paper: form.language_3step_hand_paper,
+      language_read_close_eyes: form.language_read_close_eyes,
+      language_draw: form.language_draw,
+      language_similarity: form.language_similarity,
+      recall: form.recall,
       total_score: score,
     }
     const { error: err } = await supabase.schema('core').from('tmse_v2').upsert(
