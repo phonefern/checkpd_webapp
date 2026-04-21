@@ -55,6 +55,17 @@ function getFrequencyScore(questionKey: string, answer: Answer, frequency: strin
   return PLUS_ONE_KEYS.has(questionKey) ? n : n * 2
 }
 
+function normalizeLoadedFrequency(questionKey: string, raw: string | null): string {
+  if (!raw) return ''
+  const n = Number(raw)
+  if (!Number.isFinite(n) || n <= 0) return ''
+  if (PLUS_ONE_KEYS.has(questionKey)) return String(n)
+  // DB now stores actual score for non A group (2/4/6/8), convert back to base 1/2/3/4 in UI.
+  if (n % 2 === 0) return String(n / 2)
+  // Backward-compatible fallback for older rows that stored 1..4 directly.
+  return String(n)
+}
+
 function calcScore(form: FormState): number {
   return QUESTIONS.reduce((total, q) => {
     const { answer, frequency } = form[q.key]
@@ -108,7 +119,7 @@ export default function QaRbdForm({ open, patientId, onClose, onSaved }: Props) 
           for (const q of QUESTIONS) {
             f[q.key] = {
               answer: (d[`${q.key}_answer`] as Answer) ?? 'no',
-              frequency: d[`${q.key}_frequency`] ?? '',
+              frequency: normalizeLoadedFrequency(q.key, d[`${q.key}_frequency`]),
             }
           }
           setForm(f)
@@ -137,9 +148,10 @@ export default function QaRbdForm({ open, patientId, onClose, onSaved }: Props) 
     for (const q of QUESTIONS) {
       const { answer, frequency } = form[q.key]
       const qScore = getQScore(q.key, answer)
+      const frequencyScore = getFrequencyScore(q.key, answer, frequency)
 
       payload[`${q.key}_answer`] = answer
-      payload[`${q.key}_frequency`] = answer === 'yes' ? (frequency || null) : null
+      payload[`${q.key}_frequency`] = answer === 'yes' ? String(frequencyScore) : null
       payload[`${q.key}_score`] = qScore
     }
 
