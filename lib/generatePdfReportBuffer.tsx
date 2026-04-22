@@ -7,7 +7,8 @@ import { processRecordData } from '@/lib/processRecordData';
 
 export async function generatePdfReportBuffer(
   userDocId: string,
-  recordId: string
+  recordId: string,
+  assetBaseUrl?: string | null
 ): Promise<Buffer> {
   const isNumericId = /^[0-9]+$/.test(userDocId);
   const collectionName = isNumericId ? 'temps' : 'users';
@@ -38,6 +39,6 @@ export async function generatePdfReportBuffer(
   };
 
   return renderToBuffer(
-    <PdfReportDocument info={info} recordData={recordData} />
+    <PdfReportDocument info={info} recordData={recordData} assetBaseUrl={assetBaseUrl} />
   );
 }
