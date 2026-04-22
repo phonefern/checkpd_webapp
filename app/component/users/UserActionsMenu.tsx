@@ -61,7 +61,7 @@ export default function UserActionsMenu({ user, onEdit, onDetail, isMobile = fal
           Edit
         </DropdownMenuItem>
         <DropdownMenuItem
-          onClick={() => window.open(`/api/pdf/${user.id}?record_id=${user.record_id}`, "_blank")}
+          onClick={() => window.open(`/api/pdf-v2/${user.id}?record_id=${user.record_id}`, "_blank")}
           className="cursor-pointer rounded-md px-2.5 py-2 text-slate-700 focus:bg-slate-100 focus:text-slate-950"
         >
           <Printer className="mr-2 h-4 w-4 text-slate-500" />

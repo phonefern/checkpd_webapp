@@ -26,6 +26,11 @@ import {
   hasQaGp2,
   matchesQaConditionFilter,
 } from '@/app/component/qa/types'
+import {
+  PATIENT_VISIT_SELECT,
+  buildIdentityCacheKey,
+  fetchIdentityMatchedVisits,
+} from '@/app/component/qa/visitIdentity'
 
 const DIAG_SELECT =
   'patient_id,condition,hy_stage,disease_duration,other_diagnosis_text,constipation,constipation_onset_age,constipation_duration,rbd_suspected,rbd_onset_age,rbd_duration,hyposmia,hyposmia_onset_age,hyposmia_duration,depression,depression_onset_age,depression_duration,eds,eds_onset_age,eds_duration,ans_dysfunction,ans_onset_age,ans_duration,mild_parkinsonian_sign,family_history_pd,adl_score,scopa_aut_score,blood_test_note,fdopa_pet_requested,fdopa_pet_score'
@@ -103,10 +108,7 @@ export default function QaPage() {
       // --- Step 2: query patient_visits_v2 with all patient-level filters ---
       let patientQuery = supabase
         .from('patient_visits_v2')
-        .select(
-          'id,patient_uid,created_at,submission_timestamp,first_name,last_name,age,province,collection_date,hn_number,thaiid,bmi,weight,height,chest_cm,waist_cm,hip_cm,neck_cm,bp_supine,pr_supine,bp_upright,pr_upright,visit_no,total_visits,same_day_visit_seq,same_day_visit_count',
-          { count: 'exact' }
-        )
+        .select(PATIENT_VISIT_SELECT, { count: 'exact' })
         .order('collection_date', { ascending: false, nullsFirst: false })
         .range(from, to)
 
@@ -140,10 +142,50 @@ export default function QaPage() {
         return
       }
 
-      const patientIds = patients.map((p) => p.id)
+      const identityVisitCache = new Map<string, QaPatient[]>()
+      const derivedVisitMap = new Map<
+        number,
+        Pick<QaPatient, 'visit_no' | 'total_visits' | 'same_day_visit_seq' | 'same_day_visit_count'>
+      >()
+
+      await Promise.all(
+        patients.map(async (patient) => {
+          const cacheKey = buildIdentityCacheKey(patient)
+          let matchedVisits = identityVisitCache.get(cacheKey)
+          if (!matchedVisits) {
+            try {
+              matchedVisits = await fetchIdentityMatchedVisits(patient, PATIENT_VISIT_SELECT)
+            } catch (identityErr) {
+              console.warn('visit identity lookup failed:', identityErr)
+              matchedVisits = [patient]
+            }
+            identityVisitCache.set(cacheKey, matchedVisits)
+          }
+
+          for (const visit of matchedVisits) {
+            derivedVisitMap.set(visit.id, {
+              visit_no: visit.visit_no,
+              total_visits: visit.total_visits,
+              same_day_visit_seq: visit.same_day_visit_seq,
+              same_day_visit_count: visit.same_day_visit_count,
+            })
+          }
+        })
+      )
+
+      const normalizedPatients = patients.map((patient) => {
+        const derived = derivedVisitMap.get(patient.id)
+        if (!derived) return patient
+        return {
+          ...patient,
+          ...derived,
+        }
+      })
+
+      const patientIds = normalizedPatients.map((p) => p.id)
       const thaiIds = Array.from(
         new Set(
-          patients
+          normalizedPatients
             .map((p) => p.thaiid?.trim() ?? '')
             .filter((v): v is string => v.length > 0)
         )
@@ -197,7 +239,7 @@ export default function QaPage() {
       const rbdMap    = Object.fromEntries((rbdRes.data    ?? []).map((d: QaScoreRow)    => [d.patient_id, d]))
       const rome4Map  = Object.fromEntries((rome4Res.data  ?? []).map((d: QaScoreRow)    => [d.patient_id, d]))
 
-      setRows(patients.map((p) => ({
+      setRows(normalizedPatients.map((p) => ({
         patient: p,
         diag:  diagMap[p.id] as QaDiagnosisRow | undefined,
         conditionLabel: formatQaConditionLabel(diagMap[p.id] as QaDiagnosisRow | undefined),
