@@ -317,7 +317,7 @@ export default function ExportTestPage() {
 
     setLoadingSingle(true);
     try {
-      const url = `/api/pdf/${userDocId}?record_id=${recordId}`;
+      const url = `/api/pdf-v2/${userDocId}?record_id=${recordId}`;
       window.open(url, "_blank");
     } catch (err: any) {
       alert(err.message || "เกิดข้อผิดพลาด");
@@ -338,7 +338,7 @@ export default function ExportTestPage() {
       const form = new FormData();
       form.append("file", csvFile);
 
-      const res = await fetch("/api/pdf/batch", {
+      const res = await fetch("/api/pdf-v2/batch", {
         method: "POST",
         body: form,
       });

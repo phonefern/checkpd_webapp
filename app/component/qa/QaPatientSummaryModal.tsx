@@ -18,6 +18,7 @@ import {
   type QaRow,
   type QaScoreRow,
 } from './types'
+import { PATIENT_VISIT_SELECT, fetchIdentityMatchedVisits } from './visitIdentity'
 import CheckpdDataSection from './CheckpdDataSection'
 
 interface Props {
@@ -123,29 +124,7 @@ export default function QaPatientSummaryModal({ row, onClose, onUpdated }: Props
     const fetchVisitHistory = async () => {
       try {
         const base = row.patient
-        const patientSelect =
-          'id,patient_uid,created_at,submission_timestamp,first_name,last_name,age,province,collection_date,hn_number,thaiid,bmi,weight,height,chest_cm,waist_cm,hip_cm,neck_cm,bp_supine,pr_supine,bp_upright,pr_upright,visit_no,total_visits,same_day_visit_seq,same_day_visit_count'
-
-        const patientUid = base.patient_uid?.trim()
-        if (!patientUid) {
-          if (!active) return
-          setVisitRows([row])
-          setSelectedPatientId(seedPatientId)
-          setLoadingHistory(false)
-          return
-        }
-
-        const { data: patientsData, error: patientsError } = await supabase
-          .from('patient_visits_v2')
-          .select(patientSelect)
-          .eq('patient_uid', patientUid)
-          .order('collection_date', { ascending: true, nullsFirst: false })
-          .order('id', { ascending: true })
-
-        if (patientsError) throw new Error(`patient_visits_v2: ${patientsError.message}`)
-
-        const patients = (patientsData ?? []) as QaPatient[]
-        const visitPatients = patients.length > 0 ? patients : [base]
+        const visitPatients = await fetchIdentityMatchedVisits(base, PATIENT_VISIT_SELECT)
         const patientIds = visitPatients.map((p) => p.id)
 
         const [diagRes, mocaRes, hamdRes, mdsRes, epwRes, smellRes, tmseRes, rbdRes, rome4Res] =

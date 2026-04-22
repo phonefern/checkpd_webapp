@@ -159,6 +159,70 @@ function generatePatientUid() {
   return `${randomHex()}${randomHex()}-${randomHex()}-4${randomHex().slice(0, 3)}-a${randomHex().slice(0, 3)}-${randomHex()}${randomHex()}${randomHex()}`
 }
 
+const normalizeIdentityValue = (value: string | null | undefined) => (value ?? '').trim()
+
+async function resolveExistingPatientUid(form: FormState): Promise<string | null> {
+  const thaiid = normalizeIdentityValue(form.thaiid)
+  const hnNumber = normalizeIdentityValue(form.hn_number)
+  const firstName = normalizeIdentityValue(form.first_name)
+  const lastName = normalizeIdentityValue(form.last_name)
+
+  const selectCols = 'id,patient_uid,collection_date,submission_timestamp,created_at'
+
+  const pickUid = (rows: Array<{ patient_uid: string | null }>) => {
+    const uid = rows.find((r) => (r.patient_uid ?? '').trim().length > 0)?.patient_uid?.trim()
+    return uid ?? null
+  }
+
+  if (thaiid) {
+    const { data, error } = await supabase
+      .schema('core')
+      .from('patients_v2')
+      .select(selectCols)
+      .eq('thaiid', thaiid)
+      .order('collection_date', { ascending: false, nullsFirst: false })
+      .order('id', { ascending: false })
+      .limit(1)
+
+    if (error) throw new Error(`patients_v2 (thaiid lookup): ${error.message}`)
+    const uid = pickUid(data ?? [])
+    if (uid) return uid
+  }
+
+  if (hnNumber) {
+    const { data, error } = await supabase
+      .schema('core')
+      .from('patients_v2')
+      .select(selectCols)
+      .ilike('hn_number', hnNumber)
+      .order('collection_date', { ascending: false, nullsFirst: false })
+      .order('id', { ascending: false })
+      .limit(1)
+
+    if (error) throw new Error(`patients_v2 (hn lookup): ${error.message}`)
+    const uid = pickUid(data ?? [])
+    if (uid) return uid
+  }
+
+  if (firstName && lastName) {
+    const { data, error } = await supabase
+      .schema('core')
+      .from('patients_v2')
+      .select(selectCols)
+      .ilike('first_name', firstName)
+      .ilike('last_name', lastName)
+      .order('collection_date', { ascending: false, nullsFirst: false })
+      .order('id', { ascending: false })
+      .limit(1)
+
+    if (error) throw new Error(`patients_v2 (name lookup): ${error.message}`)
+    const uid = pickUid(data ?? [])
+    if (uid) return uid
+  }
+
+  return null
+}
+
 function buildDiagPayload(form: FormState) {
   const otherDiagnosisText = form.other_diagnosis_text.trim()
 
@@ -355,11 +419,14 @@ export default function QaCreateModal({ open, onClose, onCreated, editPatient, e
         if (diagErr) throw new Error(`patient_diagnosis_v2: ${diagErr.message}`)
       } else {
         // --- Create mode: INSERT patients_v2, then INSERT patient_diagnosis_v2 ---
+        const matchedPatientUid = await resolveExistingPatientUid(form)
+        const patientUidForInsert = matchedPatientUid ?? form.patient_uid ?? generatePatientUid()
+
         const { data: patientData, error: patErr } = await supabase
           .schema('core')
           .from('patients_v2')
           .insert({
-            patient_uid: form.patient_uid,
+            patient_uid: patientUidForInsert,
             form_submission_hash: `qa-manual-${Date.now()}-${Math.random().toString(36).slice(2)}`,
             submission_timestamp: new Date().toISOString(),
             first_name: form.first_name.trim() || null,
