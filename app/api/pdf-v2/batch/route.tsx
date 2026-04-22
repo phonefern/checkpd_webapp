@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
       const { userDocId, record_id } = row;
 
       try {
-        const pdfBuffer = await generatePdfReportBuffer(userDocId, record_id);
+        const pdfBuffer = await generatePdfReportBuffer(userDocId, record_id, req.nextUrl.origin);
         zip.file(`report_${userDocId}_${record_id}.pdf`, pdfBuffer);
       } catch (err: any) {
         zip.file(

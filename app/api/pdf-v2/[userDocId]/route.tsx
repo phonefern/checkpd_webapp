@@ -30,7 +30,7 @@ export async function GET(
       return NextResponse.json({ error: 'กรุณาระบุ record_id' }, { status: 400 });
     }
 
-    const pdfBuffer = await generatePdfReportBuffer(userDocId, recordId);
+    const pdfBuffer = await generatePdfReportBuffer(userDocId, recordId, req.nextUrl.origin);
 
     return new Response(new Uint8Array(pdfBuffer), {
       status: 200,

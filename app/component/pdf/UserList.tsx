@@ -20,10 +20,7 @@ interface UserListProps {
     loading: boolean;
     searchQuery: string;
     selectedUserId: string;
-    screeningThaiIds: string[];
-    screeningCheckedThaiIds: string[];
-    screeningLoading: boolean;
-    screeningError: string | null;
+    className?: string;
     provinceFilter: string;
     dateFrom: string;
     dateTo: string;
@@ -50,10 +47,7 @@ export function UserList({
     loading,
     searchQuery,
     selectedUserId,
-    screeningThaiIds,
-    screeningCheckedThaiIds,
-    screeningLoading,
-    screeningError,
+    className,
     provinceFilter,
     dateFrom,
     dateTo,
@@ -72,9 +66,6 @@ export function UserList({
         }
         return <Badge variant="outline" className="font-normal">Users</Badge>;
     };
-
-    const hasScreeningThaiId = (thaiid?: string) => !!thaiid && screeningThaiIds.includes(thaiid);
-    const isScreeningChecked = (thaiid?: string) => !!thaiid && screeningCheckedThaiIds.includes(thaiid);
 
     const hasActiveFilter = !!(provinceFilter || dateFrom || dateTo);
 
@@ -105,7 +96,7 @@ export function UserList({
     };
 
     return (
-        <Card className="lg:col-span-2">
+        <Card className={className}>
             <CardHeader>
                 <div className="flex justify-between items-center">
                     <div>
@@ -120,13 +111,6 @@ export function UserList({
                             ? `${paginationInfo.totalItems} / ${users.length} รายการ`
                             : `${users.length} รายการทั้งหมด`}
                     </Badge>
-                </div>
-                <div className="text-xs text-muted-foreground">
-                    {screeningLoading
-                        ? "กำลังโหลดสถานะ screening..."
-                        : screeningError
-                            ? `โหลดสถานะ screening ไม่สำเร็จ: ${screeningError}`
-                            : "สถานะ screening อ้างอิงจากตาราง pd_screenings (Supabase) โดยเทียบด้วย thaiid"}
                 </div>
             </CardHeader>
 
@@ -225,7 +209,6 @@ export function UserList({
                                     <TableHead>อายุ</TableHead>
                                     <TableHead>เลขบัตรประชาชน</TableHead>
                                     <TableHead>จังหวัด</TableHead>
-                                    <TableHead>Screening</TableHead>
                                     <TableHead>Source</TableHead>
                                     <TableHead>วันที่สร้าง</TableHead>
                                     <TableHead className="w-[100px]">QA</TableHead>
@@ -266,19 +249,6 @@ export function UserList({
                                                         {user.liveAddress}
                                                     </span>
                                                 ) : "-"}
-                                            </TableCell>
-                                            <TableCell className="font-sarabun">
-                                                {!user.thaiId ? (
-                                                    <Badge variant="outline" className="font-normal">-</Badge>
-                                                ) : !isScreeningChecked(user.thaiId) ? (
-                                                    <Badge variant="outline" className="font-normal">
-                                                        {screeningLoading ? "..." : "-"}
-                                                    </Badge>
-                                                ) : hasScreeningThaiId(user.thaiId) ? (
-                                                    <Badge className="font-normal bg-emerald-600 hover:bg-emerald-600">มี</Badge>
-                                                ) : (
-                                                    <Badge variant="outline" className="font-normal">ไม่มี</Badge>
-                                                )}
                                             </TableCell>
                                             <TableCell>{getSourceBadge(user.source)}</TableCell>
                                             <TableCell className="text-sm text-muted-foreground font-sarabun">

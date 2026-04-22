@@ -19,19 +19,58 @@ const DOT_LINE =
 const FOOTER_NOTE =
   'การประเมินด้วยแบบคัดกรองความเสี่ยงของการเกิดโรคพาร์กินสันนี้ เป็นการประเมินด้วยค่าทางสถิติและการวิเคราะห์ด้วยปัญญาประดิษฐ์ โดยทางทีมผู้วิจัยได้ทำการทดสอบความเที่ยงตรงและแม่นยำของแบบคัดกรองพบมีความแม่นยำในระดับสูงในการคัดแยกผู้ป่วยพาร์กินสัน แต่อย่างไรก็ตามการวินิจฉัยโรคพาร์กินสันในปัจจุบันยังอ้างอิงตามเกณฑ์การตรวจวินิจฉัยโดยแพทย์ ดังนั้น แบบคัดกรองความเสี่ยงของการเกิดโรคพาร์กินสันนี้ ยังไม่สามารถทดแทนการตรวจวินิจฉัยโดยแพทย์ได้ ดังนั้น หากท่านมีความเสี่ยงหรือมีข้อสงสัยหรือได้รับคำแนะนำให้พบแพทย์เพื่อรับการตรวจวินิจฉัยเพิ่มเติม ควรพบแพทย์เพื่อรับการปรึกษาเพิ่มเติมต่อไป';
 
-function loadJpegAsDataUri(...segments: string[]) {
-  try {
-    const filePath = path.join(process.cwd(), ...segments);
-    const base64 = fs.readFileSync(filePath).toString('base64');
-    return `data:image/jpeg;base64,${base64}`;
-  } catch (error) {
-    console.error('Failed to load PDF image asset:', segments.join('/'), error);
-    return null;
-  }
+const imageCache = new Map<string, string | null>();
+
+function toMimeType(fileName: string) {
+  const ext = path.extname(fileName).toLowerCase();
+  if (ext === '.png') return 'image/png';
+  if (ext === '.webp') return 'image/webp';
+  return 'image/jpeg';
 }
 
-const HEADER_IMG = loadJpegAsDataUri('img', 'header', 'pdf_header.jpg');
-const FOOTER_IMG = loadJpegAsDataUri('img', 'footer', 'pdf_footer.jpg');
+function normalizeBaseUrl(baseUrl?: string | null) {
+  if (!baseUrl) return null;
+  return baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+}
+
+function loadPdfImage(relativePath: string, baseUrl?: string | null) {
+  const cacheKey = `${relativePath}|${baseUrl ?? ''}`;
+  const cached = imageCache.get(cacheKey);
+  if (cached !== undefined) return cached;
+
+  const segments = relativePath.split('/').filter(Boolean);
+  const rootCandidates = Array.from(
+    new Set([process.cwd(), process.env.LAMBDA_TASK_ROOT].filter(Boolean) as string[])
+  );
+
+  const localCandidates = rootCandidates.flatMap((root) => [
+    path.join(root, 'img', ...segments),
+    path.join(root, 'public', 'img', ...segments),
+  ]);
+
+  for (const filePath of localCandidates) {
+    try {
+      if (!fs.existsSync(filePath)) continue;
+      const base64 = fs.readFileSync(filePath).toString('base64');
+      const dataUri = `data:${toMimeType(filePath)};base64,${base64}`;
+      imageCache.set(cacheKey, dataUri);
+      return dataUri;
+    } catch (error) {
+      console.error('Failed to read PDF image asset:', filePath, error);
+    }
+  }
+
+  const normalizedBaseUrl = normalizeBaseUrl(baseUrl);
+  if (normalizedBaseUrl) {
+    const remoteUrl = `${normalizedBaseUrl}/img/${relativePath}`;
+    imageCache.set(cacheKey, remoteUrl);
+    return remoteUrl;
+  }
+
+  console.error('PDF image asset not found:', relativePath);
+  imageCache.set(cacheKey, null);
+  return null;
+}
 
 export const QUESTION_LIST = [
   '1. ท่านเคยมีอาการสั่นที่มือ หรือขา โดยมีอาการขณะพักหรืออยู่เฉยๆ',
@@ -63,6 +102,7 @@ export type PdfReportProps = {
     date: string;
   };
   recordData: Record<string, any>;
+  assetBaseUrl?: string | null;
 };
 
 function formatThaiDate(dateStr: string) {
@@ -127,7 +167,11 @@ function TestSection({
   );
 }
 
-export function PdfReportDocument({ info, recordData }: PdfReportProps) {
+export function PdfReportDocument({
+  info,
+  recordData,
+  assetBaseUrl,
+}: PdfReportProps) {
   const questionnaire = recordData.questionnaire?.data?.split(',') || [];
   const tapCountLeft = recordData.dualtap?.data?.score ?? null;
   const tapCountRight = recordData.dualtapright?.data?.score ?? null;
@@ -148,11 +192,13 @@ export function PdfReportDocument({ info, recordData }: PdfReportProps) {
   const diagnose = recordData.diagnose;
   const hasVoice = Boolean(recordData.voiceAhh || recordData.voiceYPL);
   const hasQuestionnaire = Boolean(recordData.questionnaire);
+  const headerImageSrc = loadPdfImage('header/pdf_header.jpg', assetBaseUrl);
+  const footerImageSrc = loadPdfImage('footer/pdf_footer.jpg', assetBaseUrl);
 
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        {HEADER_IMG ? <Image src={HEADER_IMG} style={styles.headerImage} /> : null}
+        {headerImageSrc ? <Image src={headerImageSrc} style={styles.headerImage} /> : null}
 
         <View style={styles.section}>
           <Text>ชื่อ นามสกุล {info.name}</Text>
@@ -260,14 +306,14 @@ export function PdfReportDocument({ info, recordData }: PdfReportProps) {
           </Text>
         </View>
 
-        {FOOTER_IMG ? <Image src={FOOTER_IMG} style={styles.footerImage} /> : null}
+        {footerImageSrc ? <Image src={footerImageSrc} style={styles.footerImage} /> : null}
         <Text style={[styles.note, styles.bold]}>หมายเหตุ</Text>
         <Text style={styles.noteBody}>{FOOTER_NOTE}</Text>
       </Page>
 
       {questionnaire.length > 0 ? (
         <Page size="A4" style={styles.page}>
-          {HEADER_IMG ? <Image src={HEADER_IMG} style={styles.headerImage} /> : null}
+          {headerImageSrc ? <Image src={headerImageSrc} style={styles.headerImage} /> : null}
           <Text style={[styles.section]}>
             แบบประเมินอาการโรคพาร์กินสัน 20 ข้อ
           </Text>
@@ -284,7 +330,7 @@ export function PdfReportDocument({ info, recordData }: PdfReportProps) {
             );
           })}
 
-          {FOOTER_IMG ? <Image src={FOOTER_IMG} style={styles.footerImage} /> : null}
+          {footerImageSrc ? <Image src={footerImageSrc} style={styles.footerImage} /> : null}
           <Text style={[styles.note]}>หมายเหตุ</Text>
           <Text style={styles.noteBody}>{FOOTER_NOTE}</Text>
         </Page>
