@@ -106,7 +106,7 @@ type QaPdfDocumentProps = {
 }
 
 const TYPOGRAPHY = {
-  baseFontSize: 11,
+  baseFontSize: 10,
   titleFontSize: 11,
   lineHeight: 1.2,
   checkMarkFontSize: 10,
