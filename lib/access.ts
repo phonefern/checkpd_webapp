@@ -61,9 +61,9 @@ export const APP_ROLE_LABELS: Record<AppRole, string> = {
 
 export const ROLE_ACCESS: Record<AppRole, AppFeature[]> = {
   super_admin: ["dashboard", "admin", "users", "storage", "qa", "pdf", "tracking", "papers", "export", "event", "log"],
-  admin: ["dashboard", "users", "tracking", "storage", "qa", "papers", "export", "event", "log"],
-  doctor: ["dashboard", "users", "storage", "qa", "pdf"],
-  medical_staff: ["users", "qa"],
+  admin: ["dashboard", "users", "tracking", "storage", "pdf", "qa", "papers", "export", "event", "log"],
+  doctor: ["dashboard", "users", "qa", "pdf"],
+  medical_staff: [ "dashboard", "users", "qa", "pdf"],
 };
 
 const FEATURE_ROUTE_PREFIXES: Array<{ prefix: string; feature: AppFeature }> = [

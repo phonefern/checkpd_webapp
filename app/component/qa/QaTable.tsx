@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { QaRow, QaPatient, hasQaGp2, isQaDiagnosed } from './types'
 import { Button } from '@/components/ui/button'
 import {
@@ -18,12 +19,17 @@ interface QaTableProps {
   role: AppRole | null
   onAssess: (patient: QaPatient) => void
   onEdit: (patient: QaPatient) => void
+  onQuickDiag: (patientId: number, condition: 'pd' | 'ctrl' | 'pdm' | 'other' | '-') => Promise<void>
   onDelete: (patientId: number, name: string) => void
   onDetail: (row: QaRow) => void
   onAddVisit: (patient: QaPatient) => void
 }
 
-export default function QaTable({ rows, role, onAssess, onEdit, onDelete, onDetail, onAddVisit }: QaTableProps) {
+export default function QaTable({ rows, role, onAssess, onEdit, onQuickDiag, onDelete, onDetail, onAddVisit }: QaTableProps) {
+  const [focusedDiagRowId, setFocusedDiagRowId] = useState<number | null>(null)
+  const [savingDiagRowId, setSavingDiagRowId] = useState<number | null>(null)
+  const useModalForDiag = role === 'doctor' || role === 'admin' || role === 'super_admin'
+
   if (rows.length === 0) {
     return (
       <div className="text-muted-foreground border rounded p-6 text-center">
@@ -44,10 +50,7 @@ export default function QaTable({ rows, role, onAssess, onEdit, onDelete, onDeta
             <th className="px-3 py-2 text-center font-medium">Age</th>
             <th className="px-3 py-2 text-left font-medium">Province</th>
             <th className="px-3 py-2 text-left font-medium">Collection date</th>
-            <th className="px-3 py-2 text-center font-medium">BMI</th>
             <th className="px-3 py-2 text-left font-medium">Condition</th>
-            <th className="px-3 py-2 text-center font-medium">H&amp;Y</th>
-            <th className="px-3 py-2 text-left font-medium">Disease duration</th>
             <th className="px-3 py-2 text-center font-medium">GP2</th>
             <th className="px-3 py-2 text-center font-medium">Diag Status</th>
             <th className="px-3 py-2 text-right font-medium">Actions</th>
@@ -64,7 +67,12 @@ export default function QaTable({ rows, role, onAssess, onEdit, onDelete, onDeta
             const submissionTimeLabel = formatVisitCreatedAt(p.submission_timestamp ?? p.created_at)
 
             return (
-              <tr key={p.id} className="hover:bg-muted/30 transition-colors">
+              <tr
+                key={p.id}
+                className={`transition-colors ${
+                  focusedDiagRowId === p.id ? 'bg-cyan-50/70 hover:bg-cyan-50/80' : 'hover:bg-muted/30'
+                }`}
+              >
                 <td className="px-3 py-2 font-mono text-xs text-muted-foreground">{p.id}</td>
                 <td className="px-3 py-2 text-center">
                   <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700">
@@ -78,7 +86,15 @@ export default function QaTable({ rows, role, onAssess, onEdit, onDelete, onDeta
                     </div>
                   )}
                 </td>
-                <td className="px-3 py-2 whitespace-nowrap">{p.first_name} {p.last_name}</td>
+                <td className="px-3 py-2 whitespace-nowrap">
+                  <span>{p.first_name} {p.last_name}</span>
+                  {row.has_checkpd && (
+                    <span
+                      className="ml-2 inline-block h-1.5 w-1.5 rounded-full bg-emerald-500 align-middle shadow-[0_0_0_2px_rgba(16,185,129,0.18)] motion-safe:animate-pulse [animation-duration:2.2s]"
+                      title="มีข้อมูล CheckPD"
+                    />
+                  )}
+                </td>
                 <td className="px-3 py-2 font-mono text-xs">{p.hn_number ?? '-'}</td>
                 <td className="px-3 py-2 text-center">{p.age ?? '-'}</td>
                 <td className="px-3 py-2">{p.province ?? '-'}</td>
@@ -86,10 +102,7 @@ export default function QaTable({ rows, role, onAssess, onEdit, onDelete, onDeta
                   <div>{p.collection_date ?? '-'}</div>
                   {submissionTimeLabel && <div className="text-[10px] text-muted-foreground">{submissionTimeLabel}</div>}
                 </td>
-                <td className="px-3 py-2 text-center">{p.bmi != null ? Number(p.bmi).toFixed(1) : '-'}</td>
                 <td className="px-3 py-2">{conditionLabel}</td>
-                <td className="px-3 py-2 text-center">{diag?.hy_stage ?? '-'}</td>
-                <td className="px-3 py-2 text-center">{diag?.disease_duration ?? '-'}</td>
                 <td className="px-3 py-2 text-center">
                   {hasGp2Value ? (
                     <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
@@ -104,10 +117,65 @@ export default function QaTable({ rows, role, onAssess, onEdit, onDelete, onDeta
                     <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
                       วินิจฉัยแล้ว
                     </span>
+                  ) : useModalForDiag ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => {
+                        setFocusedDiagRowId(p.id)
+                        onEdit(p)
+                      }}
+                      className="h-8 rounded-full bg-cyan-600 px-3 text-xs font-semibold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-cyan-700 hover:shadow-md motion-safe:animate-pulse"
+                    >
+                      Diag
+                    </Button>
                   ) : (
-                    <span className="inline-flex items-center rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-700">
-                      รอวินิจฉัย
-                    </span>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          type="button"
+                          size="sm"
+                          disabled={savingDiagRowId === p.id}
+                          onClick={() => setFocusedDiagRowId(p.id)}
+                          className="h-8 rounded-full bg-cyan-600 px-3 text-xs font-semibold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-cyan-700 hover:shadow-md motion-safe:animate-pulse disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {savingDiagRowId === p.id ? 'Saving...' : 'Diag'}
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="center" sideOffset={6} className="min-w-[140px]">
+                        <DropdownMenuLabel className="text-[11px] uppercase tracking-wide text-slate-500">
+                          Select Condition
+                        </DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        {([
+                          { value: 'pd', label: 'PD' },
+                          { value: 'ctrl', label: 'CTRL' },
+                          { value: 'pdm', label: 'PDM' },
+                          { value: 'other', label: 'OTHER' },
+                          { value: '-', label: '-' },
+                        ] as const).map((option) => (
+                          <DropdownMenuItem
+                            key={option.value}
+                            onClick={async () => {
+                              const isConfirmed = window.confirm(
+                                `ยืนยันการวินิจฉัยเป็น ${option.label} ใช่หรือไม่?`
+                              )
+                              if (!isConfirmed) return
+                              setFocusedDiagRowId(p.id)
+                              setSavingDiagRowId(p.id)
+                              try {
+                                await onQuickDiag(p.id, option.value)
+                              } finally {
+                                setSavingDiagRowId(null)
+                              }
+                            }}
+                            className="cursor-pointer"
+                          >
+                            {option.label}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   )}
                 </td>
                 <td className="px-3 py-2 text-right">
@@ -196,3 +264,4 @@ function formatVisitCreatedAt(value: string | null | undefined): string | null {
   if (Number.isNaN(date.getTime())) return null
   return `submitted ${date.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}`
 }
+

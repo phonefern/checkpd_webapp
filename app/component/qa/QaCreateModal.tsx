@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { QA_HY_OPTIONS, QaPatient, QaDiagnosisRow, normalizeQaConditionValue } from './types'
+import { QA_HY_OPTIONS, QaPatient, QaDiagnosisRow } from './types'
 import type { AppRole } from '@/lib/access'
 import { provinceOptions } from '@/app/types/user'
 import {
@@ -22,6 +22,7 @@ const CONDITION_OPTIONS = [
   { value: 'pdm', label: 'PDM' },
   { value: 'other', label: 'OTHER' },
   { value: 'ctrl', label: 'CTRL' },
+  { value: '-', label: '-' },
 ]
 
 const DIAGNOSIS_GUIDES = [
@@ -48,6 +49,105 @@ const EPWORTH_GUIDES = [
   '7-9: Borderline',
   '>9: Severe',
 ]
+
+type AssessmentKind = 'moca' | 'hamd' | 'mds' | 'epworth' | 'smell' | 'tmse' | 'rbd' | 'rome4'
+
+type AssessmentScores = {
+  moca: number | null
+  hamd: number | null
+  hamdSeverity: string | null
+  mds: number | null
+  epworth: number | null
+  smell: number | null
+  tmse: number | null
+  rbd: number | null
+  rome4: number | null
+}
+
+type AssessmentCategoryTone = 'muted' | 'good' | 'warn' | 'bad'
+
+type AssessmentThreshold = {
+  max?: number
+  min?: number
+  label: string
+  tone: AssessmentCategoryTone
+}
+
+type AssessmentCategory = {
+  label: string
+  tone: string
+}
+
+const EMPTY_ASSESSMENTS: AssessmentScores = {
+  moca: null,
+  hamd: null,
+  hamdSeverity: null,
+  mds: null,
+  epworth: null,
+  smell: null,
+  tmse: null,
+  rbd: null,
+  rome4: null,
+}
+
+const ASSESSMENT_MAX_SCORES: Record<AssessmentKind, number> = {
+  moca: 30,
+  hamd: 52,
+  mds: 199,
+  epworth: 24,
+  smell: 16,
+  tmse: 30,
+  rbd: 100,
+  rome4: 6,
+}
+
+const ASSESSMENT_THRESHOLDS: Record<AssessmentKind, AssessmentThreshold[]> = {
+  hamd: [
+    { max: 7, label: 'No depression', tone: 'good' },
+    { max: 12, label: 'Mild depression', tone: 'warn' },
+    { max: 17, label: 'Moderate depression', tone: 'bad' },
+    { max: 29, label: 'Major depression', tone: 'bad' },
+    { min: 30, label: 'Severe depression', tone: 'bad' },
+  ],
+  epworth: [
+    { max: 6, label: 'Normal', tone: 'good' },
+    { max: 9, label: 'Borderline', tone: 'warn' },
+    { min: 10, label: 'Excessive daytime sleepiness', tone: 'bad' },
+  ],
+  rbd: [
+    { max: 16, label: 'Normal', tone: 'good' },
+    { min: 17, label: 'Suspected RBD', tone: 'bad' },
+  ],
+  rome4: [
+    { max: 1, label: 'Normal', tone: 'good' },
+    { min: 2, label: 'Functional constipation', tone: 'bad' },
+  ],
+  mds: [
+    { max: 3, label: 'Normal', tone: 'good' },
+    { max: 6, label: 'Borderline', tone: 'warn' },
+    { min: 7, label: 'Mild parkinsonian sign', tone: 'bad' },
+  ],
+  smell: [
+    { max: 9, label: 'Hyposmia', tone: 'bad' },
+    { min: 10, label: 'Normal', tone: 'good' },
+  ],
+  moca: [
+    { max: 17, label: 'Severe cognitive impairment', tone: 'bad' },
+    { max: 25, label: 'Mild cognitive impairment', tone: 'warn' },
+    { min: 26, label: 'Normal', tone: 'good' },
+  ],
+  tmse: [
+    { max: 23, label: 'Cognitive impairment', tone: 'bad' },
+    { min: 24, label: 'Normal', tone: 'good' },
+  ],
+}
+
+const ASSESSMENT_TONE_STYLES = {
+  muted: 'inline-flex max-w-full items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] sm:text-xs font-medium leading-tight text-slate-500 break-words',
+  good: 'inline-flex max-w-full items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] sm:text-xs font-medium leading-tight text-emerald-700 break-words',
+  warn: 'inline-flex max-w-full items-center rounded-full bg-orange-50 px-2 py-0.5 text-[10px] sm:text-xs font-medium leading-tight text-orange-700 break-words',
+  bad: 'inline-flex max-w-full items-center rounded-full bg-rose-50 px-2 py-0.5 text-[10px] sm:text-xs font-medium leading-tight text-rose-700 break-words',
+}
 
 interface FormState {
   patient_uid: string
@@ -159,11 +259,75 @@ function generatePatientUid() {
   return `${randomHex()}${randomHex()}-${randomHex()}-4${randomHex().slice(0, 3)}-a${randomHex().slice(0, 3)}-${randomHex()}${randomHex()}${randomHex()}`
 }
 
+const normalizeIdentityValue = (value: string | null | undefined) => (value ?? '').trim()
+
+async function resolveExistingPatientUid(form: FormState): Promise<string | null> {
+  const thaiid = normalizeIdentityValue(form.thaiid)
+  const hnNumber = normalizeIdentityValue(form.hn_number)
+  const firstName = normalizeIdentityValue(form.first_name)
+  const lastName = normalizeIdentityValue(form.last_name)
+
+  const selectCols = 'id,patient_uid,collection_date,submission_timestamp,created_at'
+
+  const pickUid = (rows: Array<{ patient_uid: string | null }>) => {
+    const uid = rows.find((r) => (r.patient_uid ?? '').trim().length > 0)?.patient_uid?.trim()
+    return uid ?? null
+  }
+
+  if (thaiid) {
+    const { data, error } = await supabase
+      .schema('core')
+      .from('patients_v2')
+      .select(selectCols)
+      .eq('thaiid', thaiid)
+      .order('collection_date', { ascending: false, nullsFirst: false })
+      .order('id', { ascending: false })
+      .limit(1)
+
+    if (error) throw new Error(`patients_v2 (thaiid lookup): ${error.message}`)
+    const uid = pickUid(data ?? [])
+    if (uid) return uid
+  }
+
+  if (hnNumber) {
+    const { data, error } = await supabase
+      .schema('core')
+      .from('patients_v2')
+      .select(selectCols)
+      .ilike('hn_number', hnNumber)
+      .order('collection_date', { ascending: false, nullsFirst: false })
+      .order('id', { ascending: false })
+      .limit(1)
+
+    if (error) throw new Error(`patients_v2 (hn lookup): ${error.message}`)
+    const uid = pickUid(data ?? [])
+    if (uid) return uid
+  }
+
+  if (firstName && lastName) {
+    const { data, error } = await supabase
+      .schema('core')
+      .from('patients_v2')
+      .select(selectCols)
+      .ilike('first_name', firstName)
+      .ilike('last_name', lastName)
+      .order('collection_date', { ascending: false, nullsFirst: false })
+      .order('id', { ascending: false })
+      .limit(1)
+
+    if (error) throw new Error(`patients_v2 (name lookup): ${error.message}`)
+    const uid = pickUid(data ?? [])
+    if (uid) return uid
+  }
+
+  return null
+}
+
 function buildDiagPayload(form: FormState) {
   const otherDiagnosisText = form.other_diagnosis_text.trim()
 
   return {
-    condition: form.condition || (otherDiagnosisText ? 'other' : null),
+    condition: form.condition || null,
     hy_stage: form.hy_stage || null,
     disease_duration: form.disease_duration.trim() || null,
     other_diagnosis_text: otherDiagnosisText || null,
@@ -208,8 +372,13 @@ interface Props {
 
 export default function QaCreateModal({ open, onClose, onCreated, editPatient, editDiag, prefillPatient, prefillData, role }: Props) {
   const isEdit = !!editPatient
+  const isDoctorEdit = isEdit && role === 'doctor'
+  const editPatientId = editPatient?.id ?? null
   const canEditDiag = role !== 'medical_staff'
   const [form, setForm] = useState<FormState>(EMPTY)
+  const [assessments, setAssessments] = useState<AssessmentScores>(EMPTY_ASSESSMENTS)
+  const [loadingAssessments, setLoadingAssessments] = useState(false)
+  const [assessmentError, setAssessmentError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -241,7 +410,7 @@ export default function QaCreateModal({ open, onClose, onCreated, editPatient, e
         pr_supine: editPatient.pr_supine != null ? String(editPatient.pr_supine) : '',
         bp_upright: editPatient.bp_upright ?? '',
         pr_upright: editPatient.pr_upright != null ? String(editPatient.pr_upright) : '',
-        condition: normalizeQaConditionValue(editDiag?.condition ?? (editDiag?.other_diagnosis_text ? 'other' : '')),
+        condition: editDiag?.condition ?? '',
         hy_stage: editDiag?.hy_stage ?? '',
         disease_duration: editDiag?.disease_duration ?? '',
         other_diagnosis_text: editDiag?.other_diagnosis_text ?? '',
@@ -304,6 +473,68 @@ export default function QaCreateModal({ open, onClose, onCreated, editPatient, e
     }
   }, [open, editPatient, editDiag, prefillPatient, prefillData])
 
+  useEffect(() => {
+    if (!open || !isDoctorEdit || !editPatientId) {
+      setAssessments(EMPTY_ASSESSMENTS)
+      setLoadingAssessments(false)
+      setAssessmentError(null)
+      return
+    }
+
+    let alive = true
+    setLoadingAssessments(true)
+    setAssessmentError(null)
+
+    Promise.all([
+      supabase.schema('core').from('moca_v2').select('total_score').eq('patient_id', editPatientId).maybeSingle(),
+      supabase.schema('core').from('hamd_v2').select('total_score,severity_level').eq('patient_id', editPatientId).maybeSingle(),
+      supabase.schema('core').from('mds_updrs_v2').select('total_score').eq('patient_id', editPatientId).maybeSingle(),
+      supabase.schema('core').from('epworth_v2').select('total_score').eq('patient_id', editPatientId).maybeSingle(),
+      supabase.schema('core').from('smell_test_v2').select('total_score').eq('patient_id', editPatientId).maybeSingle(),
+      supabase.schema('core').from('tmse_v2').select('total_score').eq('patient_id', editPatientId).maybeSingle(),
+      supabase.schema('core').from('rbd_questionnaire_v2').select('total_score').eq('patient_id', editPatientId).maybeSingle(),
+      supabase.schema('core').from('rome4_v2').select('total_score').eq('patient_id', editPatientId).maybeSingle(),
+    ])
+      .then(([mocaRes, hamdRes, mdsRes, epworthRes, smellRes, tmseRes, rbdRes, rome4Res]) => {
+        if (!alive) return
+
+        const errors = [mocaRes, hamdRes, mdsRes, epworthRes, smellRes, tmseRes, rbdRes, rome4Res]
+          .map((res, i) => (res.error ? `table[${i}]: ${res.error.message}` : null))
+          .filter(Boolean)
+
+        if (errors.length > 0) {
+          setAssessmentError(errors.join(', '))
+          setAssessments(EMPTY_ASSESSMENTS)
+          return
+        }
+
+        const hamdData = hamdRes.data as { total_score: number | null; severity_level: string | null } | null
+        setAssessments({
+          moca: (mocaRes.data as { total_score: number | null } | null)?.total_score ?? null,
+          hamd: hamdData?.total_score ?? null,
+          hamdSeverity: hamdData?.severity_level ?? null,
+          mds: (mdsRes.data as { total_score: number | null } | null)?.total_score ?? null,
+          epworth: (epworthRes.data as { total_score: number | null } | null)?.total_score ?? null,
+          smell: (smellRes.data as { total_score: number | null } | null)?.total_score ?? null,
+          tmse: (tmseRes.data as { total_score: number | null } | null)?.total_score ?? null,
+          rbd: (rbdRes.data as { total_score: number | null } | null)?.total_score ?? null,
+          rome4: (rome4Res.data as { total_score: number | null } | null)?.total_score ?? null,
+        })
+      })
+      .catch((err) => {
+        if (!alive) return
+        setAssessmentError(err instanceof Error ? err.message : String(err))
+        setAssessments(EMPTY_ASSESSMENTS)
+      })
+      .finally(() => {
+        if (alive) setLoadingAssessments(false)
+      })
+
+    return () => {
+      alive = false
+    }
+  }, [open, isDoctorEdit, editPatientId])
+
   const handleSubmit = async () => {
     if (!form.first_name.trim() || !form.last_name.trim()) {
       setError('กรุณากรอกชื่อและนามสกุล')
@@ -355,11 +586,14 @@ export default function QaCreateModal({ open, onClose, onCreated, editPatient, e
         if (diagErr) throw new Error(`patient_diagnosis_v2: ${diagErr.message}`)
       } else {
         // --- Create mode: INSERT patients_v2, then INSERT patient_diagnosis_v2 ---
+        const matchedPatientUid = await resolveExistingPatientUid(form)
+        const patientUidForInsert = matchedPatientUid ?? form.patient_uid ?? generatePatientUid()
+
         const { data: patientData, error: patErr } = await supabase
           .schema('core')
           .from('patients_v2')
           .insert({
-            patient_uid: form.patient_uid,
+            patient_uid: patientUidForInsert,
             form_submission_hash: `qa-manual-${Date.now()}-${Math.random().toString(36).slice(2)}`,
             submission_timestamp: new Date().toISOString(),
             first_name: form.first_name.trim() || null,
@@ -427,6 +661,50 @@ export default function QaCreateModal({ open, onClose, onCreated, editPatient, e
         </DialogHeader>
 
         <div className="grid grid-cols-2 gap-4 py-2">
+          {isDoctorEdit && (
+            <>
+              <div className="col-span-2 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-600">
+                  <span className="font-semibold text-slate-900">
+                    {form.first_name || '-'} {form.last_name || '-'}
+                  </span>
+                  <span>HN: {form.hn_number || '-'}</span>
+                  <span>Age: {form.age || '-'}</span>
+                  <span>Collection: {form.collection_date || '-'}</span>
+                </div>
+              </div>
+
+              <div className="col-span-2 border-t pt-2">
+                <p className="text-sm font-medium text-muted-foreground">Assessment Scores</p>
+              </div>
+
+              {loadingAssessments ? (
+                <div className="col-span-2 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+                  Loading assessment scores...
+                </div>
+              ) : (
+                <div className="col-span-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  <AssessmentScoreCard kind="mds" label="MDS-UPDRS" score={assessments.mds} maxScore={ASSESSMENT_MAX_SCORES.mds} />
+                  <AssessmentScoreCard kind="moca" label="MoCA" score={assessments.moca} maxScore={ASSESSMENT_MAX_SCORES.moca} />
+                  <AssessmentScoreCard kind="tmse" label="TMSE" score={assessments.tmse} maxScore={ASSESSMENT_MAX_SCORES.tmse} />
+                  <AssessmentScoreCard kind="hamd" label="HAMD" score={assessments.hamd} maxScore={ASSESSMENT_MAX_SCORES.hamd} suffix={assessments.hamdSeverity} />
+                  <AssessmentScoreCard kind="epworth" label="Epworth" score={assessments.epworth} maxScore={ASSESSMENT_MAX_SCORES.epworth} />
+                  <AssessmentScoreCard kind="smell" label="Smell Test" score={assessments.smell} maxScore={ASSESSMENT_MAX_SCORES.smell} />
+                  <AssessmentScoreCard kind="rbd" label="RBD Questionnaire" score={assessments.rbd} maxScore={ASSESSMENT_MAX_SCORES.rbd} />
+                  <AssessmentScoreCard kind="rome4" label="Rome IV" score={assessments.rome4} maxScore={ASSESSMENT_MAX_SCORES.rome4} />
+                </div>
+              )}
+
+              {assessmentError && (
+                <div className="col-span-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                  Unable to load assessment scores: {assessmentError}
+                </div>
+              )}
+            </>
+          )}
+
+          {!isDoctorEdit && (
+            <>
           {/* Patient info */}
           <div className="space-y-1">
             <Label>ชื่อ *</Label>
@@ -521,6 +799,8 @@ export default function QaCreateModal({ open, onClose, onCreated, editPatient, e
             <Label>PR Upright (/min)</Label>
             <Input type="number" value={form.pr_upright} onChange={(e) => set('pr_upright', e.target.value)} placeholder="ครั้ง/นาที" />
           </div>
+            </>
+          )}
 
           {/* Diagnosis */}
           <div className="col-span-2 border-t pt-2">
@@ -794,5 +1074,80 @@ export default function QaCreateModal({ open, onClose, onCreated, editPatient, e
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  )
+}
+
+function getAssessmentCategory(kind: AssessmentKind, score: number | null | undefined): AssessmentCategory {
+  if (score == null) return { label: 'No data', tone: ASSESSMENT_TONE_STYLES.muted }
+
+  const thresholds = ASSESSMENT_THRESHOLDS[kind]
+  if (!thresholds) return { label: String(score), tone: ASSESSMENT_TONE_STYLES.muted }
+
+  for (const threshold of thresholds) {
+    if (threshold.min != null && threshold.max != null) {
+      if (score >= threshold.min && score <= threshold.max) {
+        return { label: threshold.label, tone: ASSESSMENT_TONE_STYLES[threshold.tone] }
+      }
+      continue
+    }
+
+    if (threshold.max != null && score <= threshold.max) {
+      return { label: threshold.label, tone: ASSESSMENT_TONE_STYLES[threshold.tone] }
+    }
+
+    if (threshold.min != null && score >= threshold.min) {
+      return { label: threshold.label, tone: ASSESSMENT_TONE_STYLES[threshold.tone] }
+    }
+  }
+
+  return { label: String(score), tone: ASSESSMENT_TONE_STYLES.muted }
+}
+
+function progressColor(category: AssessmentCategory): string {
+  if (category.tone.includes('emerald') || category.tone.includes('green')) return 'bg-emerald-400'
+  if (category.tone.includes('amber') || category.tone.includes('orange')) return 'bg-orange-400'
+  if (category.tone.includes('rose') || category.tone.includes('red')) return 'bg-rose-400'
+  return 'bg-slate-300'
+}
+
+function AssessmentScoreCard({
+  kind,
+  label,
+  score,
+  maxScore,
+  suffix,
+}: {
+  kind: AssessmentKind
+  label: string
+  score: number | null | undefined
+  maxScore: number
+  suffix?: string | null
+}) {
+  const category = getAssessmentCategory(kind, score)
+  const pct = score != null && maxScore ? Math.min((score / maxScore) * 100, 100) : null
+
+  return (
+    <div className="rounded-xl bg-white p-4 shadow-sm">
+      <div className="flex items-start justify-between gap-2">
+        <div className="text-sm font-semibold text-slate-700">{label}</div>
+        <span className={category.tone}>{category.label}</span>
+      </div>
+
+      <div className="mt-3 flex items-baseline gap-2">
+        <span className="text-2xl font-bold text-slate-900">{score != null ? score : '-'}</span>
+        <span className="text-sm text-gray-400">/ {maxScore}</span>
+      </div>
+
+      {suffix && <div className="mt-1 text-xs text-gray-500">{suffix}</div>}
+
+      {pct != null && (
+        <div className="mt-3 h-1.5 w-full rounded-full bg-slate-100">
+          <div
+            className={`h-1.5 rounded-full transition-all ${progressColor(category)}`}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+      )}
+    </div>
   )
 }

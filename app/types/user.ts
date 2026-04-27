@@ -7,12 +7,23 @@ export type User = {
     prediction_risk: boolean | null
     recorder: string
     condition: string
+    perfixname?: string
+    bod?: string
+    phonenumber?: string
+    email?: string
+    liveaddress?: string
+    idcardaddress?: string
+    educationstatus?: string
+    maritalstatus?: string
+    ethnicity?: string
+    congenital_disease?: string
     province?: string
     region?: string
     gender?: string
     source?: string
     timestamp?: string
     last_update?: string
+    lastupdate?: string
     record_id?: string
     other?: string
     area?: string

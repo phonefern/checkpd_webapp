@@ -185,11 +185,11 @@ const QUESTIONS: QuestionDef[] = [
 ]
 
 function getSeverity(score: number) {
-  if (score <= 7)  return { text: 'ไม่มีภาวะซึมเศร้า (≤ 7)',          color: 'bg-green-50 text-green-800' }
-  if (score <= 12) return { text: 'ซึมเศร้าเล็กน้อย (8–12)',            color: 'bg-yellow-50 text-yellow-800' }
-  if (score <= 17) return { text: 'ซึมเศร้าปานกลาง (13–17)',           color: 'bg-orange-50 text-orange-800' }
-  if (score <= 29) return { text: 'ซึมเศร้าระดับรุนแรง (18–29)',       color: 'bg-red-50 text-red-800' }
-  return            { text: 'ซึมเศร้าระดับรุนแรงมาก (≥ 30)',           color: 'bg-red-100 text-red-900' }
+  if (score <= 7) return { text: 'ไม่มีภาวะซึมเศร้า (≤ 7)', color: 'bg-green-50 text-green-800' }
+  if (score <= 12) return { text: 'ซึมเศร้าเล็กน้อย (8–12)', color: 'bg-yellow-50 text-yellow-800' }
+  if (score <= 17) return { text: 'ซึมเศร้าปานกลาง (13–17)', color: 'bg-orange-50 text-orange-800' }
+  if (score <= 29) return { text: 'ซึมเศร้าระดับรุนแรง (18–29)', color: 'bg-red-50 text-red-800' }
+  return { text: 'ซึมเศร้าระดับรุนแรงมาก (≥ 30)', color: 'bg-red-100 text-red-900' }
 }
 
 function RadioQuestion({
@@ -198,7 +198,7 @@ function RadioQuestion({
   return (
     <div className="border rounded p-4 bg-white space-y-2">
       <p className="text-base font-medium">{q.title}</p>
-      {q.subtitle   && <p className="text-sm text-muted-foreground italic">{q.subtitle}</p>}
+      {q.subtitle && <p className="text-sm text-muted-foreground italic">{q.subtitle}</p>}
       {q.description && <p className="text-sm text-blue-700 bg-blue-50 rounded p-2">{q.description}</p>}
       <div className="space-y-2 pt-1">
         {q.options.map((opt) => (
@@ -282,11 +282,14 @@ export default function QaHamdForm({ open, patientId, onClose, onSaved }: Props)
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-h-[90vh] w-[95vw] sm:w-[90vw] lg:w-[84vw] sm:!max-w-[90vw] lg:!max-w-5xl overflow-y-auto p-4 sm:p-6">
+      <DialogContent
+        onInteractOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => e.preventDefault()}
+        className="max-h-[90vh] w-[95vw] sm:w-[90vw] lg:w-[84vw] sm:!max-w-[90vw] lg:!max-w-5xl overflow-y-auto p-4 sm:p-6">
         <DialogHeader><DialogTitle>HAM-D — Hamilton Depression Rating Scale</DialogTitle></DialogHeader>
 
         <div className="space-y-3 mt-2">
-          {QUESTIONS.map((q) => (
+          {QUESTIONS.filter((q) => q.key !== 'q17').map((q) => (
             <RadioQuestion key={q.key} q={q} value={form[q.key] as number} onChange={(v) => set(q.key, v)} />
           ))}
 
@@ -334,6 +337,11 @@ export default function QaHamdForm({ open, patientId, onClose, onSaved }: Props)
               </div>
             )}
           </div>
+
+          {/* Question 17: Insight */}
+          {QUESTIONS.filter((q) => q.key === 'q17').map((q) => (
+            <RadioQuestion key={q.key} q={q} value={form[q.key] as number} onChange={(v) => set(q.key, v)} />
+          ))}
         </div>
 
         <div className={`mt-4 rounded p-3 text-sm font-semibold ${severity.color}`}>
@@ -351,3 +359,4 @@ export default function QaHamdForm({ open, patientId, onClose, onSaved }: Props)
     </Dialog>
   )
 }
+

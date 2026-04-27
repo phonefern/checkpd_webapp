@@ -5,10 +5,11 @@ import { supabase } from '@/lib/supabase'
 import UserTable from '@/app/component/users/UserTable'
 import Pagination from '@/app/component/users/Pagination'
 import SearchFilters from '@/app/component/users/SearchFilters'
-import PatientHistoryModal from '@/app/component/users/PatientHistoryModal'
 import { User } from '@/app/types/user'
 import SidebarLayout from '@/app/component/layout/SidebarLayout'
 import { logActivity } from '@/lib/activityLog'
+import UserEditModal from '@/app/component/users/UserEditModal'
+import UserDetailModal from '@/app/component/users/UserDetailModal'
 
 export default function UsersClientPage() {
   const [users, setUsers] = useState<User[]>([])
@@ -18,7 +19,6 @@ export default function UsersClientPage() {
   const [endDate, setEndDate] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
-  const [editingId, setEditingId] = useState<string | null>(null)
   const [searchCondition, setSearchCondition] = useState('')
   const [searchRisk, setSearchRisk] = useState('')
   const [searchOther, setSearchOther] = useState('')
@@ -28,6 +28,7 @@ export default function UsersClientPage() {
   const [searchSource, setSearchSource] = useState('')
   const [searchProvince, setSearchProvince] = useState('')
   const [viewingUser, setViewingUser] = useState<User | null>(null)
+  const [editingUser, setEditingUser] = useState<User | null>(null)
   const [screeningThaiIds, setScreeningThaiIds] = useState<string[]>([])
   const itemsPerPage = 50
 
@@ -68,9 +69,9 @@ export default function UsersClientPage() {
     const { data, error, count } = await query
 
     if (error) {
-      console.error('❌ Error loading users:', error)
+      console.error('Error loading users:', error)
     } else {
-      setUsers(data || [])
+      setUsers((data ?? []) as User[])
       setTotalCount(count || 0)
 
       const thaiids = (data ?? []).map((u) => u.thaiid).filter((id): id is string => Boolean(id))
@@ -130,44 +131,12 @@ export default function UsersClientPage() {
     loadAreaOptions()
   }, [])
 
-  const handleConditionChange = (id: string, value: string) => {
-    setUsers((prev) => prev.map((user) => (user.id === id ? { ...user, condition: value || 'Not specified' } : user)))
-  }
-  const handleProvinceChange = (id: string, value: string) => {
-    setUsers((prev) => prev.map((user) => (user.id === id ? { ...user, province: value || null as any } : user)))
-  }
-  const handleOtherChange = (id: string, value: string) => {
-    setUsers((prev) => prev.map((user) => (user.id === id ? { ...user, other: value } : user)))
-  }
-  const handleAreaChange = (id: string, value: string) => {
-    setUsers((prev) => prev.map((user) => (user.id === id ? { ...user, area: value } : user)))
-  }
-
-  const handleSave = async (id: string, condition: string | null, province: string | undefined, other?: string, area?: string) => {
-    const { error: conditionError } = await supabase
-      .from('user_record_summary')
-      .update({ condition, other })
-      .eq('user_id', id)
-    const { error: provinceError } = await supabase
-      .from('users')
-      .update({ province: province || null, area: area || null })
-      .eq('id', id)
-    if (conditionError || provinceError) {
-      alert('Failed to update')
-    } else {
-      logActivity({ action: 'UPDATE', page: 'users', description: `อัปเดตข้อมูลผู้ป่วย ID: ${id}` })
-      alert('✅ Updated successfully')
-      fetchUsers()
-    }
-    setEditingId(null)
-  }
-
   const totalPages = Math.ceil(totalCount / itemsPerPage)
 
   return (
     <SidebarLayout activePath="/pages/users" mainClassName="bg-gray-50">
       <div className="mx-auto max-w-9xl p-6">
-        <h1 className="text-2xl font-semibold mb-4 text-gray-900">Patient Data Management System</h1>
+        <h1 className="mb-4 text-2xl font-semibold text-gray-900">Patient Data Management System</h1>
 
         <SearchFilters
           searchId={searchId}
@@ -198,24 +167,17 @@ export default function UsersClientPage() {
         />
 
         {loading ? (
-          <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500" />
+          <div className="flex h-64 items-center justify-center">
+            <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-t-2 border-blue-500" />
           </div>
         ) : (
           <>
             <UserTable
               users={users}
-              editingId={editingId}
               currentPage={currentPage}
               itemsPerPage={itemsPerPage}
-              handleConditionChange={handleConditionChange}
-              handleProvinceChange={handleProvinceChange}
-              handleOtherChange={handleOtherChange}
-              handleAreaChange={handleAreaChange}
-              handleSave={handleSave}
-              setEditingId={setEditingId}
+              onEdit={setEditingUser}
               onViewDetail={setViewingUser}
-              hasScreeningThaiId={(thaiid) => screeningThaiIds.includes(thaiid)}
             />
             <Pagination
               currentPage={currentPage}
@@ -227,24 +189,24 @@ export default function UsersClientPage() {
           </>
         )}
 
-        {viewingUser && (
-          <PatientHistoryModal
-            thaiid={viewingUser.thaiid}
-            userData={{
-              id: viewingUser.id,
-              firstname: viewingUser.firstname,
-              lastname: viewingUser.lastname,
-              age: viewingUser.age,
-              gender: viewingUser.gender,
-              province: viewingUser.province,
-              prediction_risk: viewingUser.prediction_risk,
-              condition: viewingUser.condition,
-              other: viewingUser.other,
-            }}
-            onClose={() => setViewingUser(null)}
-          />
-        )}
+        <UserEditModal
+          open={editingUser !== null}
+          user={editingUser}
+          onClose={() => setEditingUser(null)}
+          onSaved={(u) => {
+            logActivity({ action: 'UPDATE', page: 'users', description: `อัปเดตข้อมูลผู้ป่วย ID: ${u.id}` })
+            fetchUsers()
+          }}
+        />
+
+        <UserDetailModal
+          open={viewingUser !== null}
+          user={viewingUser}
+          onClose={() => setViewingUser(null)}
+          hasScreeningThaiId={(thaiid) => screeningThaiIds.includes(thaiid)}
+        />
       </div>
     </SidebarLayout>
   )
 }
+

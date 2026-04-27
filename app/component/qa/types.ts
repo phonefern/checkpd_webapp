@@ -66,10 +66,36 @@ export type QaScoreRow = { patient_id: number; total_score: number | null }
 export type QaHamdRow = { patient_id: number; total_score: number | null; severity_level: string | null }
 export type QaConditionFilter = '' | 'pd' | 'pdm' | 'other' | 'ctrl'
 
+export type CheckpdRecordSummary = {
+  user_id: string
+  recorder: string
+  record_id: string | null
+  source_collection: string | null
+  prediction_risk: boolean | null
+  condition: string | null
+  condition_status: string | null
+  condition_changed_at: string | null
+  test_result: string | null
+  other: string | null
+  tremor_resting_hz: number | null
+  tremor_postural_hz: number | null
+  balance_hz: number | null
+  gait_hz: number | null
+  dual_tap_left_score: number | null
+  dual_tap_right_score: number | null
+  questionnaire_total: number | null
+  voice_ahh_ts: string | null
+  voice_ypl_ts: string | null
+  last_record_at: string | null
+  updated_at: string | null
+  thaiid: string | null
+}
+
 export type QaRow = {
   patient: QaPatient
   diag: QaDiagnosisRow | undefined
   conditionLabel: string
+  has_checkpd: boolean
   moca: QaScoreRow | undefined
   hamd: QaHamdRow | undefined
   mds: QaScoreRow | undefined
@@ -86,19 +112,23 @@ export function normalizeQaConditionValue(value?: string | null): QaConditionFil
   const raw = normalize(value)
 
   if (!raw) return ''
+  if (raw === '-') return ''
   if (raw === 'pd' || raw.includes('parkinson') || raw.includes('newly diagnosis')) return 'pd'
   if (raw === 'pdm' || raw.includes('prodromal') || raw.includes('high risk') || raw.includes('high-risk')) return 'pdm'
   if (raw === 'ctrl' || raw.includes('healthy') || raw.includes('control') || raw === 'normal') return 'ctrl'
   if (raw === 'other' || raw.includes('other diagnosis')) return 'other'
 
-  return 'other'
+  return ''
 }
 
 export function formatQaConditionLabel(diag?: QaDiagnosisRow): string {
+  const raw = normalize(diag?.condition)
+  if (!raw || raw === '-') return '-'
+
   const normalized = normalizeQaConditionValue(diag?.condition)
   if (normalized) return normalized.toUpperCase()
 
-  return '-'
+  return diag?.condition?.trim() || '-'
 }
 
 export function isQaDiagnosed(diag?: QaDiagnosisRow): boolean {

@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import path from 'path'
 import fs from 'fs'
 import { getBrowser, resetBrowser } from '@/lib/pdfBrowser'
 import { checkRateLimit, getClientIdentifier } from '@/lib/rateLimit'
+import { supabaseServer as supabase } from '@/lib/supabase-server'
 
 export const runtime = 'nodejs'
 
@@ -12,141 +11,139 @@ const PDF_RATE_LIMIT = 15
 const PDF_RATE_WINDOW_MS = 60 * 1000
 
 const DIAG_SELECT =
-  'patient_id,condition,hy_stage,disease_duration,other_diagnosis_text,constipation,constipation_onset_age,constipation_duration,rbd_suspected,rbd_onset_age,rbd_duration,hyposmia,hyposmia_onset_age,hyposmia_duration,depression,depression_onset_age,depression_duration,eds,eds_onset_age,eds_duration,ans_dysfunction,ans_onset_age,ans_duration,mild_parkinsonian_sign,family_history_pd,adl_score,scopa_aut_score,blood_test_note,fdopa_pet_requested,fdopa_pet_score'
+    'patient_id,condition,hy_stage,disease_duration,other_diagnosis_text,constipation,constipation_onset_age,constipation_duration,rbd_suspected,rbd_onset_age,rbd_duration,hyposmia,hyposmia_onset_age,hyposmia_duration,depression,depression_onset_age,depression_duration,eds,eds_onset_age,eds_duration,ans_dysfunction,ans_onset_age,ans_duration,mild_parkinsonian_sign,family_history_pd,adl_score,scopa_aut_score,blood_test_note,fdopa_pet_requested,fdopa_pet_score'
 
 const fontPath = path.join(process.cwd(), 'fonts', 'thsarabunnew-webfont.woff')
 let fontBase64 = ''
 try {
-  fontBase64 = fs.readFileSync(fontPath).toString('base64')
+    fontBase64 = fs.readFileSync(fontPath).toString('base64')
 } catch (err) {
-  console.error('Failed to load TH Sarabun font:', err)
+    console.error('Failed to load TH Sarabun font:', err)
 }
 
 const cb = (checked: boolean) =>
-  checked
-    ? '<span class="checkbox checked">✓</span>'
-    : '<span class="checkbox"></span>'
+    checked
+        ? '<span class="checkbox checked">✓</span>'
+        : '<span class="checkbox"></span>'
 
 const field = (value: string | number | null | undefined, minWidth = 80) =>
-  `<span class="field" style="min-width:${minWidth}px">${value ?? ''}</span>`
+    `<span class="field" style="min-width:${minWidth}px">${value ?? ''}</span>`
 
 const yesNo = (value: boolean | null | undefined) => ({
-  yes: Boolean(value),
-  no: value === false,
+    yes: Boolean(value),
+    no: value === false,
 })
 
 const normalize = (value: string | null | undefined) => (value ?? '').toLowerCase().trim()
 
 export async function GET(req: NextRequest) {
-  try {
-    const supabase = createRouteHandlerClient({ cookies })
+    try {
+        const id = getClientIdentifier(req)
+        const { ok, resetAt } = checkRateLimit(id, PDF_RATE_LIMIT, PDF_RATE_WINDOW_MS)
+        if (!ok) {
+            return NextResponse.json(
+                { error: 'เกินจำนวนการขอ PDF ต่อนาที กรุณาลองใหม่ภายหลัง' },
+                { status: 429, headers: { 'X-RateLimit-Reset': String(resetAt), 'Retry-After': '60' } }
+            )
+        }
 
-    const id = getClientIdentifier(req)
-    const { ok, resetAt } = checkRateLimit(id, PDF_RATE_LIMIT, PDF_RATE_WINDOW_MS)
-    if (!ok) {
-      return NextResponse.json(
-        { error: 'เกินจำนวนการขอ PDF ต่อนาที กรุณาลองใหม่ภายหลัง' },
-        { status: 429, headers: { 'X-RateLimit-Reset': String(resetAt), 'Retry-After': '60' } }
-      )
-    }
+        const patientIdParam = req.nextUrl.searchParams.get('patient_id')
+        if (!patientIdParam) {
+            return NextResponse.json({ error: 'กรุณาระบุ patient_id' }, { status: 400 })
+        }
 
-    const patientIdParam = req.nextUrl.searchParams.get('patient_id')
-    if (!patientIdParam) {
-      return NextResponse.json({ error: 'กรุณาระบุ patient_id' }, { status: 400 })
-    }
+        const patientId = Number(patientIdParam)
+        if (Number.isNaN(patientId)) {
+            return NextResponse.json({ error: 'patient_id ต้องเป็นตัวเลข' }, { status: 400 })
+        }
 
-    const patientId = Number(patientIdParam)
-    if (Number.isNaN(patientId)) {
-      return NextResponse.json({ error: 'patient_id ต้องเป็นตัวเลข' }, { status: 400 })
-    }
+        const [
+            patientRes,
+            diagRes,
+            mocaRes,
+            hamdRes,
+            mdsRes,
+            epwRes,
+            smellRes,
+            tmseRes,
+            rbdRes,
+            rome4Res,
+            visionRes,
+        ] = await Promise.all([
+            supabase
+                .schema('core')
+                .from('patients_v2')
+                .select('id,first_name,last_name,age,province,collection_date,hn_number,thaiid,bmi,weight,height,chest_cm,waist_cm,hip_cm,neck_cm,bp_supine,pr_supine,bp_upright,pr_upright')
+                .eq('id', patientId)
+                .maybeSingle(),
+            supabase.schema('core').from('patient_diagnosis_v2').select(DIAG_SELECT).eq('patient_id', patientId).maybeSingle(),
+            supabase.schema('core').from('moca_v2').select('total_score').eq('patient_id', patientId).maybeSingle(),
+            supabase.schema('core').from('hamd_v2').select('total_score,severity_level').eq('patient_id', patientId).maybeSingle(),
+            supabase.schema('core').from('mds_updrs_v2').select('p1_total,p2_total,p3_total,p4_total,total_score').eq('patient_id', patientId).maybeSingle(),
+            supabase.schema('core').from('epworth_v2').select('total_score').eq('patient_id', patientId).maybeSingle(),
+            supabase.schema('core').from('smell_test_v2').select('test_type,total_score').eq('patient_id', patientId).maybeSingle(),
+            supabase.schema('core').from('tmse_v2').select('total_score').eq('patient_id', patientId).maybeSingle(),
+            supabase.schema('core').from('rbd_questionnaire_v2').select('total_score').eq('patient_id', patientId).maybeSingle(),
+            supabase.schema('core').from('rome4_v2').select('total_score').eq('patient_id', patientId).maybeSingle(),
+            supabase
+                .schema('core')
+                .from('vision_tests_v2')
+                .select('color_paper_re_test,color_paper_re_retest,color_paper_le_test,color_paper_le_retest,color_app_re_test,color_app_re_retest,color_app_le_test,color_app_le_retest,contrast_manual_re,contrast_manual_le,contrast_app_re,contrast_app_le,va_re,va_re_pinhole,va_le,va_le_pinhole')
+                .eq('patient_id', patientId)
+                .maybeSingle(),
+        ])
 
-    const [
-      patientRes,
-      diagRes,
-      mocaRes,
-      hamdRes,
-      mdsRes,
-      epwRes,
-      smellRes,
-      tmseRes,
-      rbdRes,
-      rome4Res,
-      visionRes,
-    ] = await Promise.all([
-      supabase
-        .schema('core')
-        .from('patients_v2')
-        .select('id,first_name,last_name,age,province,collection_date,hn_number,thaiid,bmi,weight,height,chest_cm,waist_cm,hip_cm,neck_cm,bp_supine,pr_supine,bp_upright,pr_upright')
-        .eq('id', patientId)
-        .maybeSingle(),
-      supabase.schema('core').from('patient_diagnosis_v2').select(DIAG_SELECT).eq('patient_id', patientId).maybeSingle(),
-      supabase.schema('core').from('moca_v2').select('total_score').eq('patient_id', patientId).maybeSingle(),
-      supabase.schema('core').from('hamd_v2').select('total_score,severity_level').eq('patient_id', patientId).maybeSingle(),
-      supabase.schema('core').from('mds_updrs_v2').select('p1_total,p2_total,p3_total,p4_total,total_score').eq('patient_id', patientId).maybeSingle(),
-      supabase.schema('core').from('epworth_v2').select('total_score').eq('patient_id', patientId).maybeSingle(),
-      supabase.schema('core').from('smell_test_v2').select('test_type,total_score').eq('patient_id', patientId).maybeSingle(),
-      supabase.schema('core').from('tmse_v2').select('total_score').eq('patient_id', patientId).maybeSingle(),
-      supabase.schema('core').from('rbd_questionnaire_v2').select('total_score').eq('patient_id', patientId).maybeSingle(),
-      supabase.schema('core').from('rome4_v2').select('total_score').eq('patient_id', patientId).maybeSingle(),
-      supabase
-        .schema('core')
-        .from('vision_tests_v2')
-        .select('color_paper_re_test,color_paper_re_retest,color_paper_le_test,color_paper_le_retest,color_app_re_test,color_app_re_retest,color_app_le_test,color_app_le_retest,contrast_manual_re,contrast_manual_le,contrast_app_re,contrast_app_le,va_re,va_re_pinhole,va_le,va_le_pinhole')
-        .eq('patient_id', patientId)
-        .maybeSingle(),
-    ])
+        const errors = [patientRes, diagRes, mocaRes, hamdRes, mdsRes, epwRes, smellRes, tmseRes, rbdRes, rome4Res, visionRes]
+            .map((r) => r.error)
+            .filter(Boolean)
 
-    const errors = [patientRes, diagRes, mocaRes, hamdRes, mdsRes, epwRes, smellRes, tmseRes, rbdRes, rome4Res, visionRes]
-      .map((r) => r.error)
-      .filter(Boolean)
+        if (errors.length > 0) {
+            return NextResponse.json(
+                { error: 'ไม่สามารถดึงข้อมูลจาก core schema ได้', details: errors.map((e) => e?.message ?? String(e)).join('; ') },
+                { status: 500 }
+            )
+        }
 
-    if (errors.length > 0) {
-      return NextResponse.json(
-        { error: 'ไม่สามารถดึงข้อมูลจาก core schema ได้', details: errors.map((e) => e?.message ?? String(e)).join('; ') },
-        { status: 500 }
-      )
-    }
+        if (!patientRes.data) {
+            return NextResponse.json({ error: `ไม่พบข้อมูล patient_id: ${patientId}` }, { status: 404 })
+        }
 
-    if (!patientRes.data) {
-      return NextResponse.json({ error: `ไม่พบข้อมูล patient_id: ${patientId}` }, { status: 404 })
-    }
+        const p = patientRes.data
+        const diag = diagRes.data
+        const moca = mocaRes.data
+        const hamd = hamdRes.data
+        const mds = mdsRes.data
+        const epw = epwRes.data
+        const smell = smellRes.data
+        const tmse = tmseRes.data
+        const rbd = rbdRes.data
+        const rome4 = rome4Res.data
+        const vision = visionRes.data
 
-    const p = patientRes.data
-    const diag = diagRes.data
-    const moca = mocaRes.data
-    const hamd = hamdRes.data
-    const mds = mdsRes.data
-    const epw = epwRes.data
-    const smell = smellRes.data
-    const tmse = tmseRes.data
-    const rbd = rbdRes.data
-    const rome4 = rome4Res.data
-    const vision = visionRes.data
+        const conditionRaw = normalize(diag?.condition)
+        const isNewlyDiagnosis = conditionRaw.includes('newly')
+        const isPD = conditionRaw.includes('pd') || conditionRaw.includes('parkinson')
+        const isProdromal = conditionRaw.includes('prodromal') || conditionRaw.includes('high risk') || conditionRaw.includes('high-risk')
+        const isHealthy = conditionRaw.includes('healthy') || conditionRaw.includes('control')
+        const isNormal = conditionRaw.includes('normal') && !isPD && !isProdromal
+        const isOther = !isPD && !isProdromal && !isHealthy && !isNormal
 
-    const conditionRaw = normalize(diag?.condition)
-    const isNewlyDiagnosis = conditionRaw.includes('newly')
-    const isPD = conditionRaw.includes('pd') || conditionRaw.includes('parkinson')
-    const isProdromal = conditionRaw.includes('prodromal') || conditionRaw.includes('high risk') || conditionRaw.includes('high-risk')
-    const isHealthy = conditionRaw.includes('healthy') || conditionRaw.includes('control')
-    const isNormal = conditionRaw.includes('normal') && !isPD && !isProdromal
-    const isOther = !isPD && !isProdromal && !isHealthy && !isNormal
+        const otherText = isOther
+            ? (diag?.other_diagnosis_text ?? diag?.condition ?? '')
+            : (diag?.other_diagnosis_text ?? '')
 
-    const otherText = isOther
-      ? (diag?.other_diagnosis_text ?? diag?.condition ?? '')
-      : (diag?.other_diagnosis_text ?? '')
+        const smellIsThai = smell?.test_type === 'thai_smell_test'
+        const smellIsSniffin = smell?.test_type === 'sniffin_stick' || (!!smell?.total_score && !smellIsThai)
+        const colorPaperDone = Boolean(vision?.color_paper_re_test || vision?.color_paper_re_retest || vision?.color_paper_le_test || vision?.color_paper_le_retest)
+        const colorAppDone = Boolean(vision?.color_app_re_test || vision?.color_app_re_retest || vision?.color_app_le_test || vision?.color_app_le_retest)
+        const contrastManualDone = Boolean(vision?.contrast_manual_re || vision?.contrast_manual_le)
+        const contrastAppDone = Boolean(vision?.contrast_app_re || vision?.contrast_app_le)
+        const vaDone = Boolean(vision?.va_re || vision?.va_le || vision?.va_re_pinhole || vision?.va_le_pinhole)
 
-    const smellIsThai = smell?.test_type === 'thai_smell_test'
-    const smellIsSniffin = smell?.test_type === 'sniffin_stick' || (!!smell?.total_score && !smellIsThai)
-    const colorPaperDone = Boolean(vision?.color_paper_re_test || vision?.color_paper_re_retest || vision?.color_paper_le_test || vision?.color_paper_le_retest)
-    const colorAppDone = Boolean(vision?.color_app_re_test || vision?.color_app_re_retest || vision?.color_app_le_test || vision?.color_app_le_retest)
-    const contrastManualDone = Boolean(vision?.contrast_manual_re || vision?.contrast_manual_le)
-    const contrastAppDone = Boolean(vision?.contrast_app_re || vision?.contrast_app_le)
-    const vaDone = Boolean(vision?.va_re || vision?.va_le || vision?.va_re_pinhole || vision?.va_le_pinhole)
+        const fdopa = yesNo(diag?.fdopa_pet_requested)
+        const psgRequested = yesNo(diag?.rbd_suspected)
 
-    const fdopa = yesNo(diag?.fdopa_pet_requested)
-    const psgRequested = yesNo(diag?.rbd_suspected)
-
-    const html = `
+        const html = `
 <html>
   <head>
     <meta charset="utf-8" />
@@ -429,42 +426,42 @@ export async function GET(req: NextRequest) {
 </html>
 `
 
-    const runPdf = async () => {
-      const browser = await getBrowser()
-      const page = await browser.newPage()
-      try {
-        await page.setContent(html, { waitUntil: 'networkidle' })
-        return await page.pdf({ format: 'A4' })
-      } finally {
-        await page.close()
-      }
-    }
+        const runPdf = async () => {
+            const browser = await getBrowser()
+            const page = await browser.newPage()
+            try {
+                await page.setContent(html, { waitUntil: 'networkidle' })
+                return await page.pdf({ format: 'A4' })
+            } finally {
+                await page.close()
+            }
+        }
 
-    let pdfBuffer: Buffer
-    try {
-      pdfBuffer = Buffer.from(await runPdf())
-    } catch (e: any) {
-      if (e?.message?.includes('has been closed') || e?.message?.includes('Target closed')) {
-        resetBrowser()
-        pdfBuffer = Buffer.from(await runPdf())
-      } else {
-        throw e
-      }
-    }
+        let pdfBuffer: Buffer
+        try {
+            pdfBuffer = Buffer.from(await runPdf())
+        } catch (e: any) {
+            if (e?.message?.includes('has been closed') || e?.message?.includes('Target closed')) {
+                resetBrowser()
+                pdfBuffer = Buffer.from(await runPdf())
+            } else {
+                throw e
+            }
+        }
 
-    const fileName = `QA_${patientId}_${p.first_name ?? ''}_${p.last_name ?? ''}`.replace(/\s+/g, '_')
-    return new Response(new Uint8Array(pdfBuffer), {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/pdf',
-        'Content-Disposition': `inline; filename*=UTF-8''${encodeURIComponent(`${fileName}.pdf`)}`,
-      },
-    })
-  } catch (err: any) {
-    console.error('QA PDF generation error:', err)
-    return NextResponse.json(
-      { error: 'เกิดข้อผิดพลาดขณะสร้าง PDF', details: err.message || err.toString() },
-      { status: 500 }
-    )
-  }
+        const fileName = `QA_${patientId}_${p.first_name ?? ''}_${p.last_name ?? ''}`.replace(/\s+/g, '_')
+        return new Response(new Uint8Array(pdfBuffer), {
+            status: 200,
+            headers: {
+                'Content-Type': 'application/pdf',
+                'Content-Disposition': `inline; filename*=UTF-8''${encodeURIComponent(`${fileName}.pdf`)}`,
+            },
+        })
+    } catch (err: any) {
+        console.error('QA PDF generation error:', err)
+        return NextResponse.json(
+            { error: 'เกิดข้อผิดพลาดขณะสร้าง PDF', details: err.message || err.toString() },
+            { status: 500 }
+        )
+    }
 }

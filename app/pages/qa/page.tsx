@@ -26,6 +26,11 @@ import {
   hasQaGp2,
   matchesQaConditionFilter,
 } from '@/app/component/qa/types'
+import {
+  PATIENT_VISIT_SELECT,
+  buildIdentityCacheKey,
+  fetchIdentityMatchedVisits,
+} from '@/app/component/qa/visitIdentity'
 
 const DIAG_SELECT =
   'patient_id,condition,hy_stage,disease_duration,other_diagnosis_text,constipation,constipation_onset_age,constipation_duration,rbd_suspected,rbd_onset_age,rbd_duration,hyposmia,hyposmia_onset_age,hyposmia_duration,depression,depression_onset_age,depression_duration,eds,eds_onset_age,eds_duration,ans_dysfunction,ans_onset_age,ans_duration,mild_parkinsonian_sign,family_history_pd,adl_score,scopa_aut_score,blood_test_note,fdopa_pet_requested,fdopa_pet_score'
@@ -103,10 +108,7 @@ export default function QaPage() {
       // --- Step 2: query patient_visits_v2 with all patient-level filters ---
       let patientQuery = supabase
         .from('patient_visits_v2')
-        .select(
-          'id,patient_uid,created_at,submission_timestamp,first_name,last_name,age,province,collection_date,hn_number,thaiid,bmi,weight,height,chest_cm,waist_cm,hip_cm,neck_cm,bp_supine,pr_supine,bp_upright,pr_upright,visit_no,total_visits,same_day_visit_seq,same_day_visit_count',
-          { count: 'exact' }
-        )
+        .select(PATIENT_VISIT_SELECT, { count: 'exact' })
         .order('collection_date', { ascending: false, nullsFirst: false })
         .range(from, to)
 
@@ -140,7 +142,73 @@ export default function QaPage() {
         return
       }
 
-      const patientIds = patients.map((p) => p.id)
+      const identityVisitCache = new Map<string, QaPatient[]>()
+      const derivedVisitMap = new Map<
+        number,
+        Pick<QaPatient, 'visit_no' | 'total_visits' | 'same_day_visit_seq' | 'same_day_visit_count'>
+      >()
+
+      await Promise.all(
+        patients.map(async (patient) => {
+          const cacheKey = buildIdentityCacheKey(patient)
+          let matchedVisits = identityVisitCache.get(cacheKey)
+          if (!matchedVisits) {
+            try {
+              matchedVisits = await fetchIdentityMatchedVisits(patient, PATIENT_VISIT_SELECT)
+            } catch (identityErr) {
+              console.warn('visit identity lookup failed:', identityErr)
+              matchedVisits = [patient]
+            }
+            identityVisitCache.set(cacheKey, matchedVisits)
+          }
+
+          for (const visit of matchedVisits) {
+            derivedVisitMap.set(visit.id, {
+              visit_no: visit.visit_no,
+              total_visits: visit.total_visits,
+              same_day_visit_seq: visit.same_day_visit_seq,
+              same_day_visit_count: visit.same_day_visit_count,
+            })
+          }
+        })
+      )
+
+      const normalizedPatients = patients.map((patient) => {
+        const derived = derivedVisitMap.get(patient.id)
+        if (!derived) return patient
+        return {
+          ...patient,
+          ...derived,
+        }
+      })
+
+      const patientIds = normalizedPatients.map((p) => p.id)
+      const thaiIds = Array.from(
+        new Set(
+          normalizedPatients
+            .map((p) => p.thaiid?.trim() ?? '')
+            .filter((v): v is string => v.length > 0)
+        )
+      )
+
+      let checkpdThaiIdSet = new Set<string>()
+      if (thaiIds.length > 0) {
+        const { data: cpRows, error: cpErr } = await supabase
+          .schema('checkpd')
+          .from('record_summary')
+          .select('thaiid')
+          .in('thaiid', thaiIds)
+
+        if (!cpErr && cpRows) {
+          checkpdThaiIdSet = new Set(
+            cpRows
+              .map((r: { thaiid: string | null }) => r.thaiid?.trim() ?? '')
+              .filter((v) => v.length > 0)
+          )
+        } else if (cpErr) {
+          console.warn('checkpd.record_summary query failed:', cpErr.message)
+        }
+      }
 
       // --- Step 3: fetch related data for this page's patients ---
       const [diagRes, mocaRes, hamdRes, mdsRes, epwRes, smellRes, tmseRes, rbdRes, rome4Res] =
@@ -171,10 +239,11 @@ export default function QaPage() {
       const rbdMap    = Object.fromEntries((rbdRes.data    ?? []).map((d: QaScoreRow)    => [d.patient_id, d]))
       const rome4Map  = Object.fromEntries((rome4Res.data  ?? []).map((d: QaScoreRow)    => [d.patient_id, d]))
 
-      setRows(patients.map((p) => ({
+      setRows(normalizedPatients.map((p) => ({
         patient: p,
         diag:  diagMap[p.id] as QaDiagnosisRow | undefined,
         conditionLabel: formatQaConditionLabel(diagMap[p.id] as QaDiagnosisRow | undefined),
+        has_checkpd: !!p.thaiid?.trim() && checkpdThaiIdSet.has(p.thaiid.trim()),
         moca:  mocaMap[p.id] as QaScoreRow | undefined,
         hamd:  hamdMap[p.id] as QaHamdRow | undefined,
         mds:   mdsMap[p.id] as QaScoreRow | undefined,
@@ -238,6 +307,37 @@ export default function QaPage() {
     setTotalCount((prev) => prev - 1)
   }
 
+  const handleQuickDiag = useCallback(
+    async (patientId: number, conditionValue: 'pd' | 'ctrl' | 'pdm' | 'other' | '-') => {
+      const payload =
+        conditionValue === '-'
+          ? { patient_id: patientId, condition: '-', other_diagnosis_text: null }
+          : { patient_id: patientId, condition: conditionValue }
+
+      const { error: diagErr } = await supabase
+        .schema('core')
+        .from('patient_diagnosis_v2')
+        .upsert(payload, { onConflict: 'patient_id' })
+
+      if (diagErr) {
+        setError(`Quick diagnosis update failed: ${diagErr.message}`)
+        throw new Error(diagErr.message)
+      }
+
+      const target = rows.find((r) => r.patient.id === patientId)?.patient
+      const patientName = target ? `${target.first_name ?? ''} ${target.last_name ?? ''}`.trim() : `ID ${patientId}`
+      logActivity({
+        action: 'UPDATE',
+        page: 'qa',
+        description: `อัปเดต condition แบบด่วน: ${patientName} -> ${conditionValue.toUpperCase()}`,
+        userEmail: session?.user?.email,
+      })
+
+      await fetchData()
+    },
+    [fetchData, rows, session?.user?.email]
+  )
+
   const handleModalClose = () => {
     setCreateOpen(false)
     setEditPatient(null)
@@ -266,6 +366,7 @@ export default function QaPage() {
 
       <QaPatientSummaryModal
         row={summaryRow}
+        onUpdated={fetchData}
         onClose={() => setSummaryRow(null)}
       />
 
@@ -347,6 +448,7 @@ export default function QaPage() {
             role={role}
             onAssess={setAssessingPatient}
             onEdit={handleEdit}
+            onQuickDiag={handleQuickDiag}
             onDelete={handleDelete}
             onDetail={setSummaryRow}
             onAddVisit={handleAddVisit}

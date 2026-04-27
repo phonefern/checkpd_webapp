@@ -68,7 +68,7 @@ export default function QaSmellForm({ open, patientId, onClose, onSaved }: Props
   const handleSave = async () => {
     setSaving(true); setError(null)
     const { error: err } = await supabase.schema('core').from('smell_test_v2').upsert(
-      { patient_id: patientId, test_type: 'thai_smell_test', ...form, total_score: score },
+      { patient_id: patientId, test_type: 'sniffin_stick', ...form, total_score: score },
       { onConflict: 'patient_id' }
     )
     setSaving(false)
@@ -78,8 +78,11 @@ export default function QaSmellForm({ open, patientId, onClose, onSaved }: Props
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-h-[90vh] w-[95vw] sm:w-[92vw] lg:w-[86vw] sm:!max-w-[92vw] lg:!max-w-5xl overflow-y-auto p-4 sm:p-6">
-        <DialogHeader><DialogTitle>แบบทดสอบความสามารถในการดมกลิ่น (Thai Smell Test)</DialogTitle></DialogHeader>
+      <DialogContent
+        onInteractOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => e.preventDefault()}
+        className="max-h-[90vh] w-[95vw] sm:w-[92vw] lg:w-[86vw] sm:!max-w-[92vw] lg:!max-w-5xl overflow-y-auto p-4 sm:p-6">
+        <DialogHeader><DialogTitle>แบบทดสอบความสามารถในการดมกลิ่น (Sniffin stick test)</DialogTitle></DialogHeader>
         <div className="grid grid-cols-2 gap-3 mt-2">
           {QUESTIONS.map((q, i) => {
             const chosen = form[q.key]
@@ -125,3 +128,4 @@ export default function QaSmellForm({ open, patientId, onClose, onSaved }: Props
     </Dialog>
   )
 }
+
