@@ -311,7 +311,7 @@ export default function QaPage() {
     async (patientId: number, conditionValue: 'pd' | 'ctrl' | 'pdm' | 'other' | '-') => {
       const payload =
         conditionValue === '-'
-          ? { patient_id: patientId, condition: null, other_diagnosis_text: null }
+          ? { patient_id: patientId, condition: '-', other_diagnosis_text: null }
           : { patient_id: patientId, condition: conditionValue }
 
       const { error: diagErr } = await supabase

@@ -108,7 +108,10 @@ export default function QaMdsForm({ open, patientId, onClose, onSaved }: Props) 
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-h-[90vh] w-[95vw] sm:w-[92vw] lg:w-[88vw] sm:!max-w-[92vw] lg:!max-w-[88vw] xl:!max-w-6xl overflow-y-auto p-4 sm:p-6">
+      <DialogContent
+        onInteractOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => e.preventDefault()}
+        className="max-h-[90vh] w-[95vw] sm:w-[92vw] lg:w-[88vw] sm:!max-w-[92vw] lg:!max-w-[88vw] xl:!max-w-6xl overflow-y-auto p-4 sm:p-6">
         <DialogHeader><DialogTitle>MDS-UPDRS — Movement Disorder Society Unified Parkinson's Disease Rating Scale</DialogTitle></DialogHeader>
 
         {/* Tab bar */}
@@ -285,3 +288,4 @@ export default function QaMdsForm({ open, patientId, onClose, onSaved }: Props) 
     </Dialog>
   )
 }
+

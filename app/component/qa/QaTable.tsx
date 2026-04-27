@@ -28,6 +28,7 @@ interface QaTableProps {
 export default function QaTable({ rows, role, onAssess, onEdit, onQuickDiag, onDelete, onDetail, onAddVisit }: QaTableProps) {
   const [focusedDiagRowId, setFocusedDiagRowId] = useState<number | null>(null)
   const [savingDiagRowId, setSavingDiagRowId] = useState<number | null>(null)
+  const useModalForDiag = role === 'doctor' || role === 'admin' || role === 'super_admin'
 
   if (rows.length === 0) {
     return (
@@ -116,6 +117,18 @@ export default function QaTable({ rows, role, onAssess, onEdit, onQuickDiag, onD
                     <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
                       วินิจฉัยแล้ว
                     </span>
+                  ) : useModalForDiag ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => {
+                        setFocusedDiagRowId(p.id)
+                        onEdit(p)
+                      }}
+                      className="h-8 rounded-full bg-cyan-600 px-3 text-xs font-semibold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-cyan-700 hover:shadow-md motion-safe:animate-pulse"
+                    >
+                      Diag
+                    </Button>
                   ) : (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>

@@ -67,7 +67,10 @@ export default function QaRome4Form({ open, patientId, onClose, onSaved }: Props
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-h-[90vh] w-[95vw] sm:w-[90vw] lg:w-[82vw] sm:!max-w-[90vw] lg:!max-w-4xl overflow-y-auto p-4 sm:p-6">
+      <DialogContent
+        onInteractOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => e.preventDefault()}
+        className="max-h-[90vh] w-[95vw] sm:w-[90vw] lg:w-[82vw] sm:!max-w-[90vw] lg:!max-w-4xl overflow-y-auto p-4 sm:p-6">
         <DialogHeader><DialogTitle>ROME IV — เกณฑ์วินิจฉัยท้องผูก</DialogTitle></DialogHeader>
         <p className="text-sm text-muted-foreground mb-3">
           อาการเหล่านี้เกิดขึ้นอย่างน้อย 6 เดือน และ 3 เดือนที่ผ่านมา
@@ -100,3 +103,4 @@ export default function QaRome4Form({ open, patientId, onClose, onSaved }: Props
     </Dialog>
   )
 }
+

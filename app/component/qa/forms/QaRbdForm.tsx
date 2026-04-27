@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
@@ -171,7 +171,10 @@ export default function QaRbdForm({ open, patientId, onClose, onSaved }: Props) 
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-h-[90vh] w-[95vw] sm:w-[90vw] lg:w-[84vw] sm:!max-w-[90vw] lg:!max-w-5xl overflow-y-auto p-4 sm:p-6">
+      <DialogContent
+        onInteractOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => e.preventDefault()}
+        className="max-h-[90vh] w-[95vw] sm:w-[90vw] lg:w-[84vw] sm:!max-w-[90vw] lg:!max-w-5xl overflow-y-auto p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle>RBD Questionnaire — แบบประเมินพฤติกรรมการนอนหลับ</DialogTitle>
         </DialogHeader>
@@ -242,3 +245,4 @@ export default function QaRbdForm({ open, patientId, onClose, onSaved }: Props) 
     </Dialog>
   )
 }
+

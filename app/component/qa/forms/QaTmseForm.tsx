@@ -47,6 +47,7 @@ function ScoreSelect({ value, max, onChange }: { value: number; max: number; onC
 
 export default function QaTmseForm({ open, patientId, onClose, onSaved }: Props) {
   const [form, setForm] = useState<FormState>(EMPTY)
+  const [totalScore, setTotalScore] = useState(0)
   const [calculationMode, setCalculationMode] = useState<'total' | 'steps'>('total')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -54,7 +55,7 @@ export default function QaTmseForm({ open, patientId, onClose, onSaved }: Props)
   useEffect(() => {
     if (!open) return
     supabase.schema('core').from('tmse_v2')
-      .select('orientation_day,orientation_date,orientation_month,orientation_time,orientation_place,orientation_picture,registration,attention,calculation,language_watch,language_shirt,language_repeat,language_3step_take_paper,language_3step_fold_paper,language_3step_hand_paper,language_read_close_eyes,language_draw,language_similarity,recall')
+      .select('orientation_day,orientation_date,orientation_month,orientation_time,orientation_place,orientation_picture,registration,attention,calculation,language_watch,language_shirt,language_repeat,language_3step_take_paper,language_3step_fold_paper,language_3step_hand_paper,language_read_close_eyes,language_draw,language_similarity,recall,total_score')
       .eq('patient_id', patientId).maybeSingle()
       .then(({ data }) => {
         if (data) {
@@ -83,9 +84,20 @@ export default function QaTmseForm({ open, patientId, onClose, onSaved }: Props)
           }
           setForm(f)
           setCalculationMode('total')
+          const calculated = (
+            f.orientation_day + f.orientation_date + f.orientation_month +
+            f.orientation_time + f.orientation_place + f.orientation_picture +
+            f.registration + f.attention + f.calculation +
+            f.language_watch + f.language_shirt + f.language_repeat +
+            f.language_3step_take_paper + f.language_3step_fold_paper + f.language_3step_hand_paper +
+            f.language_read_close_eyes + f.language_draw + f.language_similarity +
+            f.recall
+          )
+          setTotalScore(d.total_score ?? calculated)
         } else {
           setForm(EMPTY)
           setCalculationMode('total')
+          setTotalScore(0)
         }
         setError(null)
       })
@@ -98,8 +110,11 @@ export default function QaTmseForm({ open, patientId, onClose, onSaved }: Props)
     form.language_read_close_eyes + form.language_draw + form.language_similarity
   const calculationStepsTotal = form.calculation_100_7 + form.calculation_93_7 + form.calculation_86_7
   const calculationScore = calculationMode === 'steps' ? calculationStepsTotal : form.calculation
-  const score = orientationTotal + form.registration + form.attention + calculationScore + languageTotal + form.recall
-  const interpretation = score >= 23 ? 'ปกติ (≥ 23)' : 'มีแนวโน้มภาวะสมองเสื่อม (< 23)'
+  const calculatedScore = orientationTotal + form.registration + form.attention + calculationScore + languageTotal + form.recall
+  const normalizedTotalScore = Number.isFinite(totalScore)
+    ? Math.max(0, Math.min(30, totalScore))
+    : 0
+  const interpretation = normalizedTotalScore >= 23 ? 'ปกติ (≥ 23)' : 'มีแนวโน้มภาวะสมองเสื่อม (< 23)'
 
   const set = (key: keyof FormState, val: number) => setForm((p) => ({ ...p, [key]: val }))
 
@@ -126,7 +141,7 @@ export default function QaTmseForm({ open, patientId, onClose, onSaved }: Props)
       language_draw: form.language_draw,
       language_similarity: form.language_similarity,
       recall: form.recall,
-      total_score: score,
+      total_score: normalizedTotalScore,
     }
     const { error: err } = await supabase.schema('core').from('tmse_v2').upsert(
       payload,
@@ -139,7 +154,10 @@ export default function QaTmseForm({ open, patientId, onClose, onSaved }: Props)
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-h-[90vh] w-[95vw] sm:w-[90vw] lg:w-[82vw] sm:!max-w-[90vw] lg:!max-w-4xl overflow-y-auto p-4 sm:p-6">
+      <DialogContent
+        onInteractOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => e.preventDefault()}
+        className="max-h-[90vh] w-[95vw] sm:w-[90vw] lg:w-[82vw] sm:!max-w-[90vw] lg:!max-w-4xl overflow-y-auto p-4 sm:p-6">
         <DialogHeader><DialogTitle>TMSE — Thai Mental State Examination</DialogTitle></DialogHeader>
 
         <div className="space-y-4 mt-2">
@@ -262,8 +280,30 @@ export default function QaTmseForm({ open, patientId, onClose, onSaved }: Props)
           </div>
         </div>
 
-        <div className="mt-4 rounded border bg-white p-3 text-sm font-semibold">
-          คะแนนรวม: {score} / 30 &nbsp;—&nbsp; <span className="font-normal">{interpretation}</span>
+        <div className="mt-4 rounded border bg-white p-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div className="text-sm font-semibold">
+              คะแนนรวม: {normalizedTotalScore} / 30 &nbsp;—&nbsp; <span className="font-normal">{interpretation}</span>
+              <p className="text-xs font-normal text-muted-foreground mt-1">Calculated from sections: {calculatedScore}</p>
+            </div>
+            <div>
+              <label htmlFor="tmse-total-score" className="block text-xs text-muted-foreground mb-1">total_score</label>
+              <div className="flex items-center gap-2">
+                <input
+                  id="tmse-total-score"
+                  type="number"
+                  min={0}
+                  max={30}
+                  value={totalScore}
+                  onChange={(e) => setTotalScore(Number(e.target.value))}
+                  className="w-24 rounded border px-2 py-1 text-sm"
+                />
+                <Button type="button" variant="outline" onClick={() => setTotalScore(calculatedScore)} className="h-8 px-2 text-xs">
+                  Use calc
+                </Button>
+              </div>
+            </div>
+          </div>
         </div>
         {error && <p className="text-sm text-red-600 mt-2">{error}</p>}
         <DialogFooter className="mt-4">
@@ -276,3 +316,4 @@ export default function QaTmseForm({ open, patientId, onClose, onSaved }: Props)
     </Dialog>
   )
 }
+
