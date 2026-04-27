@@ -3,7 +3,6 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import Image from 'next/image'
 
 interface Props {
   open: boolean
@@ -47,7 +46,7 @@ function ScoreButtons({ value, options, onChange }: {
           onClick={() => onChange(opt.score)}
           className={`px-3 py-1.5 rounded-lg border text-sm font-medium transition-colors ${
             value === opt.score
-              ? 'bg-blue-500 text-white border-blue-500'
+              ? 'bg-slate-900 text-white border-slate-900'
               : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
           }`}
         >
@@ -73,6 +72,7 @@ function TaskCard({ title, instruction, image, value, options, onChange }: {
         <p className="text-sm font-semibold uppercase tracking-wide text-slate-400">{title}</p>
         <p className="text-base text-slate-600 mt-1 leading-relaxed whitespace-pre-line">{instruction}</p>
       </div>
+      {/* Temporarily hide image preview
       {image && (
         <div className="px-4 py-2">
           <Image
@@ -84,6 +84,7 @@ function TaskCard({ title, instruction, image, value, options, onChange }: {
           />
         </div>
       )}
+      */}
       {options && onChange && value !== undefined && (
         <div className="px-4 pb-3 pt-1">
           <ScoreButtons value={value} options={options} onChange={onChange} />
@@ -94,11 +95,11 @@ function TaskCard({ title, instruction, image, value, options, onChange }: {
 }
 
 // ── Section Header ──────────────────────────────────────────────────────────
-function SectionHeader({ title, score, max, color }: { title: string; score: number; max: number; color: string }) {
+function SectionHeader({ title, score, max }: { title: string; score: number; max: number }) {
   return (
-    <div className={`flex items-center justify-between px-4 py-2 rounded-xl ${color}`}>
-      <span className="text-base font-bold uppercase tracking-wide">{title}</span>
-      <span className="text-base font-semibold tabular-nums">{score} / {max}</span>
+    <div className="rounded border bg-white px-4 py-3 flex items-center justify-between">
+      <span className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{title}</span>
+      <span className="text-base font-semibold tabular-nums text-slate-700">{score} / {max}</span>
     </div>
   )
 }
@@ -116,18 +117,19 @@ function PracticeCard({ instruction }: { instruction: string }) {
 // ── Main Form ───────────────────────────────────────────────────────────────
 export default function QaMocaForm({ open, patientId, onClose, onSaved }: Props) {
   const [form, setForm] = useState<FormState>(EMPTY)
+  const [totalScore, setTotalScore] = useState(0)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!open) return
     supabase.schema('core').from('moca_v2')
-      .select('visuospatial_executive,naming,attention_digits,attention_vigilance,attention_serial7,language_repeat,language_fluency,abstraction,delayed_recall,orientation')
+      .select('visuospatial_executive,naming,attention_digits,attention_vigilance,attention_serial7,language_repeat,language_fluency,abstraction,delayed_recall,orientation,total_score')
       .eq('patient_id', patientId).maybeSingle()
       .then(({ data }) => {
         if (data) {
           const d = data as unknown as Record<string, number | null>
-          setForm({
+          const nextForm: FormState = {
             visuospatial_executive: d.visuospatial_executive ?? 0,
             naming:                 d.naming ?? 0,
             attention_digits:       d.attention_digits ?? 0,
@@ -138,21 +140,28 @@ export default function QaMocaForm({ open, patientId, onClose, onSaved }: Props)
             abstraction:            d.abstraction ?? 0,
             delayed_recall:         d.delayed_recall ?? 0,
             orientation:            d.orientation ?? 0,
-          })
+          }
+          const calculated = Object.values(nextForm).reduce((a, b) => a + b, 0)
+          setForm(nextForm)
+          setTotalScore(d.total_score ?? calculated)
         } else {
           setForm(EMPTY)
+          setTotalScore(0)
         }
         setError(null)
       })
   }, [open, patientId])
 
-  const score = Object.values(form).reduce((a, b) => a + b, 0)
+  const calculatedScore = Object.values(form).reduce((a, b) => a + b, 0)
+  const normalizedTotalScore = Number.isFinite(totalScore)
+    ? Math.max(0, Math.min(30, totalScore))
+    : 0
   const set = (key: keyof FormState, val: number) => setForm((p) => ({ ...p, [key]: val }))
 
   const handleSave = async () => {
     setSaving(true); setError(null)
     const { error: err } = await supabase.schema('core').from('moca_v2').upsert(
-      { patient_id: patientId, ...form, total_score: score },
+      { patient_id: patientId, ...form, total_score: normalizedTotalScore },
       { onConflict: 'patient_id' }
     )
     setSaving(false)
@@ -162,19 +171,40 @@ export default function QaMocaForm({ open, patientId, onClose, onSaved }: Props)
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-h-[90vh] w-[95vw] sm:w-[90vw] lg:w-[84vw] sm:!max-w-[90vw] lg:!max-w-5xl overflow-y-auto p-4 sm:p-6">
+      <DialogContent
+        onInteractOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => e.preventDefault()}
+        className="max-h-[90vh] w-[95vw] sm:w-[90vw] lg:w-[84vw] sm:!max-w-[90vw] lg:!max-w-5xl overflow-y-auto p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle className="text-lg">MoCA — Montreal Cognitive Assessment</DialogTitle>
         </DialogHeader>
 
         {/* Score summary bar */}
-        <div className="flex items-center justify-between bg-slate-50 border rounded-xl px-4 py-3">
+        <div className="flex flex-col gap-3 border rounded-xl bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-xs text-slate-500">คะแนนรวม</p>
-            <p className="text-3xl font-extrabold text-slate-800">{score} <span className="text-base font-normal text-slate-400">/ 30</span></p>
+            <p className="text-3xl font-extrabold text-slate-800">{normalizedTotalScore} <span className="text-base font-normal text-slate-400">/ 30</span></p>
+            <p className="text-xs text-slate-500 mt-1">Calculated from sections: {calculatedScore}</p>
           </div>
-          <div className={`px-4 py-2 rounded-xl text-sm font-semibold ${score >= 26 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-            {score >= 26 ? 'ปกติ (≥ 26)' : 'มีความเสี่ยง (< 26)'}
+          <div className="w-full sm:w-auto">
+            <label htmlFor="moca-total-score" className="block text-xs text-slate-500 mb-1">total_score</label>
+            <div className="flex items-center gap-2">
+              <input
+                id="moca-total-score"
+                type="number"
+                min={0}
+                max={30}
+                value={totalScore}
+                onChange={(e) => setTotalScore(Number(e.target.value))}
+                className="w-24 rounded border px-2 py-1 text-sm"
+              />
+              <Button type="button" variant="outline" onClick={() => setTotalScore(calculatedScore)} className="h-8 px-2 text-xs">
+                Use calc
+              </Button>
+            </div>
+          </div>
+          <div className={`px-4 py-2 rounded-xl border text-sm font-semibold ${normalizedTotalScore >= 26 ? 'text-green-700 border-green-200' : 'text-red-700 border-red-200'}`}>
+            {normalizedTotalScore >= 26 ? 'ปกติ (≥ 26)' : 'มีความเสี่ยง (< 26)'}
           </div>
         </div>
 
@@ -182,7 +212,7 @@ export default function QaMocaForm({ open, patientId, onClose, onSaved }: Props)
 
           {/* ── VISUOSPATIAL / EXECUTIVE ── */}
           <section className="space-y-3">
-            <SectionHeader title="Visuospatial / Executive" score={form.visuospatial_executive} max={5} color="bg-purple-100 text-purple-900" />
+            <SectionHeader title="Visuospatial / Executive" score={form.visuospatial_executive} max={5} />
 
             {/* Display-only image cards */}
             <TaskCard
@@ -202,10 +232,10 @@ export default function QaMocaForm({ open, patientId, onClose, onSaved }: Props)
             />
 
             {/* Combined score selector */}
-            <div className="bg-purple-50 border border-purple-200 rounded-xl px-4 py-3">
-              <p className="text-sm font-semibold text-purple-700 mb-2">
+            <div className="bg-white border rounded-xl px-4 py-3">
+              <p className="text-sm font-semibold text-slate-700 mb-2">
                 คะแนนรวม Visuospatial / Executive &nbsp;
-                <span className="font-normal text-purple-500">(Trail 1 + Cube 1 + Clock 3 = max 5)</span>
+                <span className="font-normal text-slate-500">(Trail 1 + Cube 1 + Clock 3 = max 5)</span>
               </p>
               <div className="flex flex-wrap gap-2">
                 {[0,1,2,3,4,5].map((n) => (
@@ -213,8 +243,8 @@ export default function QaMocaForm({ open, patientId, onClose, onSaved }: Props)
                     onClick={() => set('visuospatial_executive', n)}
                     className={`w-10 h-10 rounded-lg border text-sm font-bold transition-colors ${
                       form.visuospatial_executive === n
-                        ? 'bg-purple-600 text-white border-purple-600'
-                        : 'bg-white text-slate-700 border-slate-300 hover:bg-purple-50'
+                        ? 'bg-slate-900 text-white border-slate-900'
+                        : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
                     }`}
                   >{n}</button>
                 ))}
@@ -224,7 +254,7 @@ export default function QaMocaForm({ open, patientId, onClose, onSaved }: Props)
 
           {/* ── NAMING ── */}
           <section className="space-y-3">
-            <SectionHeader title="Naming" score={form.naming} max={3} color="bg-yellow-100 text-yellow-900" />
+            <SectionHeader title="Naming" score={form.naming} max={3} />
             <TaskCard
               title="Naming Animals — 3 คะแนน"
               instruction="ชี้รูปภาพทีละตัว ให้ผู้ทดสอบบอกชื่อสัตว์ทั้ง 3 ตัว (สิงโต / แรด / อูฐ)"
@@ -245,7 +275,7 @@ export default function QaMocaForm({ open, patientId, onClose, onSaved }: Props)
 
           {/* ── ATTENTION ── */}
           <section className="space-y-3">
-            <SectionHeader title="Attention" score={form.attention_digits + form.attention_vigilance + form.attention_serial7} max={6} color="bg-blue-100 text-blue-900" />
+            <SectionHeader title="Attention" score={form.attention_digits + form.attention_vigilance + form.attention_serial7} max={6} />
 
             <TaskCard
               title="Digit Span — 2 คะแนน"
@@ -286,7 +316,7 @@ export default function QaMocaForm({ open, patientId, onClose, onSaved }: Props)
 
           {/* ── LANGUAGE ── */}
           <section className="space-y-3">
-            <SectionHeader title="Language" score={form.language_repeat + form.language_fluency} max={3} color="bg-green-100 text-green-900" />
+            <SectionHeader title="Language" score={form.language_repeat + form.language_fluency} max={3} />
 
             <TaskCard
               title="Sentence Repetition — 2 คะแนน"
@@ -314,7 +344,7 @@ export default function QaMocaForm({ open, patientId, onClose, onSaved }: Props)
 
           {/* ── ABSTRACTION ── */}
           <section className="space-y-3">
-            <SectionHeader title="Abstraction" score={form.abstraction} max={2} color="bg-orange-100 text-orange-900" />
+            <SectionHeader title="Abstraction" score={form.abstraction} max={2} />
             <TaskCard
               title="Abstraction — 2 คะแนน"
               instruction={`อธิบายความเหมือนระหว่างคู่คำ เช่น กล้วย-ส้ม เป็นผลไม้ :\n1) "รถไฟ — จักรยาน" เหมือนกันอย่างไร? (ตอบ: พาหนะ)\n2) "นาฬิกา — ไม้บรรทัด" เหมือนกันอย่างไร? (ตอบ: เครื่องมือวัด)`}
@@ -330,7 +360,7 @@ export default function QaMocaForm({ open, patientId, onClose, onSaved }: Props)
 
           {/* ── DELAYED RECALL ── */}
           <section className="space-y-3">
-            <SectionHeader title="Delayed Recall" score={form.delayed_recall} max={5} color="bg-red-100 text-red-900" />
+            <SectionHeader title="Delayed Recall" score={form.delayed_recall} max={5} />
             <TaskCard
               title="Delayed Recall — 5 คะแนน"
               instruction='ให้ทวน 5 คำที่จำไว้ก่อนหน้า (ห้ามให้ตัวช่วย): "หน้า — ผ้าไหม — วัด — มะลิ — สีแดง" (แต่ละคำที่ถูก = 1 คะแนน)'
@@ -349,7 +379,7 @@ export default function QaMocaForm({ open, patientId, onClose, onSaved }: Props)
 
           {/* ── ORIENTATION ── */}
           <section className="space-y-3">
-            <SectionHeader title="Orientation" score={form.orientation} max={6} color="bg-teal-100 text-teal-900" />
+            <SectionHeader title="Orientation" score={form.orientation} max={6} />
             <TaskCard
               title="Orientation — 6 คะแนน"
               instruction="ถามผู้ทดสอบทีละข้อ (แต่ละข้อที่ถูก = 1 คะแนน): วันที่ / เดือน / ปี (พ.ศ.) / วันในสัปดาห์ / สถานที่ / จังหวัด"
@@ -362,13 +392,13 @@ export default function QaMocaForm({ open, patientId, onClose, onSaved }: Props)
         </div>
 
         {/* Total score footer */}
-        <div className={`mt-4 rounded-xl p-4 flex items-center justify-between ${score >= 26 ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
+        <div className={`mt-4 rounded-xl p-4 flex items-center justify-between border bg-white ${normalizedTotalScore >= 26 ? 'border-green-200' : 'border-red-200'}`}>
           <div>
             <p className="text-xs text-slate-500">คะแนนรวม MoCA</p>
-            <p className={`text-2xl font-extrabold ${score >= 26 ? 'text-green-800' : 'text-red-800'}`}>{score} / 30</p>
+            <p className={`text-2xl font-extrabold ${normalizedTotalScore >= 26 ? 'text-green-800' : 'text-red-800'}`}>{normalizedTotalScore} / 30</p>
           </div>
-          <p className={`text-sm font-medium ${score >= 26 ? 'text-green-700' : 'text-red-700'}`}>
-            {score >= 26 ? 'ปกติ (≥ 26)' : 'มีความเสี่ยง / ความบกพร่องทางสติปัญญา (< 26)'}
+          <p className={`text-sm font-medium ${normalizedTotalScore >= 26 ? 'text-green-700' : 'text-red-700'}`}>
+            {normalizedTotalScore >= 26 ? 'ปกติ (≥ 26)' : 'มีความเสี่ยง / ความบกพร่องทางสติปัญญา (< 26)'}
           </p>
         </div>
 
@@ -383,3 +413,4 @@ export default function QaMocaForm({ open, patientId, onClose, onSaved }: Props)
     </Dialog>
   )
 }
+

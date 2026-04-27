@@ -78,7 +78,10 @@ export default function QaFoodForm({ open, patientId, onClose, onSaved }: Props)
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-h-[90vh] w-[95vw] sm:w-[90vw] lg:w-[82vw] sm:!max-w-[90vw] lg:!max-w-4xl overflow-y-auto p-4 sm:p-6">
+      <DialogContent
+        onInteractOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => e.preventDefault()}
+        className="max-h-[90vh] w-[95vw] sm:w-[90vw] lg:w-[82vw] sm:!max-w-[90vw] lg:!max-w-4xl overflow-y-auto p-4 sm:p-6">
         <DialogHeader><DialogTitle>แบบประเมินพฤติกรรมการรับประทานอาหาร (มีดี)</DialogTitle></DialogHeader>
         <p className="text-sm text-muted-foreground mb-3">คลิกข้อที่ตอบ "ใช่"</p>
         <div className="space-y-2">
@@ -109,3 +112,4 @@ export default function QaFoodForm({ open, patientId, onClose, onSaved }: Props)
     </Dialog>
   )
 }
+

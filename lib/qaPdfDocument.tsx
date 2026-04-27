@@ -239,8 +239,8 @@ const parseConditionTokens = (value: string | null | undefined): string[] =>
     .map((v) => v.trim())
     .filter(Boolean)
 
-const hasConditionToken = (raw: string, tokens: string[], candidates: string[]) =>
-  candidates.some((candidate) => tokens.includes(candidate) || raw.includes(candidate))
+const hasConditionToken = (tokens: string[], candidates: string[]) =>
+  candidates.some((candidate) => tokens.includes(candidate))
 
 const yesNo = (value: boolean | null | undefined) => ({
   yes: Boolean(value),
@@ -296,33 +296,30 @@ const Line = ({
 export function QaPdfDocument(props: QaPdfDocumentProps) {
   const { patient: p, diag, moca, hamd, mds, epw, smell, tmse, rbd, rome4, vision } = props
 
-  const conditionRaw = normalize(diag?.condition)
   const conditionTokens = parseConditionTokens(diag?.condition)
-  const isNewlyDiagnosis = hasConditionToken(conditionRaw, conditionTokens, [
+  const isNewlyDiagnosis = hasConditionToken(conditionTokens, [
     'newly',
     'newly diagnosis',
     'newly diagnosed pd',
   ])
-  const isPD = hasConditionToken(conditionRaw, conditionTokens, [
+  const isPD = hasConditionToken(conditionTokens, [
     'pd',
     'parkinson',
     'parkinson disease',
-  ])
-  const isProdromal = hasConditionToken(conditionRaw, conditionTokens, [
+  ]) || isNewlyDiagnosis
+  const isProdromal = hasConditionToken(conditionTokens, [
     'pdm',
     'prodromal',
     'high risk',
     'high-risk',
   ])
-  const isHealthy = hasConditionToken(conditionRaw, conditionTokens, [
+  const isHealthy = hasConditionToken(conditionTokens, [
     'ctrl',
     'control',
     'healthy',
     'normal',
   ])
-  const isOther =
-    hasConditionToken(conditionRaw, conditionTokens, ['other', 'other diagnosis']) ||
-    (!isPD && !isProdromal && !isHealthy && !isNewlyDiagnosis)
+  const isOther = hasConditionToken(conditionTokens, ['other', 'other diagnosis'])
 
   const otherText = isOther
     ? diag?.other_diagnosis_text ?? diag?.condition ?? ''

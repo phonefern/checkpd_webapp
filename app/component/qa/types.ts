@@ -112,19 +112,23 @@ export function normalizeQaConditionValue(value?: string | null): QaConditionFil
   const raw = normalize(value)
 
   if (!raw) return ''
+  if (raw === '-') return ''
   if (raw === 'pd' || raw.includes('parkinson') || raw.includes('newly diagnosis')) return 'pd'
   if (raw === 'pdm' || raw.includes('prodromal') || raw.includes('high risk') || raw.includes('high-risk')) return 'pdm'
   if (raw === 'ctrl' || raw.includes('healthy') || raw.includes('control') || raw === 'normal') return 'ctrl'
   if (raw === 'other' || raw.includes('other diagnosis')) return 'other'
 
-  return 'other'
+  return ''
 }
 
 export function formatQaConditionLabel(diag?: QaDiagnosisRow): string {
+  const raw = normalize(diag?.condition)
+  if (!raw || raw === '-') return '-'
+
   const normalized = normalizeQaConditionValue(diag?.condition)
   if (normalized) return normalized.toUpperCase()
 
-  return '-'
+  return diag?.condition?.trim() || '-'
 }
 
 export function isQaDiagnosed(diag?: QaDiagnosisRow): boolean {
