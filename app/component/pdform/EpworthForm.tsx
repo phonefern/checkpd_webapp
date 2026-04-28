@@ -1,17 +1,17 @@
-"use client";
+﻿"use client";
 // app/component/pdform/EpworthForm.tsx
 import React, { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
 const questions = [
-  "1. ขณะนั่งอ่านหนังสือ",
-  "2. ขณะดูโทรทัศน์",
-  "3. ขณะนั่งเฉยๆ นอกบ้าน ในที่สาธารณะ เช่น ในห้องสมุด หรือโรงภาพยนตร์",
-  "4. ขณะนั่งเป็นผู้โดยสารในรถหรือไฟ เครื่องบิน ติดต่อกันเป็นเวลานาน",
-  "5. ขณะนั่งเงียบๆ หลังรับประทานอาหารกลางวัน โดยไม่ได้ดื่มเครื่องดื่มแอลกอฮอล์",
-  "6. ขณะนั่งเอนหลังพักผ่อนช่วงบ่ายตามโอกาส",
-  "7. ขณะขับรถ (หรือยานพาหนะอื่น) แล้วรถ (หรือยานพาหนะอื่น) ต้องหยุดนิ่ง 2-3 นาทีตามจังหวะการจราจร",
+  "1. à¸‚à¸“à¸°à¸™à¸±à¹ˆà¸‡à¸­à¹ˆà¸²à¸™à¸«à¸™à¸±à¸‡à¸ªà¸·à¸­",
+  "2. à¸‚à¸“à¸°à¸”à¸¹à¹‚à¸—à¸£à¸—à¸±à¸¨à¸™à¹Œ",
+  "3. à¸‚à¸“à¸°à¸™à¸±à¹ˆà¸‡à¹€à¸‰à¸¢à¹† à¸™à¸­à¸à¸šà¹‰à¸²à¸™ à¹ƒà¸™à¸—à¸µà¹ˆà¸ªà¸²à¸˜à¸²à¸£à¸“à¸° à¹€à¸Šà¹ˆà¸™ à¹ƒà¸™à¸«à¹‰à¸­à¸‡à¸ªà¸¡à¸¸à¸” à¸«à¸£à¸·à¸­à¹‚à¸£à¸‡à¸ à¸²à¸žà¸¢à¸™à¸•à¸£à¹Œ",
+  "4. à¸‚à¸“à¸°à¸™à¸±à¹ˆà¸‡à¹€à¸›à¹‡à¸™à¸œà¸¹à¹‰à¹‚à¸”à¸¢à¸ªà¸²à¸£à¹ƒà¸™à¸£à¸–à¸«à¸£à¸·à¸­à¹„à¸Ÿ à¹€à¸„à¸£à¸·à¹ˆà¸­à¸‡à¸šà¸´à¸™ à¸•à¸´à¸”à¸•à¹ˆà¸­à¸à¸±à¸™à¹€à¸›à¹‡à¸™à¹€à¸§à¸¥à¸²à¸™à¸²à¸™",
+  "5. à¸‚à¸“à¸°à¸™à¸±à¹ˆà¸‡à¹€à¸‡à¸µà¸¢à¸šà¹† à¸«à¸¥à¸±à¸‡à¸£à¸±à¸šà¸›à¸£à¸°à¸—à¸²à¸™à¸­à¸²à¸«à¸²à¸£à¸à¸¥à¸²à¸‡à¸§à¸±à¸™ à¹‚à¸”à¸¢à¹„à¸¡à¹ˆà¹„à¸”à¹‰à¸”à¸·à¹ˆà¸¡à¹€à¸„à¸£à¸·à¹ˆà¸­à¸‡à¸”à¸·à¹ˆà¸¡à¹à¸­à¸¥à¸à¸­à¸®à¸­à¸¥à¹Œ",
+  "6. à¸‚à¸“à¸°à¸™à¸±à¹ˆà¸‡à¹€à¸­à¸™à¸«à¸¥à¸±à¸‡à¸žà¸±à¸à¸œà¹ˆà¸­à¸™à¸Šà¹ˆà¸§à¸‡à¸šà¹ˆà¸²à¸¢à¸•à¸²à¸¡à¹‚à¸­à¸à¸²à¸ª",
+  "7. à¸‚à¸“à¸°à¸‚à¸±à¸šà¸£à¸– (à¸«à¸£à¸·à¸­à¸¢à¸²à¸™à¸žà¸²à¸«à¸™à¸°à¸­à¸·à¹ˆà¸™) à¹à¸¥à¹‰à¸§à¸£à¸– (à¸«à¸£à¸·à¸­à¸¢à¸²à¸™à¸žà¸²à¸«à¸™à¸°à¸­à¸·à¹ˆà¸™) à¸•à¹‰à¸­à¸‡à¸«à¸¢à¸¸à¸”à¸™à¸´à¹ˆà¸‡ 2-3 à¸™à¸²à¸—à¸µà¸•à¸²à¸¡à¸ˆà¸±à¸‡à¸«à¸§à¸°à¸à¸²à¸£à¸ˆà¸£à¸²à¸ˆà¸£",
 ];
 
 
@@ -28,7 +28,7 @@ export default function EpworthForm({ thaiId }: { thaiId?: string }) {
 
   useEffect(() => {
     if (!thaiId) {
-      setSubmitMessage("ไม่พบข้อมูลผู้ป่วย กรุณาเลือกผู้ป่วยก่อนทำแบบประเมิน");
+      setSubmitMessage("à¹„à¸¡à¹ˆà¸žà¸šà¸‚à¹‰à¸­à¸¡à¸¹à¸¥à¸œà¸¹à¹‰à¸›à¹ˆà¸§à¸¢ à¸à¸£à¸¸à¸“à¸²à¹€à¸¥à¸·à¸­à¸à¸œà¸¹à¹‰à¸›à¹ˆà¸§à¸¢à¸à¹ˆà¸­à¸™à¸—à¸³à¹à¸šà¸šà¸›à¸£à¸°à¹€à¸¡à¸´à¸™");
       return;
     }
 
@@ -38,7 +38,7 @@ export default function EpworthForm({ thaiId }: { thaiId?: string }) {
           data: { session },
         } = await supabase.auth.getSession();
         if (!session) {
-          setSubmitMessage("กรุณาเข้าสู่ระบบก่อน");
+          setSubmitMessage("à¸à¸£à¸¸à¸“à¸²à¹€à¸‚à¹‰à¸²à¸ªà¸¹à¹ˆà¸£à¸°à¸šà¸šà¸à¹ˆà¸­à¸™");
           return;
         }
 
@@ -51,13 +51,13 @@ export default function EpworthForm({ thaiId }: { thaiId?: string }) {
 
         if (error) {
           console.error("Error fetching patient data:", error);
-          setSubmitMessage("ไม่พบข้อมูลผู้ป่วยด้วยเลขบัตรประชาชนนี้");
+          setSubmitMessage("à¹„à¸¡à¹ˆà¸žà¸šà¸‚à¹‰à¸­à¸¡à¸¹à¸¥à¸œà¸¹à¹‰à¸›à¹ˆà¸§à¸¢à¸”à¹‰à¸§à¸¢à¹€à¸¥à¸‚à¸šà¸±à¸•à¸£à¸›à¸£à¸°à¸Šà¸²à¸Šà¸™à¸™à¸µà¹‰");
         } else {
           setPatientInfo(data);
         }
       } catch (err) {
         console.error("Error fetching patient info:", err);
-        setSubmitMessage("เกิดข้อผิดพลาดในการโหลดข้อมูลผู้ป่วย");
+        setSubmitMessage("à¹€à¸à¸´à¸”à¸‚à¹‰à¸­à¸œà¸´à¸”à¸žà¸¥à¸²à¸”à¹ƒà¸™à¸à¸²à¸£à¹‚à¸«à¸¥à¸”à¸‚à¹‰à¸­à¸¡à¸¹à¸¥à¸œà¸¹à¹‰à¸›à¹ˆà¸§à¸¢");
       }
     };
 
@@ -72,16 +72,16 @@ export default function EpworthForm({ thaiId }: { thaiId?: string }) {
 
   const totalScore = answers.reduce((acc, val) => acc + val, 0);
 
-  let interpretation = "ปกติ";
+  let interpretation = "à¸›à¸à¸•à¸´";
   if (totalScore >= 7 && totalScore <= 9) {
-    interpretation = "มีแนวโน้มง่วงผิดปกติ";
+    interpretation = "à¸¡à¸µà¹à¸™à¸§à¹‚à¸™à¹‰à¸¡à¸‡à¹ˆà¸§à¸‡à¸œà¸´à¸”à¸›à¸à¸•à¸´";
   } else if (totalScore > 9) {
-    interpretation = "ผิดปกติชัดเจน";
+    interpretation = "à¸œà¸´à¸”à¸›à¸à¸•à¸´à¸Šà¸±à¸”à¹€à¸ˆà¸™";
   }
 
   const handleSubmit = async () => {
     if (!thaiId || !patientInfo) {
-      setSubmitMessage("ไม่พบข้อมูลผู้ป่วย");
+      setSubmitMessage("à¹„à¸¡à¹ˆà¸žà¸šà¸‚à¹‰à¸­à¸¡à¸¹à¸¥à¸œà¸¹à¹‰à¸›à¹ˆà¸§à¸¢");
       return;
     }
 
@@ -93,10 +93,10 @@ export default function EpworthForm({ thaiId }: { thaiId?: string }) {
         data: { session },
       } = await supabase.auth.getSession();
       if (!session) {
-        throw new Error("ไม่พบ session ผู้ใช้");
+        throw new Error("à¹„à¸¡à¹ˆà¸žà¸š session à¸œà¸¹à¹‰à¹ƒà¸Šà¹‰");
       }
 
-      // ใช้ upsert แทน insert/update
+      // à¹ƒà¸Šà¹‰ upsert à¹à¸—à¸™ insert/update
       const { error: upsertError } = await supabase
         .from("risk_factors_test")
         .upsert(
@@ -114,17 +114,17 @@ export default function EpworthForm({ thaiId }: { thaiId?: string }) {
 
       if (upsertError) {
         console.error("Error saving assessment:", upsertError);
-        setSubmitMessage(`เกิดข้อผิดพลาด: ${upsertError.message}`);
+        setSubmitMessage(`à¹€à¸à¸´à¸”à¸‚à¹‰à¸­à¸œà¸´à¸”à¸žà¸¥à¸²à¸”: ${upsertError.message}`);
       } else {
         console.log("Assessment saved successfully");
-        setSubmitMessage("บันทึกผลการประเมินเรียบร้อยแล้ว!");
+        setSubmitMessage("à¸šà¸±à¸™à¸—à¸¶à¸à¸œà¸¥à¸à¸²à¸£à¸›à¸£à¸°à¹€à¸¡à¸´à¸™à¹€à¸£à¸µà¸¢à¸šà¸£à¹‰à¸­à¸¢à¹à¸¥à¹‰à¸§!");
         await new Promise((resolve) => setTimeout(resolve, 1500));
 
         router.back();
       }
     } catch (err) {
       console.error("Unexpected error:", err);
-      setSubmitMessage("เกิดข้อผิดพลาดที่ไม่คาดคิด");
+      setSubmitMessage("à¹€à¸à¸´à¸”à¸‚à¹‰à¸­à¸œà¸´à¸”à¸žà¸¥à¸²à¸”à¸—à¸µà¹ˆà¹„à¸¡à¹ˆà¸„à¸²à¸”à¸„à¸´à¸”");
     } finally {
       setIsSubmitting(false);
     }
@@ -132,25 +132,31 @@ export default function EpworthForm({ thaiId }: { thaiId?: string }) {
 
   return (
     <div className="max-w-6xl mx-auto mt-10 bg-white p-8 rounded-lg shadow">
-      <h1 className="text-2xl font-bold text-center mb-4">แบบทดสอบ Epworth Sleepiness Scale</h1>
+      <h1 className="text-2xl font-bold text-center mb-4">à¹à¸šà¸šà¸—à¸”à¸ªà¸­à¸š Epworth Sleepiness Scale</h1>
 
       {thaiId && patientInfo && (
         <div className="mb-4 p-3 bg-blue-50 rounded-lg text-center text-blue-700">
-          กำลังทำแบบประเมินสำหรับ: {patientInfo.first_name} {patientInfo.last_name} ({thaiId})
+          à¸à¸³à¸¥à¸±à¸‡à¸—à¸³à¹à¸šà¸šà¸›à¸£à¸°à¹€à¸¡à¸´à¸™à¸ªà¸³à¸«à¸£à¸±à¸š: {patientInfo.first_name} {patientInfo.last_name} ({thaiId})
         </div>
       )}
 
       <p className="mb-4 text-center">
-        <strong>คำชี้แจง</strong>: ในสถานการณ์ต่างๆ ต่อไปนี้ ท่านมีโอกาสงีบหลับ หรือเผลอหลับแค่ไหน
+        <strong>à¸„à¸³à¸Šà¸µà¹‰à¹à¸ˆà¸‡</strong>: à¹ƒà¸™à¸ªà¸–à¸²à¸™à¸à¸²à¸£à¸“à¹Œà¸•à¹ˆà¸²à¸‡à¹† à¸•à¹ˆà¸­à¹„à¸›à¸™à¸µà¹‰ à¸—à¹ˆà¸²à¸™à¸¡à¸µà¹‚à¸­à¸à¸²à¸ªà¸‡à¸µà¸šà¸«à¸¥à¸±à¸š à¸«à¸£à¸·à¸­à¹€à¸œà¸¥à¸­à¸«à¸¥à¸±à¸šà¹à¸„à¹ˆà¹„à¸«à¸™
+      </p>
+      <p className="mb-2 text-center text-sm text-gray-700">
+        ให้ประเมินจากประสบการณ์จริงในช่วง 1 เดือนที่ผ่านมา แม้ไม่ได้ตั้งใจจะนอน และเลือกคำตอบเพียง 1 ระดับต่อ 1 ข้อ
+      </p>
+      <p className="mb-4 text-center text-sm text-gray-700">
+        หากไม่เคยอยู่ในสถานการณ์นั้น ให้ประเมินตามความเป็นไปได้ที่ใกล้เคียงที่สุด
       </p>
       <p className="mb-4 text-center">
-        (0 = ไม่เคยเลย, 1 = มีโอกาสเล็กน้อย, 2 = มีโอกาสปานกลาง, 3 = มีโอกาสสูงมาก)
+        (0 = à¹„à¸¡à¹ˆà¹€à¸„à¸¢à¹€à¸¥à¸¢, 1 = à¸¡à¸µà¹‚à¸­à¸à¸²à¸ªà¹€à¸¥à¹‡à¸à¸™à¹‰à¸­à¸¢, 2 = à¸¡à¸µà¹‚à¸­à¸à¸²à¸ªà¸›à¸²à¸™à¸à¸¥à¸²à¸‡, 3 = à¸¡à¸µà¹‚à¸­à¸à¸²à¸ªà¸ªà¸¹à¸‡à¸¡à¸²à¸)
       </p>
 
       <table className="w-full border border-gray-300 mb-6">
         <thead>
           <tr className="bg-gray-100">
-            <th className="border border-gray-300 px-3 py-2 w-[70%] text-left">สถานการณ์</th>
+            <th className="border border-gray-300 px-3 py-2 w-[70%] text-left">à¸ªà¸–à¸²à¸™à¸à¸²à¸£à¸“à¹Œ</th>
             {[0, 1, 2, 3].map((score) => (
               <th key={score} className="border border-gray-300 px-3 py-2 text-center w-[8%]">
                 {score}
@@ -179,10 +185,10 @@ export default function EpworthForm({ thaiId }: { thaiId?: string }) {
 
       <div className="mt-6 flex justify-between items-center mb-4">
         <p className="font-bold">
-          รวมคะแนน: <span className="text-blue-600">{totalScore}</span> / {questions.length * 3}
+          à¸£à¸§à¸¡à¸„à¸°à¹à¸™à¸™: <span className="text-blue-600">{totalScore}</span> / {questions.length * 3}
         </p>
         <p className="font-bold">
-          ผลการประเมิน:{" "}
+          à¸œà¸¥à¸à¸²à¸£à¸›à¸£à¸°à¹€à¸¡à¸´à¸™:{" "}
           <span
             className={
               totalScore > 9 ? "text-red-600" : totalScore >= 7 ? "text-orange-600" : "text-green-600"
@@ -202,10 +208,10 @@ export default function EpworthForm({ thaiId }: { thaiId?: string }) {
             : "bg-blue-600 hover:bg-blue-700"
             }`}
         >
-          {isSubmitting ? "กำลังบันทึก..." : "ส่งแบบประเมิน"} {isSubmitting && (
+          {isSubmitting ? "à¸à¸³à¸¥à¸±à¸‡à¸šà¸±à¸™à¸—à¸¶à¸..." : "à¸ªà¹ˆà¸‡à¹à¸šà¸šà¸›à¸£à¸°à¹€à¸¡à¸´à¸™"} {isSubmitting && (
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm z-50">
               <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-600 border-solid mb-4"></div>
-              <p className="text-lg font-semibold text-blue-600">กำลังบันทึกผลการประเมิน...</p>
+              <p className="text-lg font-semibold text-blue-600">à¸à¸³à¸¥à¸±à¸‡à¸šà¸±à¸™à¸—à¸¶à¸à¸œà¸¥à¸à¸²à¸£à¸›à¸£à¸°à¹€à¸¡à¸´à¸™...</p>
             </div>
           )}
         </button>
@@ -213,7 +219,7 @@ export default function EpworthForm({ thaiId }: { thaiId?: string }) {
 
       {submitMessage && (
         <div
-          className={`mt-4 p-3 rounded text-center ${submitMessage.includes("เรียบร้อย")
+          className={`mt-4 p-3 rounded text-center ${submitMessage.includes("à¹€à¸£à¸µà¸¢à¸šà¸£à¹‰à¸­à¸¢")
             ? "bg-green-100 text-green-700"
             : "bg-red-100 text-red-700"
             }`}

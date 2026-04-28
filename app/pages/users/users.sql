@@ -140,6 +140,80 @@ create trigger tg_last_update_gcp BEFORE
 update on user_record_summary for EACH row
 execute FUNCTION fn_update_last_update_gcp ();
 
+CREATE OR REPLACE FUNCTION public.fn_mirror_condition_safe()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, checkpd
+AS $$
+DECLARE
+  mirror_updated BOOLEAN := FALSE;
+BEGIN
+  -- Public table is the source of truth. Mirror to checkpd as best-effort.
+  IF NEW.record_id IS NULL THEN
+    RETURN NULL;
+  END IF;
+
+  BEGIN
+    UPDATE checkpd.record_summary c
+       SET condition            = NEW.condition,
+           condition_status     = NEW.condition_status,
+           condition_changed_at = NEW.condition_changed_at,
+           other                = NEW.other,
+           test_result          = NEW.test_result,
+           updated_at           = now()
+     WHERE c.user_id   = NEW.user_id
+       AND c.record_id = NEW.record_id;
+
+    mirror_updated := FOUND;
+  EXCEPTION
+    WHEN undefined_table OR invalid_schema_name THEN
+      RAISE WARNING 'Mirror skipped: checkpd.record_summary missing.';
+      RETURN NULL;
+    WHEN OTHERS THEN
+      RAISE WARNING 'Mirror update skipped: % (user_id=%, record_id=%)', SQLERRM, NEW.user_id, NEW.record_id;
+      RETURN NULL;
+  END;
+
+  IF NOT mirror_updated THEN
+    IF NEW.recorder IS NULL THEN
+      RAISE WARNING 'Mirror skipped: recorder is NULL (user_id=%, record_id=%)', NEW.user_id, NEW.record_id;
+      RETURN NULL;
+    END IF;
+
+    BEGIN
+      INSERT INTO checkpd.record_summary (
+          user_id, recorder, record_id,
+          condition, condition_status, condition_changed_at,
+          other, test_result, updated_at
+      )
+      VALUES (
+          NEW.user_id, NEW.recorder, NEW.record_id,
+          NEW.condition, NEW.condition_status, NEW.condition_changed_at,
+          NEW.other, NEW.test_result, now()
+      )
+      ON CONFLICT (user_id, recorder) DO UPDATE
+         SET record_id            = EXCLUDED.record_id,
+             condition            = EXCLUDED.condition,
+             condition_status     = EXCLUDED.condition_status,
+             condition_changed_at = EXCLUDED.condition_changed_at,
+             other                = EXCLUDED.other,
+             test_result          = EXCLUDED.test_result,
+             updated_at           = now();
+    EXCEPTION
+      WHEN foreign_key_violation THEN
+        RAISE WARNING 'Mirror skipped: checkpd.users missing user_id=%', NEW.user_id;
+      WHEN undefined_table OR invalid_schema_name THEN
+        RAISE WARNING 'Mirror skipped: checkpd.record_summary missing.';
+      WHEN OTHERS THEN
+        RAISE WARNING 'Mirror insert skipped: % (user_id=%, recorder=%, record_id=%)', SQLERRM, NEW.user_id, NEW.recorder, NEW.record_id;
+    END;
+  END IF;
+
+  RETURN NULL;
+END;
+$$;
+
 create trigger tg_mirror_condition_safe
 after
 update on user_record_summary for EACH row when (

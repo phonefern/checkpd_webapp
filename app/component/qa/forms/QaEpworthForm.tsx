@@ -76,6 +76,12 @@ export default function QaEpworthForm({ open, patientId, onClose, onSaved }: Pro
         onEscapeKeyDown={(e) => e.preventDefault()}
         className="max-h-[90vh] w-[95vw] sm:w-[90vw] lg:w-[82vw] sm:!max-w-[90vw] lg:!max-w-4xl overflow-y-auto p-4 sm:p-6">
         <DialogHeader><DialogTitle>Epworth Sleepiness Scale</DialogTitle></DialogHeader>
+        <div className="mb-2 rounded-md border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+          <p className="font-medium text-slate-900">คำชี้แจง</p>
+          <p>
+            ในสถานการณ์ต่างๆ ดังต่อไปนี้ ท่านมีโอกาสงีบหลับ หรือเผลอหลับ โดยที่ไม่ได้รู้สึกอ่อนเพลียมากหรือน้อยเพียงใด อยู่ในระดับที่รุนแรงหรือไม่
+          </p>
+        </div>
         <p className="text-sm text-muted-foreground mb-3">
           0 = ไม่เคยเลย &nbsp;|&nbsp; 1 = มีโอกาสเล็กน้อย &nbsp;|&nbsp; 2 = มีโอกาสปานกลาง &nbsp;|&nbsp; 3 = มีโอกาสสูงมาก
         </p>
