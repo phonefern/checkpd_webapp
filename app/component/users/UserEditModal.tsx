@@ -36,12 +36,21 @@ type CheckpdUserLifestyle = {
   relative: string | null
 }
 
+type SummaryRow = {
+  recorder: string | null
+  record_id: string | null
+  condition: string | null
+  other: string | null
+  test_result: string | null
+}
+
 export default function UserEditModal({ open, user, onClose, onSaved }: UserEditModalProps) {
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [checkpdUser, setCheckpdUser] = useState<CheckpdUserLifestyle | null>(null)
   const [testResult, setTestResult] = useState<string | null>(null)
+  const [summaryRecorder, setSummaryRecorder] = useState<string | null>(null)
 
   const form = useForm<UserEditValues>({
     resolver: zodResolver(userEditSchema),
@@ -62,17 +71,48 @@ export default function UserEditModal({ open, user, onClose, onSaved }: UserEdit
       setFetchError(null)
       setCheckpdUser(null)
       setTestResult(null)
+      setSummaryRecorder(null)
       try {
-        const [publicUserRes, summaryRes, checkpdUserRes] = await Promise.all([
+        const summaryPromise = (async () => {
+          if (user.recorder) {
+            const byRecorder = await supabase
+              .from("user_record_summary")
+              .select("recorder,record_id,condition,other,test_result")
+              .eq("user_id", user.id)
+              .eq("recorder", user.recorder)
+              .maybeSingle<SummaryRow>()
+            if (byRecorder.error) throw byRecorder.error
+            if (byRecorder.data) return byRecorder.data
+          }
+
+          if (user.record_id) {
+            const byRecordId = await supabase
+              .from("user_record_summary")
+              .select("recorder,record_id,condition,other,test_result")
+              .eq("user_id", user.id)
+              .eq("record_id", user.record_id)
+              .order("last_update", { ascending: false, nullsFirst: false })
+              .limit(1)
+              .maybeSingle<SummaryRow>()
+            if (byRecordId.error) throw byRecordId.error
+            if (byRecordId.data) return byRecordId.data
+          }
+
+          const latest = await supabase
+            .from("user_record_summary")
+            .select("recorder,record_id,condition,other,test_result")
+            .eq("user_id", user.id)
+            .order("last_update", { ascending: false, nullsFirst: false })
+            .order("updated_at", { ascending: false, nullsFirst: false })
+            .limit(1)
+            .maybeSingle<SummaryRow>()
+          if (latest.error) throw latest.error
+          return latest.data
+        })()
+
+        const [publicUserRes, summaryRow, checkpdUserRes] = await Promise.all([
           supabase.from("users").select("*").eq("id", user.id).maybeSingle(),
-          user.recorder
-            ? supabase
-                .from("user_record_summary")
-                .select("condition,other,test_result")
-                .eq("user_id", user.id)
-                .eq("recorder", user.recorder)
-                .maybeSingle()
-            : Promise.resolve({ data: null, error: null }),
+          summaryPromise,
           supabase
             .schema("checkpd")
             .from("users")
@@ -83,10 +123,9 @@ export default function UserEditModal({ open, user, onClose, onSaved }: UserEdit
 
         if (cancelled) return
         if (publicUserRes.error) throw publicUserRes.error
-        if (summaryRes.error) throw summaryRes.error
 
         const pu = publicUserRes.data as Record<string, unknown> | null
-        const rs = summaryRes.data as Record<string, unknown> | null
+        const rs = summaryRow as SummaryRow | null
 
         form.reset({
           perfixname: toText(pu?.perfixname),
@@ -105,11 +144,12 @@ export default function UserEditModal({ open, user, onClose, onSaved }: UserEdit
           maritalstatus: toText(pu?.maritalstatus),
           ethnicity: toText(pu?.ethnicity),
           congenital_disease: toText(pu?.congenital_disease),
-          condition: toText(rs?.condition),
+          condition: toConditionFormValue(rs?.condition),
           other: toText(rs?.other),
         })
 
         setTestResult(toText(rs?.test_result) || null)
+        setSummaryRecorder(rs?.recorder ?? user.recorder ?? null)
         setCheckpdUser(checkpdUserRes.error ? null : (checkpdUserRes.data as CheckpdUserLifestyle | null))
       } catch (err) {
         if (cancelled) return
@@ -152,16 +192,34 @@ export default function UserEditModal({ open, user, onClose, onSaved }: UserEdit
         const { error: publicErr } = await supabase.from("users").update(usersPayload).eq("id", user.id)
         if (publicErr) throw publicErr
 
-        if (user.recorder) {
-          const { error: summaryErr } = await supabase
+        const recorderToUse = summaryRecorder ?? user.recorder ?? (user.source === "staff" ? "staff" : "user")
+
+        if (recorderToUse) {
+          const summaryPayload = {
+            condition: nullOrValue(values.condition),
+            other: nullOrValue(values.other),
+          }
+
+          const { data: updatedRows, error: summaryUpdateErr } = await supabase
             .from("user_record_summary")
-            .update({
-              condition: nullOrValue(values.condition),
-              other: nullOrValue(values.other),
-            })
+            .update(summaryPayload)
             .eq("user_id", user.id)
-            .eq("recorder", user.recorder)
-          if (summaryErr) throw summaryErr
+            .eq("recorder", recorderToUse)
+            .select("user_id")
+
+          if (summaryUpdateErr) throw summaryUpdateErr
+
+          if (!updatedRows || updatedRows.length === 0) {
+            const { error: summaryInsertErr } = await supabase
+              .from("user_record_summary")
+              .insert({
+                user_id: user.id,
+                recorder: recorderToUse,
+                record_id: nullOrValue(user.record_id),
+                ...summaryPayload,
+              })
+            if (summaryInsertErr) throw summaryInsertErr
+          }
         }
 
         onSaved(user)
@@ -370,5 +428,11 @@ function toDateInputString(value: string): string {
 function nullOrValue(value: string | null | undefined) {
   if (value == null) return null
   const trimmed = value.trim()
-  return trimmed === "" ? null : trimmed
+  if (trimmed === "" || trimmed.toLowerCase() === "null") return null
+  return trimmed
+}
+
+function toConditionFormValue(value: string | null | undefined) {
+  const trimmed = (value ?? "").trim()
+  return trimmed === "" ? "null" : trimmed
 }
