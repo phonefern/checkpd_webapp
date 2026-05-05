@@ -1,5 +1,6 @@
 import './globals.css'
 import localFont from 'next/font/local'
+import { SessionProvider } from './providers/SessionProvider'
 
 const sarabun = localFont({
   src: [
@@ -96,7 +97,7 @@ export default function RootLayout({
   return (
     <html lang="th">
       <body className={`${sarabun.className} ${sarabun.variable}`}>
-        {children}
+        <SessionProvider>{children}</SessionProvider>
       </body>
     </html>
   )

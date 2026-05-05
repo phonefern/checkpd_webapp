@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import type { Session } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import QaSearchFilters from '@/app/component/qa/QaSearchFilters'
 import QaTable from '@/app/component/qa/QaTable'
@@ -14,6 +13,7 @@ import { Plus } from 'lucide-react'
 import SidebarLayout from '@/app/component/layout/SidebarLayout'
 import { logActivity } from '@/lib/activityLog'
 import { useAccessProfile } from '@/app/hooks/useAccessProfile'
+import { useSession } from '@/app/providers/SessionProvider'
 import {
   PAGE_SIZE,
   QaConditionFilter,
@@ -36,8 +36,7 @@ const DIAG_SELECT =
   'patient_id,condition,hy_stage,disease_duration,other_diagnosis_text,constipation,constipation_onset_age,constipation_duration,rbd_suspected,rbd_onset_age,rbd_duration,hyposmia,hyposmia_onset_age,hyposmia_duration,depression,depression_onset_age,depression_duration,eds,eds_onset_age,eds_duration,ans_dysfunction,ans_onset_age,ans_duration,mild_parkinsonian_sign,family_history_pd,adl_score,scopa_aut_score,blood_test_note,fdopa_pet_requested,fdopa_pet_score'
 
 export default function QaPage() {
-  const [session, setSession] = useState<Session | null>(null)
-  const [sessionReady, setSessionReady] = useState(false)
+  const { session, loading: sessionLoading } = useSession()
   const { accessProfile } = useAccessProfile(session)
   const role = accessProfile.role
 
@@ -260,22 +259,6 @@ export default function QaPage() {
     }
   }, [session, search, thaiId, condition, gp2, hyStage, province, startDate, endDate, currentPage])
 
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-      setSessionReady(true)
-    })
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      setSession(nextSession)
-      setSessionReady(true)
-    })
-
-    return () => subscription.unsubscribe()
-  }, [])
-
   const handleEdit = (patient: QaPatient) => {
     const row = rows.find((r) => r.patient.id === patient.id)
     setEditPatient(patient)
@@ -346,9 +329,9 @@ export default function QaPage() {
   }
 
   useEffect(() => {
-    if (!sessionReady || !session) return
+    if (sessionLoading || !session) return
     fetchData()
-  }, [fetchData, sessionReady, session])
+  }, [fetchData, sessionLoading, session])
 
   return (
     <SidebarLayout activePath="/pages/qa" mainClassName="bg-gray-50">
@@ -437,7 +420,7 @@ export default function QaPage() {
         </div>
       )}
 
-      {!sessionReady || loading ? (
+      {sessionLoading || loading ? (
         <div className="flex justify-center items-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500" />
         </div>

@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { motion, type Variants } from "framer-motion";
-import type { Session } from "@supabase/supabase-js";
 
 import AppSidebar from "./AppSidebar";
 import AuthRedirect from "@/components/AuthRedirect";
 import { useAccessProfile } from "@/app/hooks/useAccessProfile";
+import { useSession } from "@/app/providers/SessionProvider";
 import { APP_ROLE_LABELS } from "@/lib/access";
 import { supabase } from "@/lib/supabase";
 import { logActivity } from "@/lib/activityLog";
@@ -37,29 +37,14 @@ const pageVariants: Variants = {
 
 export default function SidebarLayout({ children, activePath, mainClassName }: Props) {
   const router = useRouter();
-  const [session, setSession] = useState<Session | null>(null);
-  const [sessionLoading, setSessionLoading] = useState(true);
-  const [userName, setUserName] = useState("Admin ChulaPD");
-  const [userEmail, setUserEmail] = useState("admin@checkpd.local");
+  const { session, loading: sessionLoading } = useSession();
+  const userName = useMemo(() => {
+    if (!session?.user) return "Admin ChulaPD";
+    const metadata = session.user.user_metadata;
+    return metadata?.name || metadata?.full_name || session.user.email?.split("@")[0] || "Admin ChulaPD";
+  }, [session]);
+  const userEmail = useMemo(() => session?.user?.email || "admin@checkpd.local", [session]);
   const { accessProfile, accessLoading } = useAccessProfile(session);
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session: s } }) => {
-      setSession(s);
-      if (s?.user) {
-        const m = s.user.user_metadata;
-        setUserName(m?.name || m?.full_name || s.user.email?.split("@")[0] || "Admin ChulaPD");
-        setUserEmail(s.user.email || "admin@checkpd.local");
-      }
-      setSessionLoading(false);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
-      setSession(s);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
 
   const handleLogout = async () => {
     logActivity({ action: 'LOGOUT', page: 'auth', description: `ออกจากระบบ: ${userEmail}`, userEmail })

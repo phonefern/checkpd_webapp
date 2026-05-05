@@ -5,6 +5,8 @@ import { useForm, type UseFormRegisterReturn } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { supabase } from "@/lib/supabase"
 import { type User, conditionOptions, provinceOptions } from "@/app/types/user"
+import { useSession } from "@/app/providers/SessionProvider"
+import { useAccessProfile } from "@/app/hooks/useAccessProfile"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -36,12 +38,63 @@ type CheckpdUserLifestyle = {
   relative: string | null
 }
 
+type SummaryRow = {
+  recorder: string | null
+  record_id: string | null
+  condition: string | null
+  other: string | null
+  test_result: string | null
+}
+
+type AssessmentScores = {
+  hamd: number | null
+  epworth: number | null
+  smell: number | null
+  mds: number | null
+  rbd: number | null
+  rome4: number | null
+}
+
+type ProdromalFlags = {
+  rbd_suspected: boolean
+  hyposmia: boolean
+  constipation: boolean
+  depression: boolean
+  eds: boolean
+  mild_parkinsonian_sign: boolean
+}
+
+const EMPTY_ASSESSMENTS: AssessmentScores = {
+  hamd: null,
+  epworth: null,
+  smell: null,
+  mds: null,
+  rbd: null,
+  rome4: null,
+}
+
+const EMPTY_FLAGS: ProdromalFlags = {
+  rbd_suspected: false,
+  hyposmia: false,
+  constipation: false,
+  depression: false,
+  eds: false,
+  mild_parkinsonian_sign: false,
+}
+
 export default function UserEditModal({ open, user, onClose, onSaved }: UserEditModalProps) {
+  const { session } = useSession()
+  const { accessProfile } = useAccessProfile(session)
+  const canUseProdromalAssist =
+    accessProfile.role === "doctor" || accessProfile.role === "admin" || accessProfile.role === "super_admin"
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [checkpdUser, setCheckpdUser] = useState<CheckpdUserLifestyle | null>(null)
   const [testResult, setTestResult] = useState<string | null>(null)
+  const [summaryRecorder, setSummaryRecorder] = useState<string | null>(null)
+  const [assessments, setAssessments] = useState<AssessmentScores>(EMPTY_ASSESSMENTS)
+  const [prodromalFlags, setProdromalFlags] = useState<ProdromalFlags>(EMPTY_FLAGS)
 
   const form = useForm<UserEditValues>({
     resolver: zodResolver(userEditSchema),
@@ -62,31 +115,70 @@ export default function UserEditModal({ open, user, onClose, onSaved }: UserEdit
       setFetchError(null)
       setCheckpdUser(null)
       setTestResult(null)
+      setSummaryRecorder(null)
+      setAssessments(EMPTY_ASSESSMENTS)
+      setProdromalFlags(EMPTY_FLAGS)
       try {
-        const [publicUserRes, summaryRes, checkpdUserRes] = await Promise.all([
+        const summaryPromise = (async () => {
+          if (user.recorder) {
+            const byRecorder = await supabase
+              .from("user_record_summary")
+              .select("recorder,record_id,condition,other,test_result")
+              .eq("user_id", user.id)
+              .eq("recorder", user.recorder)
+              .maybeSingle<SummaryRow>()
+            if (byRecorder.error) throw byRecorder.error
+            if (byRecorder.data) return byRecorder.data
+          }
+
+          if (user.record_id) {
+            const byRecordId = await supabase
+              .from("user_record_summary")
+              .select("recorder,record_id,condition,other,test_result")
+              .eq("user_id", user.id)
+              .eq("record_id", user.record_id)
+              .order("last_update", { ascending: false, nullsFirst: false })
+              .limit(1)
+              .maybeSingle<SummaryRow>()
+            if (byRecordId.error) throw byRecordId.error
+            if (byRecordId.data) return byRecordId.data
+          }
+
+          const latest = await supabase
+            .from("user_record_summary")
+            .select("recorder,record_id,condition,other,test_result")
+            .eq("user_id", user.id)
+            .order("last_update", { ascending: false, nullsFirst: false })
+            .order("updated_at", { ascending: false, nullsFirst: false })
+            .limit(1)
+            .maybeSingle<SummaryRow>()
+          if (latest.error) throw latest.error
+          return latest.data
+        })()
+
+        const [publicUserRes, summaryRow, checkpdUserRes, riskFactorsRes] = await Promise.all([
           supabase.from("users").select("*").eq("id", user.id).maybeSingle(),
-          user.recorder
-            ? supabase
-                .from("user_record_summary")
-                .select("condition,other,test_result")
-                .eq("user_id", user.id)
-                .eq("recorder", user.recorder)
-                .maybeSingle()
-            : Promise.resolve({ data: null, error: null }),
+          summaryPromise,
           supabase
             .schema("checkpd")
             .from("users")
             .select("occupation,emolument,smoking,alcohol,coffee,milk,exercise,insecticide,narcotic,severe_head_injury,diagnosis,medicine,level_respond_medicine,relative")
             .eq("id", user.id)
             .maybeSingle(),
+          supabase
+            .from("risk_factors_test")
+            .select("hamd_score,epworth_score,smell_score,mds_score,rbd_score,rome4_score")
+            .eq("patient_id", user.id)
+            .order("id", { ascending: false })
+            .limit(1)
+            .maybeSingle(),
         ])
 
         if (cancelled) return
         if (publicUserRes.error) throw publicUserRes.error
-        if (summaryRes.error) throw summaryRes.error
 
         const pu = publicUserRes.data as Record<string, unknown> | null
-        const rs = summaryRes.data as Record<string, unknown> | null
+        const rs = summaryRow as SummaryRow | null
 
         form.reset({
           perfixname: toText(pu?.perfixname),
@@ -105,12 +197,31 @@ export default function UserEditModal({ open, user, onClose, onSaved }: UserEdit
           maritalstatus: toText(pu?.maritalstatus),
           ethnicity: toText(pu?.ethnicity),
           congenital_disease: toText(pu?.congenital_disease),
-          condition: toText(rs?.condition),
+          condition: toConditionFormValue(rs?.condition),
           other: toText(rs?.other),
         })
 
         setTestResult(toText(rs?.test_result) || null)
+        setSummaryRecorder(rs?.recorder ?? user.recorder ?? null)
         setCheckpdUser(checkpdUserRes.error ? null : (checkpdUserRes.data as CheckpdUserLifestyle | null))
+        const rawScores = (riskFactorsRes.error ? null : (riskFactorsRes.data as Record<string, unknown> | null)) ?? null
+        const nextAssessments: AssessmentScores = {
+          hamd: toNullableNumber(rawScores?.hamd_score),
+          epworth: toNullableNumber(rawScores?.epworth_score),
+          smell: toNullableNumber(rawScores?.smell_score),
+          mds: toNullableNumber(rawScores?.mds_score),
+          rbd: toNullableNumber(rawScores?.rbd_score),
+          rome4: toNullableNumber(rawScores?.rome4_score),
+        }
+        setAssessments(nextAssessments)
+        setProdromalFlags({
+          rbd_suspected: (nextAssessments.rbd ?? -1) >= 17,
+          hyposmia: nextAssessments.smell != null && nextAssessments.smell <= 9,
+          constipation: (nextAssessments.rome4 ?? -1) >= 2,
+          depression: (nextAssessments.hamd ?? -1) >= 13,
+          eds: (nextAssessments.epworth ?? -1) >= 10,
+          mild_parkinsonian_sign: (nextAssessments.mds ?? -1) >= 7,
+        })
       } catch (err) {
         if (cancelled) return
         setFetchError(err instanceof Error ? err.message : String(err))
@@ -152,16 +263,34 @@ export default function UserEditModal({ open, user, onClose, onSaved }: UserEdit
         const { error: publicErr } = await supabase.from("users").update(usersPayload).eq("id", user.id)
         if (publicErr) throw publicErr
 
-        if (user.recorder) {
-          const { error: summaryErr } = await supabase
+        const recorderToUse = summaryRecorder ?? user.recorder ?? (user.source === "staff" ? "staff" : "user")
+
+        if (recorderToUse) {
+          const summaryPayload = {
+            condition: nullOrValue(values.condition),
+            other: nullOrValue(values.other),
+          }
+
+          const { data: updatedRows, error: summaryUpdateErr } = await supabase
             .from("user_record_summary")
-            .update({
-              condition: nullOrValue(values.condition),
-              other: nullOrValue(values.other),
-            })
+            .update(summaryPayload)
             .eq("user_id", user.id)
-            .eq("recorder", user.recorder)
-          if (summaryErr) throw summaryErr
+            .eq("recorder", recorderToUse)
+            .select("user_id")
+
+          if (summaryUpdateErr) throw summaryUpdateErr
+
+          if (!updatedRows || updatedRows.length === 0) {
+            const { error: summaryInsertErr } = await supabase
+              .from("user_record_summary")
+              .insert({
+                user_id: user.id,
+                recorder: recorderToUse,
+                record_id: nullOrValue(user.record_id),
+                ...summaryPayload,
+              })
+            if (summaryInsertErr) throw summaryInsertErr
+          }
         }
 
         onSaved(user)
@@ -294,6 +423,22 @@ export default function UserEditModal({ open, user, onClose, onSaved }: UserEdit
                     </div>
                   )}
                 </div>
+
+                {canUseProdromalAssist && (
+                  <div className="rounded-md border bg-slate-50 p-3">
+                    <p className="mb-2 text-xs font-medium text-slate-500">
+                      Prodromal Flags (auto-selected from assessment scores)
+                    </p>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <ReadOnlyCheckRow label="Suspected RBD (RBD >= 17)" checked={prodromalFlags.rbd_suspected} />
+                      <ReadOnlyCheckRow label="Hyposmia (Smell <= 9)" checked={prodromalFlags.hyposmia} />
+                      <ReadOnlyCheckRow label="Constipation (Rome4 >= 2)" checked={prodromalFlags.constipation} />
+                      <ReadOnlyCheckRow label="Depression (HAM-D >= 13)" checked={prodromalFlags.depression} />
+                      <ReadOnlyCheckRow label="EDS (Epworth >= 10)" checked={prodromalFlags.eds} />
+                      <ReadOnlyCheckRow label="Mild Parkinsonian Sign (MDS >= 7)" checked={prodromalFlags.mild_parkinsonian_sign} />
+                    </div>
+                  </div>
+                )}
               </TabsContent>
             </Tabs>
 
@@ -354,6 +499,15 @@ function ReadOnlyRow({ label, value }: { label: string; value: string | null | u
   )
 }
 
+function ReadOnlyCheckRow({ label, checked }: { label: string; checked: boolean }) {
+  return (
+    <div className="flex items-center gap-2 rounded border border-slate-200 bg-white px-2 py-1.5">
+      <input type="checkbox" checked={checked} readOnly className="h-4 w-4" />
+      <span className="text-sm text-slate-700">{label}</span>
+    </div>
+  )
+}
+
 function toText(value: unknown): string {
   if (typeof value === "string") return value
   if (value == null) return ""
@@ -370,5 +524,17 @@ function toDateInputString(value: string): string {
 function nullOrValue(value: string | null | undefined) {
   if (value == null) return null
   const trimmed = value.trim()
-  return trimmed === "" ? null : trimmed
+  if (trimmed === "" || trimmed.toLowerCase() === "null") return null
+  return trimmed
+}
+
+function toConditionFormValue(value: string | null | undefined) {
+  const trimmed = (value ?? "").trim()
+  return trimmed === "" ? "null" : trimmed
+}
+
+function toNullableNumber(value: unknown): number | null {
+  if (value == null) return null
+  const n = Number(value)
+  return Number.isFinite(n) ? n : null
 }

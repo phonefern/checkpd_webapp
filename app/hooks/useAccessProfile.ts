@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 
 import { getAccessProfile, type AccessProfile } from "@/lib/access";
@@ -17,27 +17,31 @@ const unauthenticatedProfile: AccessProfile = {
 export function useAccessProfile(session: Session | null) {
   const [accessProfile, setAccessProfile] = useState<AccessProfile>(unauthenticatedProfile);
   const [accessLoading, setAccessLoading] = useState(true);
+  const cachedProfileRef = useRef<{ userId: string; profile: AccessProfile } | null>(null);
 
   useEffect(() => {
+    if (!session) {
+      cachedProfileRef.current = null;
+      setAccessProfile(unauthenticatedProfile);
+      setAccessLoading(false);
+      return;
+    }
+
+    if (cachedProfileRef.current?.userId === session.user.id) {
+      setAccessProfile(cachedProfileRef.current.profile);
+      setAccessLoading(false);
+      return;
+    }
+
     let alive = true;
+    setAccessLoading(true);
 
-    const loadAccess = async () => {
-      if (!session) {
-        if (!alive) return;
-        setAccessProfile(unauthenticatedProfile);
-        setAccessLoading(false);
-        return;
-      }
-
-      setAccessLoading(true);
-      const nextProfile = await getAccessProfile(supabase, session);
-
+    getAccessProfile(supabase, session).then((nextProfile) => {
       if (!alive) return;
+      cachedProfileRef.current = { userId: session.user.id, profile: nextProfile };
       setAccessProfile(nextProfile);
       setAccessLoading(false);
-    };
-
-    loadAccess();
+    });
 
     return () => {
       alive = false;

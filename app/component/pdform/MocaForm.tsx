@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { useSession } from '@/app/providers/SessionProvider'
 import { mocaItems } from "./MocaConfig";
 import MocaCard, { MocaItem } from "./MocaCard";
 
@@ -15,6 +16,7 @@ interface PatientInfo {
 
 export default function MocaForm({ thaiId }: { thaiId?: string }) {
   const router = useRouter();
+  const { session } = useSession();
   const [answers, setAnswers] = useState<number[]>(() =>
     Array(mocaItems.length).fill(0)
   );
@@ -30,10 +32,7 @@ export default function MocaForm({ thaiId }: { thaiId?: string }) {
 
     const fetchPatientInfo = async () => {
       try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-        if (!session) {
+if (!session) {
           setSubmitMessage("ไม่พบ session ผู้ใช้");
           return;
         }
@@ -111,10 +110,7 @@ export default function MocaForm({ thaiId }: { thaiId?: string }) {
     setSubmitMessage("");
 
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session) {
+if (!session) {
         throw new Error("ไม่พบ session ผู้ใช้งาน");
       }
 

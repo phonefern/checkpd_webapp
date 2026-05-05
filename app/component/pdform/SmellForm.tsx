@@ -5,6 +5,7 @@
 import React, { useState, useCallback, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { useSession } from '@/app/providers/SessionProvider'
 
 // Types
 interface Answer {
@@ -189,6 +190,7 @@ export default function Smell({ thaiId }: { thaiId?: string }) {
 
     const searchParams = useSearchParams();
     const router = useRouter();
+  const { session } = useSession();
     // const thaiId = searchParams.get("patient_thaiid");
 
     const [answers, setAnswers] = useState<Answer>({});
@@ -248,7 +250,6 @@ export default function Smell({ thaiId }: { thaiId?: string }) {
             return;
         }
         try {
-            const { data: { session } } = await supabase.auth.getSession();
             if (!session) {
                 setSubmitMessage("กรุณาเข้าสู่ระบบ");
                 return;
@@ -282,7 +283,6 @@ export default function Smell({ thaiId }: { thaiId?: string }) {
         }
         setIsSubmitting(true);
         try {
-            const { data: { session } } = await supabase.auth.getSession();
             if (!session) {
                 throw new Error("ไม่พบ session ผู้ใช้");
             }

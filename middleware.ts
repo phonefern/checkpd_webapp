@@ -1,77 +1,30 @@
-import { createMiddlewareClient } from "@supabase/auth-helpers-nextjs";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-import { canAccessFeature, getDefaultAuthorizedPath, getFeatureFromPathname, isAppRole, type AppRole } from "@/lib/access";
+const PUBLIC_PATHS = new Set(["/pages/login"]);
 
-async function resolveRole(request: NextRequest, response: NextResponse) {
-  const supabase = createMiddlewareClient({ req: request, res: response });
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  if (!session) {
-    return { session: null, role: null as AppRole | null, isActive: false };
-  }
-
-  const email = session.user.email?.toLowerCase();
-
-  if (!email) {
-    return { session, role: null as AppRole | null, isActive: false };
-  }
-
-  const { data, error } = await supabase
-    .from("admin_users")
-    .select("role,is_active")
-    .ilike("email", email)
-    .maybeSingle<{ role: AppRole; is_active: boolean }>();
-
-  if (!error && data && isAppRole(data.role)) {
-    return {
-      session,
-      role: data.role,
-      isActive: Boolean(data.is_active),
-    };
-  }
-
-  if (error) {
-    console.error("middleware admin_users lookup failed:", error.message);
-  }
-
-  const metadataRole = session.user.user_metadata?.role;
-  return {
-    session,
-    role: isAppRole(metadataRole) ? metadataRole : null,
-    isActive: isAppRole(metadataRole),
-  };
+function hasSupabaseAuthCookie(request: NextRequest): boolean {
+  return request.cookies
+    .getAll()
+    .some((cookie) => cookie.name.startsWith("sb-") && cookie.name.includes("auth-token"));
 }
 
-export async function middleware(request: NextRequest) {
-  const response = NextResponse.next();
+export function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
-  const { session, role, isActive } = await resolveRole(request, response);
+  const hasSession = hasSupabaseAuthCookie(request);
 
-  if (pathname === "/pages/login") {
-    if (!session) return response;
-    if (!role || !isActive) return response;
-
-    return NextResponse.redirect(new URL(getDefaultAuthorizedPath(role), request.url));
+  if (PUBLIC_PATHS.has(pathname)) {
+    if (hasSession) {
+      return NextResponse.redirect(new URL("/pages/index", request.url));
+    }
+    return NextResponse.next();
   }
 
-  if (!session) {
+  if (!hasSession) {
     return NextResponse.redirect(new URL("/pages/login", request.url));
   }
 
-  const feature = getFeatureFromPathname(pathname);
-  if (!feature) {
-    return response;
-  }
-
-  if (!role || !isActive || !canAccessFeature(role, feature)) {
-    return NextResponse.redirect(new URL("/pages/login", request.url));
-  }
-
-  return response;
+  return NextResponse.next();
 }
 
 export const config = {

@@ -5,6 +5,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { useSession } from '@/app/providers/SessionProvider'
 
 const questions = [
   "ต้องเบ่งอุจจาระอย่างน้อย 25% ของการขับถ่ายทั้งหมด",
@@ -18,6 +19,7 @@ const questions = [
 export default function Rome4({ thaiId }: { thaiId?: string }) {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { session } = useSession();
   // const thaiId = searchParams.get("patient_thaiid");
 
   const [answers, setAnswers] = useState<number[]>(Array(questions.length).fill(0));
@@ -33,7 +35,6 @@ export default function Rome4({ thaiId }: { thaiId?: string }) {
 
     const fetchPatientInfo = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
         if (!session) {
           setSubmitMessage("กรุณาเข้าสู่ระบบก่อน");
           return;
@@ -79,10 +80,7 @@ export default function Rome4({ thaiId }: { thaiId?: string }) {
     setSubmitMessage("");
 
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session) {
+if (!session) {
         throw new Error("ไม่พบ session ผู้ใช้");
       }
 

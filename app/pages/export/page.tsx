@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { Session } from '@supabase/supabase-js'
+import { useSession } from '@/app/providers/SessionProvider'
 import AuthRedirect from '@/components/AuthRedirect'
 import JSZip from 'jszip'
 
@@ -58,7 +58,7 @@ const formatToThaiTime = (timestamp: string | undefined) => {
 }
 
 export default function ExportPage() {
-  const [session, setSession] = useState<Session | null>(null)
+  const { session, loading: sessionLoading } = useSession()
   const [users, setUsers] = useState<User[]>([]) // สำหรับแสดงในตาราง (มี pagination)
   const [allSelectedRecords, setAllSelectedRecords] = useState<User[]>([]) // ✅ records ทั้งหมดเวลาทำ select all
   const [loading, setLoading] = useState(true)
@@ -116,24 +116,10 @@ export default function ExportPage() {
   }
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-    })
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session)
-    })
-
-    return () => subscription.unsubscribe()
-  }, [])
-
-  useEffect(() => {
-    if (session) {
+    if (!sessionLoading && session) {
       fetchUsers()
     }
-  }, [currentPage, searchId, startDate, endDate, searchCondition, session])
+  }, [currentPage, searchId, startDate, endDate, searchCondition, session, sessionLoading])
 
   
   useEffect(() => {
