@@ -2,23 +2,17 @@
 
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { useSession } from '@/app/providers/SessionProvider'
 
 export default function AuthRedirect() {
   const router = useRouter()
+  const { session, loading } = useSession()
 
   useEffect(() => {
-    const checkSession = async () => {
-      console.debug('Checking session in AuthRedirect')
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
-        console.debug('No session found, redirecting to /pages/login')
-        router.push('/pages/login')
-      }
+    if (!loading && !session) {
+      router.push('/pages/login')
     }
-
-    checkSession()
-  }, [router])
+  }, [loading, router, session])
 
   return null
 }

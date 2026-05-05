@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Session } from "@supabase/supabase-js";
 import {
   ArrowRight,
   BarChart3,
@@ -16,6 +15,7 @@ import {
 import AppSidebar from "@/app/component/layout/AppSidebar";
 import AuthRedirect from "@/components/AuthRedirect";
 import { useAccessProfile } from "@/app/hooks/useAccessProfile";
+import { useSession } from "@/app/providers/SessionProvider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { APP_ROLE_LABELS, canAccessFeature, type AppFeature } from "@/lib/access";
@@ -90,39 +90,19 @@ const defaultUser: UserProfile = {
 
 export default function DashboardPage() {
   const router = useRouter();
-  const [session, setSession] = useState<Session | null>(null);
-  const [currentUser, setCurrentUser] = useState<UserProfile>(defaultUser);
+  const { session } = useSession();
   const { accessProfile, accessLoading } = useAccessProfile(session);
 
-  useEffect(() => {
-    const applySession = (nextSession: Session | null) => {
-      setSession(nextSession);
-
-      if (!nextSession?.user) {
-        return;
-      }
-
-      const metadata = nextSession.user.user_metadata;
-      setCurrentUser({
-        name: metadata?.name || metadata?.full_name || nextSession.user.email?.split("@")[0] || defaultUser.name,
-        role: metadata?.role || defaultUser.role,
-        hospital: metadata?.hospital || defaultUser.hospital,
-        email: nextSession.user.email || defaultUser.email,
-      });
+  const currentUser = useMemo<UserProfile>(() => {
+    if (!session?.user) return defaultUser;
+    const metadata = session.user.user_metadata;
+    return {
+      name: metadata?.name || metadata?.full_name || session.user.email?.split("@")[0] || defaultUser.name,
+      role: metadata?.role || defaultUser.role,
+      hospital: metadata?.hospital || defaultUser.hospital,
+      email: session.user.email || defaultUser.email,
     };
-
-    supabase.auth.getSession().then(({ data: { session: nextSession } }) => {
-      applySession(nextSession);
-    });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      applySession(nextSession);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
+  }, [session]);
 
   const quickStats = useMemo(
     () => [

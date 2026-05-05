@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { useSession } from '@/app/providers/SessionProvider'
 import { useRouter } from "next/navigation";
 
 interface PatientInfo {
@@ -19,6 +20,7 @@ interface Question {
 
 export default function MdsUpdrsForm({ thaiId }: { thaiId?: string }) {
   const router = useRouter();
+  const { session } = useSession();
   const [patientInfo, setPatientInfo] = useState<PatientInfo | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitMessage, setSubmitMessage] = useState("");
@@ -126,7 +128,6 @@ export default function MdsUpdrsForm({ thaiId }: { thaiId?: string }) {
     }
 
     const fetchPatientInfo = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         setSubmitMessage("กรุณาเข้าสู่ระบบก่อน");
         return;
@@ -163,7 +164,6 @@ export default function MdsUpdrsForm({ thaiId }: { thaiId?: string }) {
     setSubmitMessage("");
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("ไม่พบ session ผู้ใช้");
 
       const { error: upsertError } = await supabase

@@ -372,7 +372,7 @@ interface Props {
 
 export default function QaCreateModal({ open, onClose, onCreated, editPatient, editDiag, prefillPatient, prefillData, role }: Props) {
   const isEdit = !!editPatient
-  const isDoctorEdit = isEdit && role === 'doctor'
+  const canUseAssessmentAssist = isEdit && (role === 'doctor' || role === 'admin' || role === 'super_admin')
   const editPatientId = editPatient?.id ?? null
   const canEditDiag = role !== 'medical_staff'
   const [form, setForm] = useState<FormState>(EMPTY)
@@ -474,7 +474,7 @@ export default function QaCreateModal({ open, onClose, onCreated, editPatient, e
   }, [open, editPatient, editDiag, prefillPatient, prefillData])
 
   useEffect(() => {
-    if (!open || !isDoctorEdit || !editPatientId) {
+    if (!open || !canUseAssessmentAssist || !editPatientId) {
       setAssessments(EMPTY_ASSESSMENTS)
       setLoadingAssessments(false)
       setAssessmentError(null)
@@ -533,7 +533,39 @@ export default function QaCreateModal({ open, onClose, onCreated, editPatient, e
     return () => {
       alive = false
     }
-  }, [open, isDoctorEdit, editPatientId])
+  }, [open, canUseAssessmentAssist, editPatientId])
+
+  useEffect(() => {
+    if (!open || !canUseAssessmentAssist || !canEditDiag) return
+
+    const shouldEnableRbd = (assessments.rbd ?? -1) >= 17
+    const shouldEnableHyposmia = assessments.smell != null && assessments.smell <= 9
+    const shouldEnableConstipation = (assessments.rome4 ?? -1) >= 2
+    const shouldEnableDepression = (assessments.hamd ?? -1) >= 13
+    const shouldEnableEds = (assessments.epworth ?? -1) >= 10
+    const shouldEnableMildParkinsonianSign = (assessments.mds ?? -1) >= 7
+
+    if (
+      !shouldEnableRbd &&
+      !shouldEnableHyposmia &&
+      !shouldEnableConstipation &&
+      !shouldEnableDepression &&
+      !shouldEnableEds &&
+      !shouldEnableMildParkinsonianSign
+    ) {
+      return
+    }
+
+    setForm((prev) => ({
+      ...prev,
+      rbd_suspected: prev.rbd_suspected || shouldEnableRbd,
+      hyposmia: prev.hyposmia || shouldEnableHyposmia,
+      constipation: prev.constipation || shouldEnableConstipation,
+      depression: prev.depression || shouldEnableDepression,
+      eds: prev.eds || shouldEnableEds,
+      mild_parkinsonian_sign: prev.mild_parkinsonian_sign || shouldEnableMildParkinsonianSign,
+    }))
+  }, [open, canUseAssessmentAssist, canEditDiag, assessments])
 
   const handleSubmit = async () => {
     if (!form.first_name.trim() || !form.last_name.trim()) {
@@ -661,7 +693,7 @@ export default function QaCreateModal({ open, onClose, onCreated, editPatient, e
         </DialogHeader>
 
         <div className="grid grid-cols-2 gap-4 py-2">
-          {isDoctorEdit && (
+          {canUseAssessmentAssist && (
             <>
               <div className="col-span-2 rounded-xl border border-slate-200 bg-slate-50 p-4">
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-600">
@@ -703,7 +735,7 @@ export default function QaCreateModal({ open, onClose, onCreated, editPatient, e
             </>
           )}
 
-          {!isDoctorEdit && (
+          {!canUseAssessmentAssist && (
             <>
           {/* Patient info */}
           <div className="space-y-1">

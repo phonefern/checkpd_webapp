@@ -3,8 +3,8 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Session } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
+import { useSession } from '@/app/providers/SessionProvider'
 import { provinceOptions } from '@/app/types/user';
 
 type PDScreeningFormData = {
@@ -58,6 +58,7 @@ const emptyFormData: PDScreeningFormData = {
 
 export default function PDScreeningForm({ initialValues, redirectTo }: PDScreeningFormProps) {
   const router = useRouter();
+  const { session } = useSession();
 
   const initialMerged = useMemo(() => {
     return {
@@ -194,14 +195,6 @@ export default function PDScreeningForm({ initialValues, redirectTo }: PDScreeni
     }
 
     try {
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-      if (sessionError) {
-        console.error('Error getting session:', sessionError);
-        setSubmitMessage('เกิดข้อผิดพลาดในการตรวจสอบ session กรุณาเข้าสู่ระบบใหม่');
-        return;
-      }
-
-      const session = sessionData?.session as Session | null;
       if (!session) {
         setSubmitMessage('กรุณาเข้าสู่ระบบก่อนบันทึกข้อมูล');
         return;

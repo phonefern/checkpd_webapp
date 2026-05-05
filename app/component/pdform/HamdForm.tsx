@@ -4,6 +4,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { useSession } from '@/app/providers/SessionProvider'
 
 const questions = [
     {
@@ -194,6 +195,7 @@ const questions = [
 export default function Hamd({ thaiId }: { thaiId?: string }) {
     const searchParams = useSearchParams();
     const router = useRouter();
+  const { session } = useSession();
     // const thaiId = searchParams.get("patient_thaiid");
   
     const [answers, setAnswers] = useState<Record<number, number>>({});
@@ -243,7 +245,6 @@ export default function Hamd({ thaiId }: { thaiId?: string }) {
           return;
         }
         try {
-          const { data: { session } } = await supabase.auth.getSession();
           if (!session) {
             setSubmitMessage("กรุณาเข้าสู่ระบบ");
             return;
@@ -277,7 +278,6 @@ export default function Hamd({ thaiId }: { thaiId?: string }) {
         }
         setIsSubmitting(true);
         try {
-          const { data: { session } } = await supabase.auth.getSession();
           if (!session) {
             throw new Error("ไม่พบ session ผู้ใช้");
           }

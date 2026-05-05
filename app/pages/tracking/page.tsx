@@ -18,11 +18,9 @@ import {
   query,
   where,
   Timestamp,
-  getDocs,
-  limit,
-  orderBy,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebaseClient'
+import { fetchRiskSummaryByFilter, type RiskSummaryDebug } from '@/app/pages/tracking/risk-queries'
 import Image from "next/image"
 import { DateRangePicker } from '@/components/ui/date-range-picker'
 import { StatCard } from '@/components/ui/stat-card'
@@ -56,16 +54,25 @@ function getAgeRange(age: number | null): string {
 }
 
 export default function TrackingPage() {
-  const [rawUserDocs, setRawUserDocs] = useState<Record<string, unknown>[]>([])
-  const [rawTempDocs, setRawTempDocs] = useState<Record<string, unknown>[]>([])
+  const today = useMemo(() => {
+    const now = new Date()
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  }, [])
+  const [rawUserDocs, setRawUserDocs] = useState<({ __id: string } & Record<string, unknown>)[]>([])
+  const [rawTempDocs, setRawTempDocs] = useState<({ __id: string } & Record<string, unknown>)[]>([])
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
-    from: new Date('2026-01-01'),
-    to: new Date('2026-01-27'),
+    from: today,
+    to: today,
   })
   const [lastUpdated, setLastUpdated] = useState<Date>(() => new Date())
   const [riskSummary, setRiskSummary] = useState({ risk: 0, normal: 0, pending: 0, noTest: 0 })
+  const [riskDebug, setRiskDebug] = useState<RiskSummaryDebug | null>(null)
+  const [riskError, setRiskError] = useState<string | null>(null)
   const [loadingRisk, setLoadingRisk] = useState(false)
   const [provinceFilter, setProvinceFilter] = useState('')
+  const [riskKindFilter, setRiskKindFilter] = useState<'all' | 'users' | 'temps'>('all')
+  const [riskUserIdFilter, setRiskUserIdFilter] = useState('')
+  const [useRiskDateFilter, setUseRiskDateFilter] = useState(false)
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => { setMounted(true) }, [])
@@ -122,46 +129,95 @@ export default function TrackingPage() {
     if (!startTime || !endTime) return
     const unsubUsers = onSnapshot(
       query(collection(db, 'users'), where('timestamp', '>=', startTime), where('timestamp', '<=', endTime)),
-      (snap) => { setRawUserDocs(snap.docs.map((d) => d.data())); setLastUpdated(new Date()) }
+      (snap) => {
+        setRawUserDocs(snap.docs.map((d) => ({ __id: d.id, ...(d.data() as Record<string, unknown>) })))
+        setLastUpdated(new Date())
+      }
     )
     const unsubTemps = onSnapshot(
       query(collection(db, 'temps'), where('timestamp', '>=', startTime), where('timestamp', '<=', endTime)),
-      (snap) => { setRawTempDocs(snap.docs.map((d) => d.data())); setLastUpdated(new Date()) }
+      (snap) => {
+        setRawTempDocs(snap.docs.map((d) => ({ __id: d.id, ...(d.data() as Record<string, unknown>) })))
+        setLastUpdated(new Date())
+      }
     )
     return () => { unsubUsers(); unsubTemps() }
   }, [startTime, endTime])
 
   const total = stats.userCount + stats.tempCount
 
+  // Doc-id sets that respect Firebase dateRange (already applied via onSnapshot
+  // query) and the provinceFilter. These are the user_ids the Risk Summary
+  // should consider, so the two stat blocks share the same population.
+  const userDocIds = useMemo(() => {
+    return rawUserDocs
+      .filter((d) => !provinceFilter || extractProvince(d.liveAddress as string | undefined) === provinceFilter)
+      .map((d) => d.__id)
+      .filter((id): id is string => typeof id === 'string' && id.length > 0)
+  }, [rawUserDocs, provinceFilter])
+
+  const tempDocIds = useMemo(() => {
+    return rawTempDocs
+      .filter((d) => !provinceFilter || extractProvince(d.liveAddress as string | undefined) === provinceFilter)
+      .map((d) => d.__id)
+      .filter((id): id is string => typeof id === 'string' && id.length > 0)
+  }, [rawTempDocs, provinceFilter])
+
+  // Stable string keys so the effect below only re-fires when the actual id
+  // set changes, not whenever Firebase emits a new snapshot with the same data.
+  const userDocIdsKey = useMemo(() => userDocIds.slice().sort().join(','), [userDocIds])
+  const tempDocIdsKey = useMemo(() => tempDocIds.slice().sort().join(','), [tempDocIds])
+
   const refreshRiskSummary = async () => {
-    if (!startTime || !endTime) return
     setLoadingRisk(true)
-    let risk = 0, normal = 0, pending = 0, noTest = 0
+    setRiskError(null)
     try {
-      const usersSnap = await getDocs(query(collection(db, 'users'), where('timestamp', '>=', startTime), where('timestamp', '<=', endTime)))
-      const filteredUserDocs = usersSnap.docs.filter((doc) => !provinceFilter || extractProvince(doc.data().liveAddress) === provinceFilter)
-      for (const userDoc of filteredUserDocs) {
-        const snap = await getDocs(query(collection(db, 'users', userDoc.id, 'records'), orderBy('lastUpdate', 'desc'), limit(1)))
-        if (snap.empty) { noTest++; continue }
-        const r = snap.docs[0].data()?.prediction?.risk
-        if (r === true) risk++; else if (r === false) normal++; else pending++
-      }
-      const tempsSnap = await getDocs(query(collection(db, 'temps'), where('timestamp', '>=', startTime), where('timestamp', '<=', endTime)))
-      const filteredTempDocs = tempsSnap.docs.filter((doc) => !provinceFilter || extractProvince(doc.data().liveAddress) === provinceFilter)
-      for (const tempDoc of filteredTempDocs) {
-        const snap = await getDocs(query(collection(db, 'temps', tempDoc.id, 'records'), orderBy('lastUpdate', 'desc'), limit(1)))
-        if (snap.empty) { noTest++; continue }
-        const r = snap.docs[0].data()?.prediction?.risk
-        if (r === true) risk++; else if (r === false) normal++; else pending++
-      }
-      setRiskSummary({ risk, normal, pending, noTest })
+      const parentDateFrom = useRiskDateFilter && dateRange?.from ? new Date(dateRange.from) : undefined
+      const parentDateTo = useRiskDateFilter
+        ? dateRange?.to
+          ? new Date(dateRange.to)
+          : dateRange?.from
+            ? new Date(dateRange.from)
+            : undefined
+        : undefined
+      if (parentDateFrom) parentDateFrom.setHours(0, 0, 0, 0)
+      if (parentDateTo) parentDateTo.setHours(23, 59, 59, 999)
+
+      const result = await fetchRiskSummaryByFilter({
+        province: provinceFilter || undefined,
+        kind: riskKindFilter,
+        userId: riskUserIdFilter.trim() || undefined,
+        userDocIds,
+        tempDocIds,
+        parentDateFrom,
+        parentDateTo,
+        debug: true,
+      })
+      const { debug, ...summary } = result
+      setRiskSummary(summary)
+      setRiskDebug(debug ?? null)
       setLastUpdated(new Date())
     } catch (err) {
       console.error('refreshRiskSummary error', err)
+      setRiskError(err instanceof Error ? err.message : 'Unexpected error')
     } finally {
       setLoadingRisk(false)
     }
   }
+
+  useEffect(() => {
+    refreshRiskSummary()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    provinceFilter,
+    riskKindFilter,
+    riskUserIdFilter,
+    useRiskDateFilter,
+    dateRange?.from,
+    dateRange?.to,
+    userDocIdsKey,
+    tempDocIdsKey,
+  ])
 
   return (
     <SidebarLayout activePath="/pages/tracking">
@@ -198,6 +254,30 @@ export default function TrackingPage() {
                       <option key={o.value} value={o.value}>{o.label}</option>
                     ))}
                   </select>
+                  <select
+                    value={riskKindFilter}
+                    onChange={(e) => setRiskKindFilter(e.target.value as 'all' | 'users' | 'temps')}
+                    className="border border-border rounded-md px-3 py-1.5 text-sm bg-card/90 backdrop-blur-md focus:ring-2 focus:ring-primary focus:border-primary"
+                    title="แหล่งข้อมูลความเสี่ยง"
+                  >
+                    <option value="all">Risk: ทั้งหมด</option>
+                    <option value="users">Risk: users</option>
+                    <option value="temps">Risk: temps</option>
+                  </select>
+                  <input
+                    value={riskUserIdFilter}
+                    onChange={(e) => setRiskUserIdFilter(e.target.value)}
+                    placeholder="กรอง user_id"
+                    className="border border-border rounded-md px-3 py-1.5 text-sm bg-card/90 backdrop-blur-md focus:ring-2 focus:ring-primary focus:border-primary"
+                  />
+                  <label className="inline-flex items-center gap-2 text-xs text-muted-foreground" title="โหมดเสริม: กรองด้วย parent_timestamp ใน Supabase ทับซ้อนกับชุด user_id ที่ได้จาก Firebase">
+                    <input
+                      type="checkbox"
+                      checked={useRiskDateFilter}
+                      onChange={(e) => setUseRiskDateFilter(e.target.checked)}
+                    />
+                    กรองเพิ่มด้วย parent_timestamp (Supabase)
+                  </label>
                   {provinceFilter && (
                     <button onClick={() => setProvinceFilter('')} className="text-xs text-muted-foreground hover:text-foreground underline">
                       ล้างตัวกรอง
@@ -242,6 +322,104 @@ export default function TrackingPage() {
                 <StatCard title="ยังไม่ประเมิน" value={riskSummary.pending} icon={<Clock className="h-5 w-5" />} description="ทำแบบทดสอบแล้ว แต่ยังไม่มีผล" colorClass="text-gray-500" />
                 <StatCard title="ไม่ได้ทดสอบ" value={riskSummary.noTest} icon={<Activity className="h-5 w-5" />} description="ยังไม่มีบันทึกการทดสอบ" colorClass="text-yellow-600" />
               </div>
+
+              {(() => {
+                const sentTotal = userDocIds.length + tempDocIds.length
+                const matched = riskDebug?.counts?.matchedRows ?? 0
+                const status: 'success' | 'none' | 'error' | 'idle' = riskError
+                  ? 'error'
+                  : !riskDebug
+                    ? 'idle'
+                    : matched > 0
+                      ? 'success'
+                      : 'none'
+                const statusBadge = {
+                  success: { label: 'success', cls: 'bg-green-500/15 text-green-600 border-green-500/30' },
+                  none: { label: 'none (no match)', cls: 'bg-yellow-500/15 text-yellow-600 border-yellow-500/30' },
+                  error: { label: 'error', cls: 'bg-red-500/15 text-red-600 border-red-500/30' },
+                  idle: { label: 'idle', cls: 'bg-muted text-muted-foreground border-border' },
+                }[status]
+
+                return (
+                  <div className="mt-4 rounded-lg border border-border/60 bg-card/70 backdrop-blur-md p-3 text-xs">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-semibold text-foreground">Risk match diagnostic</span>
+                      <span className={`rounded-full border px-2 py-0.5 font-medium ${statusBadge.cls}`}>
+                        {statusBadge.label}
+                      </span>
+                      {loadingRisk && (
+                        <span className="rounded-full border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 text-blue-600">
+                          loading…
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="mt-2 grid gap-x-6 gap-y-1 sm:grid-cols-2 lg:grid-cols-4">
+                      <div>
+                        <span className="text-muted-foreground">ส่งจาก Firebase: </span>
+                        <span className="font-mono">
+                          {sentTotal} docs (users {userDocIds.length} / temps {tempDocIds.length})
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Supabase rows สแกน: </span>
+                        <span className="font-mono">{riskDebug?.counts?.totalRows ?? '-'}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Matched: </span>
+                        <span className="font-mono font-semibold text-foreground">{matched}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Service role: </span>
+                        <span className="font-mono">{riskDebug ? String(riskDebug.hasServiceRole) : '-'}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Query chunks: </span>
+                        <span className="font-mono">{riskDebug?.counts?.chunks ?? '-'}</span>
+                      </div>
+                    </div>
+
+                    {riskDebug?.counts && (
+                      <div className="mt-2 grid gap-x-6 gap-y-1 sm:grid-cols-2 lg:grid-cols-5 text-muted-foreground">
+                        <span>skip(province): <span className="font-mono">{riskDebug.counts.skippedByProvince}</span></span>
+                        <span>skip(kind): <span className="font-mono">{riskDebug.counts.skippedByKind}</span></span>
+                        <span>skip(userId): <span className="font-mono">{riskDebug.counts.skippedByUserId}</span></span>
+                        <span>skip(docIdSet): <span className="font-mono">{riskDebug.counts.skippedByDocIdSet}</span></span>
+                        <span>skip(date): <span className="font-mono">{riskDebug.counts.skippedByDate}</span></span>
+                      </div>
+                    )}
+
+                    {riskDebug?.statusCounter && Object.keys(riskDebug.statusCounter).length > 0 && (
+                      <div className="mt-2">
+                        <span className="text-muted-foreground">latest_status ที่เจอใน matched rows: </span>
+                        <span className="font-mono">
+                          {Object.entries(riskDebug.statusCounter)
+                            .map(([k, v]) => `${k}=${v}`)
+                            .join(', ')}
+                        </span>
+                      </div>
+                    )}
+
+                    {riskDebug?.shortCircuit && (
+                      <div className="mt-2 text-yellow-600">
+                        Short-circuited: <span className="font-mono">{riskDebug.shortCircuit}</span>
+                        {' '}— ไม่ได้ query Supabase เพราะ doc-id set ว่าง
+                      </div>
+                    )}
+
+                    {riskError && (
+                      <div className="mt-2 text-red-600">Error: <span className="font-mono">{riskError}</span></div>
+                    )}
+
+                    {status === 'none' && sentTotal > 0 && !riskDebug?.shortCircuit && (
+                      <div className="mt-2 text-muted-foreground">
+                        ส่ง {sentTotal} doc IDs ไปแล้วแต่ไม่ match กับ user_id ใน <span className="font-mono">checkpd_user_risk</span>.
+                        ตรวจดูว่าตารางมีข้อมูลในจังหวัด/kind ที่เลือกหรือไม่ และ user_id เก็บเป็น Firebase doc.id เดียวกันหรือเปล่า
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
             </div>
 
             <div className="mb-6">
