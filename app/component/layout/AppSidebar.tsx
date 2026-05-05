@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import {
   Bell,
   Building2,
@@ -73,7 +72,6 @@ type AppSidebarProps = {
 };
 
 export default function AppSidebar({ activePath, role, user, onNavigate, onLogout }: AppSidebarProps) {
-  const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
@@ -91,12 +89,6 @@ export default function AppSidebar({ activePath, role, user, onNavigate, onLogou
     () => workspaceItems.filter((item) => canAccessFeature(role, item.feature)),
     [role]
   );
-
-  useEffect(() => {
-    [...visibleMainItems, ...visibleWorkspaceItems].forEach((item) => {
-      router.prefetch(item.path);
-    });
-  }, [router, visibleMainItems, visibleWorkspaceItems]);
 
   return (
     <aside

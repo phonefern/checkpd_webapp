@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { useSession } from '@/app/providers/SessionProvider'
 
 const questions = [
   "1. à¸‚à¸“à¸°à¸™à¸±à¹ˆà¸‡à¸­à¹ˆà¸²à¸™à¸«à¸™à¸±à¸‡à¸ªà¸·à¸­",
@@ -19,6 +20,7 @@ const questions = [
 export default function EpworthForm({ thaiId }: { thaiId?: string }) {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { session } = useSession();
   // const thaiId = searchParams.get("patient_thaiid");
 
   const [answers, setAnswers] = useState<number[]>(Array(questions.length).fill(0));
@@ -34,10 +36,7 @@ export default function EpworthForm({ thaiId }: { thaiId?: string }) {
 
     const fetchPatientInfo = async () => {
       try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-        if (!session) {
+if (!session) {
           setSubmitMessage("à¸à¸£à¸¸à¸“à¸²à¹€à¸‚à¹‰à¸²à¸ªà¸¹à¹ˆà¸£à¸°à¸šà¸šà¸à¹ˆà¸­à¸™");
           return;
         }
@@ -89,10 +88,7 @@ export default function EpworthForm({ thaiId }: { thaiId?: string }) {
     setSubmitMessage("");
 
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session) {
+if (!session) {
         throw new Error("à¹„à¸¡à¹ˆà¸žà¸š session à¸œà¸¹à¹‰à¹ƒà¸Šà¹‰");
       }
 

@@ -2,11 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { Session } from "@supabase/supabase-js";
 import { Loader2, LockKeyhole, ShieldCheck, UserPlus, Users } from "lucide-react";
 
 import AppSidebar from "@/app/component/layout/AppSidebar";
 import { useAccessProfile } from "@/app/hooks/useAccessProfile";
+import { useSession } from "@/app/providers/SessionProvider";
 import AuthRedirect from "@/components/AuthRedirect";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -70,8 +70,7 @@ const roleDescriptions: Record<AppRole, string> = {
 
 export default function AdminPage() {
   const router = useRouter();
-  const [session, setSession] = useState<Session | null>(null);
-  const [currentUser, setCurrentUser] = useState<UserProfile>(defaultUser);
+  const { session } = useSession();
   const { accessProfile, accessLoading } = useAccessProfile(session);
   const [rows, setRows] = useState<AdminUserRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -80,33 +79,16 @@ export default function AdminPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalState, setModalState] = useState<AdminModalState>(defaultModalState);
 
-  useEffect(() => {
-    const applySession = (nextSession: Session | null) => {
-      setSession(nextSession);
-
-      if (!nextSession?.user) return;
-
-      const metadata = nextSession.user.user_metadata;
-      setCurrentUser({
-        name: metadata?.name || metadata?.full_name || nextSession.user.email?.split("@")[0] || defaultUser.name,
-        role: metadata?.role || defaultUser.role,
-        hospital: metadata?.hospital || defaultUser.hospital,
-        email: nextSession.user.email || defaultUser.email,
-      });
+  const currentUser = useMemo<UserProfile>(() => {
+    if (!session?.user) return defaultUser;
+    const metadata = session.user.user_metadata;
+    return {
+      name: metadata?.name || metadata?.full_name || session.user.email?.split("@")[0] || defaultUser.name,
+      role: metadata?.role || defaultUser.role,
+      hospital: metadata?.hospital || defaultUser.hospital,
+      email: session.user.email || defaultUser.email,
     };
-
-    supabase.auth.getSession().then(({ data: { session: nextSession } }) => {
-      applySession(nextSession);
-    });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      applySession(nextSession);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
+  }, [session]);
 
   const loadAdminUsers = async () => {
     setLoading(true);

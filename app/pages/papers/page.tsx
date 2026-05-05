@@ -7,6 +7,7 @@ import ErrorState from '@/app/component/papers/ErrorState';
 import EmptyState from '@/app/component/papers/EmptyState';
 import EditModal from '@/app/component/papers/EditModal';
 import { supabase } from '@/lib/supabase';
+import { useSession } from '@/app/providers/SessionProvider';
 import { PatientData } from '@/app/component/papers/types';
 import Link from "next/link";
 import PatientHistory from '@/app/component/papers/PatientHistory';
@@ -16,6 +17,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { LogOut, Plus } from "lucide-react";
 
 export default function PapersPage() {
+  const { session } = useSession();
   const [patients, setPatients] = useState<PatientData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -28,8 +30,10 @@ export default function PapersPage() {
   const [totalCount, setTotalCount] = useState<number>(0);
 
   useEffect(() => {
-    fetchPatientData();
-  }, []);
+    if (session) {
+      fetchPatientData();
+    }
+  }, [session]);
 
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut()
@@ -42,7 +46,6 @@ export default function PapersPage() {
 
   const fetchPatientData = async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         setError("กรุณาเข้าสู่ระบบเพื่อดูข้อมูลผู้ป่วย");
         setLoading(false);
@@ -65,14 +68,14 @@ export default function PapersPage() {
       if (patientError) throw patientError;
 
       // Fetch risk factors data
-      const patientIds = patientData.map(patient => patient.id);
+      const patientIds = (patientData || []).map(patient => patient.id);
       const { data: riskFactorsData } = await supabase
         .from('risk_factors_test')
         .select('patient_id, rome4_score, epworth_score, hamd_score, sleep_score, smell_score, mds_score, moca_score, tmse_score')
         .in('patient_id', patientIds);
 
       // Fetch prediction risk data
-      const thaiIds = patientData.filter(p => p.thaiid).map(p => p.thaiid);
+      const thaiIds = (patientData || []).filter(p => p.thaiid).map(p => p.thaiid);
       const { data: predictionData } = await supabase
         .from('user_record_summary_with_users')
         .select('thaiid, prediction_risk')

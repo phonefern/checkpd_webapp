@@ -19,7 +19,7 @@ export default function LoginPage() {
     setError('')
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data: signInData, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       })
@@ -29,9 +29,7 @@ export default function LoginPage() {
         return
       }
 
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
+      const session = signInData.session
 
       const accessProfile = await getAccessProfile(supabase, session)
 
