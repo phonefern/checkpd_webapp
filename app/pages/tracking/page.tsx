@@ -20,7 +20,11 @@ import {
   Timestamp,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebaseClient'
-import { fetchRiskSummaryByFilter, type RiskSummaryDebug } from '@/app/pages/tracking/risk-queries'
+import {
+  fetchRiskSummaryByFilter,
+  triggerManualRiskSummaryJob,
+  type RiskSummaryDebug,
+} from '@/app/pages/tracking/risk-queries'
 import Image from "next/image"
 import { DateRangePicker } from '@/components/ui/date-range-picker'
 import { StatCard } from '@/components/ui/stat-card'
@@ -73,6 +77,9 @@ export default function TrackingPage() {
   const [riskKindFilter, setRiskKindFilter] = useState<'all' | 'users' | 'temps'>('all')
   const [riskUserIdFilter, setRiskUserIdFilter] = useState('')
   const [useRiskDateFilter, setUseRiskDateFilter] = useState(false)
+  const [showRiskDiagnostic, setShowRiskDiagnostic] = useState(false)
+  const [triggeringRiskJob, setTriggeringRiskJob] = useState(false)
+  const [riskJobMessage, setRiskJobMessage] = useState<string | null>(null)
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => { setMounted(true) }, [])
@@ -205,6 +212,29 @@ export default function TrackingPage() {
     }
   }
 
+  const manualTriggerRiskJob = async () => {
+    setTriggeringRiskJob(true)
+    setRiskJobMessage(null)
+    try {
+      const result = await triggerManualRiskSummaryJob()
+      const startedAt = result.startedAt
+        ? new Date(result.startedAt).toLocaleTimeString('th-TH', {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+          })
+        : '--:--:--'
+      setRiskJobMessage(
+        `สั่งรัน ${result.jobName ?? 'checkpd-risk-summary'} สำเร็จ (${result.region ?? 'asia-southeast1'}) เวลา ${startedAt} [${result.mode ?? 'gcloud'}]`
+      )
+      await refreshRiskSummary()
+    } catch (err) {
+      setRiskJobMessage(err instanceof Error ? `Manual trigger ไม่สำเร็จ: ${err.message}` : 'Manual trigger ไม่สำเร็จ')
+    } finally {
+      setTriggeringRiskJob(false)
+    }
+  }
+
   useEffect(() => {
     refreshRiskSummary()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -312,10 +342,20 @@ export default function TrackingPage() {
                 <h2 className="text-lg font-semibold text-foreground">
                   ผลการคัดกรอง (จากการทดสอบล่าสุด){provinceFilter ? ` · ${provinceFilter}` : ''}
                 </h2>
-                <button onClick={refreshRiskSummary} disabled={loadingRisk} className="rounded-md border px-3 py-1.5 text-sm hover:bg-muted disabled:opacity-50">
-                  {loadingRisk ? 'กำลังดึงข้อมูล...' : 'Refresh ผลคัดกรอง'}
-                </button>
+                <div className="flex items-center gap-2">
+                  <button onClick={refreshRiskSummary} disabled={loadingRisk} className="rounded-md border px-3 py-1.5 text-sm hover:bg-muted disabled:opacity-50">
+                    {loadingRisk ? 'กำลังดึงข้อมูล...' : 'Refresh ผลคัดกรอง'}
+                  </button>
+                  <button
+                    onClick={manualTriggerRiskJob}
+                    disabled={triggeringRiskJob}
+                    className="rounded-md border border-primary/50 bg-primary/5 px-3 py-1.5 text-sm text-primary hover:bg-primary/10 disabled:opacity-50"
+                  >
+                    {triggeringRiskJob ? 'กำลัง trigger...' : 'Manual Trigger Risk Job'}
+                  </button>
+                </div>
               </div>
+              {riskJobMessage && <p className="mb-3 text-xs text-muted-foreground">{riskJobMessage}</p>}
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <StatCard title="เสี่ยง" value={riskSummary.risk} icon={<TrendingUp className="h-5 w-5" />} description="พบความเสี่ยงจากการประเมินล่าสุด" colorClass="text-red-600" />
                 <StatCard title="ปกติ" value={riskSummary.normal} icon={<UserCheck className="h-5 w-5" />} description="ไม่พบความเสี่ยง" colorClass="text-green-600" />
@@ -344,6 +384,12 @@ export default function TrackingPage() {
                   <div className="mt-4 rounded-lg border border-border/60 bg-card/70 backdrop-blur-md p-3 text-xs">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-semibold text-foreground">Risk match diagnostic</span>
+                      <button
+                        onClick={() => setShowRiskDiagnostic((v) => !v)}
+                        className="rounded-md border border-border/70 px-2 py-0.5 text-[11px] font-medium text-muted-foreground hover:text-foreground"
+                      >
+                        {showRiskDiagnostic ? 'ซ่อน' : 'แสดง'}
+                      </button>
                       <span className={`rounded-full border px-2 py-0.5 font-medium ${statusBadge.cls}`}>
                         {statusBadge.label}
                       </span>
@@ -354,7 +400,8 @@ export default function TrackingPage() {
                       )}
                     </div>
 
-                    <div className="mt-2 grid gap-x-6 gap-y-1 sm:grid-cols-2 lg:grid-cols-4">
+                    {showRiskDiagnostic && (
+                      <div className="mt-2 grid gap-x-6 gap-y-1 sm:grid-cols-2 lg:grid-cols-4">
                       <div>
                         <span className="text-muted-foreground">ส่งจาก Firebase: </span>
                         <span className="font-mono">
@@ -377,9 +424,10 @@ export default function TrackingPage() {
                         <span className="text-muted-foreground">Query chunks: </span>
                         <span className="font-mono">{riskDebug?.counts?.chunks ?? '-'}</span>
                       </div>
-                    </div>
+                      </div>
+                    )}
 
-                    {riskDebug?.counts && (
+                    {showRiskDiagnostic && riskDebug?.counts && (
                       <div className="mt-2 grid gap-x-6 gap-y-1 sm:grid-cols-2 lg:grid-cols-5 text-muted-foreground">
                         <span>skip(province): <span className="font-mono">{riskDebug.counts.skippedByProvince}</span></span>
                         <span>skip(kind): <span className="font-mono">{riskDebug.counts.skippedByKind}</span></span>
@@ -389,7 +437,7 @@ export default function TrackingPage() {
                       </div>
                     )}
 
-                    {riskDebug?.statusCounter && Object.keys(riskDebug.statusCounter).length > 0 && (
+                    {showRiskDiagnostic && riskDebug?.statusCounter && Object.keys(riskDebug.statusCounter).length > 0 && (
                       <div className="mt-2">
                         <span className="text-muted-foreground">latest_status ที่เจอใน matched rows: </span>
                         <span className="font-mono">
@@ -400,18 +448,18 @@ export default function TrackingPage() {
                       </div>
                     )}
 
-                    {riskDebug?.shortCircuit && (
+                    {showRiskDiagnostic && riskDebug?.shortCircuit && (
                       <div className="mt-2 text-yellow-600">
                         Short-circuited: <span className="font-mono">{riskDebug.shortCircuit}</span>
                         {' '}— ไม่ได้ query Supabase เพราะ doc-id set ว่าง
                       </div>
                     )}
 
-                    {riskError && (
+                    {showRiskDiagnostic && riskError && (
                       <div className="mt-2 text-red-600">Error: <span className="font-mono">{riskError}</span></div>
                     )}
 
-                    {status === 'none' && sentTotal > 0 && !riskDebug?.shortCircuit && (
+                    {showRiskDiagnostic && status === 'none' && sentTotal > 0 && !riskDebug?.shortCircuit && (
                       <div className="mt-2 text-muted-foreground">
                         ส่ง {sentTotal} doc IDs ไปแล้วแต่ไม่ match กับ user_id ใน <span className="font-mono">checkpd_user_risk</span>.
                         ตรวจดูว่าตารางมีข้อมูลในจังหวัด/kind ที่เลือกหรือไม่ และ user_id เก็บเป็น Firebase doc.id เดียวกันหรือเปล่า
