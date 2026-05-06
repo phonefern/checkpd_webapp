@@ -47,6 +47,17 @@ export type RiskSummaryFilter = {
   debug?: boolean
 }
 
+export type ManualRiskJobTriggerResult = {
+  ok: boolean
+  mode?: 'gcloud' | 'http'
+  startedAt?: string
+  jobName?: string
+  region?: string
+  output?: string
+  warning?: string | null
+  error?: string
+}
+
 export async function fetchRiskSummaryByFilter(filter: RiskSummaryFilter): Promise<RiskSummaryResult> {
   const body = {
     province: filter.province,
@@ -72,4 +83,17 @@ export async function fetchRiskSummaryByFilter(filter: RiskSummaryFilter): Promi
   }
 
   return (await res.json()) as RiskSummaryResult
+}
+
+export async function triggerManualRiskSummaryJob(): Promise<ManualRiskJobTriggerResult> {
+  const res = await fetch("/api/tracking/risk-summary/trigger-job", {
+    method: "POST",
+    cache: "no-store",
+  })
+
+  const data = (await res.json()) as ManualRiskJobTriggerResult
+  if (!res.ok || !data.ok) {
+    throw new Error(data.error || "Manual trigger failed")
+  }
+  return data
 }
