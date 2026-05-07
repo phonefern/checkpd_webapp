@@ -276,20 +276,37 @@ export default function QaPage() {
 
   const handleDelete = async (patientId: number, name: string) => {
     if (!confirm(`ลบผู้ป่วย "${name}" และข้อมูลแบบทดสอบทั้งหมด?`)) return
-    const { error: delErr } = await supabase
-      .schema('core')
-      .from('patients_v2')
-      .delete()
-      .eq('id', patientId)
+
+    const childTables = [
+      'patient_diagnosis_v2',
+      'moca_v2',
+      'hamd_v2',
+      'mds_updrs_v2',
+      'epworth_v2',
+      'smell_test_v2',
+      'tmse_v2',
+      'rbd_questionnaire_v2',
+      'rome4_v2',
+    ]
+
+    for (const table of childTables) {
+      const { error: childErr } = await supabase.schema('core').from(table).delete().eq('patient_id', patientId)
+      if (childErr) {
+        setError(`Delete failed (${table}): ${childErr.message}`)
+        return
+      }
+    }
+
+    const { error: delErr } = await supabase.schema('core').from('patients_v2').delete().eq('id', patientId)
     if (delErr) {
       setError(`Delete failed: ${delErr.message}`)
       return
     }
+
     logActivity({ action: 'DELETE', page: 'qa', description: `ลบผู้ป่วย: ${name}`, userEmail: session?.user?.email })
     setRows((prev) => prev.filter((r) => r.patient.id !== patientId))
     setTotalCount((prev) => prev - 1)
   }
-
   const handleQuickDiag = useCallback(
     async (patientId: number, conditionValue: 'pd' | 'ctrl' | 'pdm' | 'other' | '-') => {
       const payload =
@@ -453,3 +470,4 @@ export default function QaPage() {
     </SidebarLayout>
   )
 }
+
