@@ -1,6 +1,6 @@
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
 
-export type AppRole = "super_admin" | "admin" | "doctor" | "medical_staff";
+export type AppRole = "super_admin" | "admin" | "doctor" | "medical_staff" | "guest";
 
 export type AppFeature =
   | "dashboard"
@@ -15,7 +15,7 @@ export type AppFeature =
   | "event"
   | "log";
 
-export type AccessSource = "admin_users" | "metadata" | "none";
+export type AccessSource = "admin_users" | "metadata" | "guest" | "none";
 
 export type AdminUserRow = {
   id: string;
@@ -36,7 +36,7 @@ export type AccessProfile = {
   debugError?: string | null;
 };
 
-export const APP_ROLES: AppRole[] = ["super_admin", "admin", "doctor", "medical_staff"];
+export const APP_ROLES: AppRole[] = ["super_admin", "admin", "doctor", "medical_staff", "guest"];
 
 export const APP_FEATURE_LABELS: Record<AppFeature, string> = {
   dashboard: "Dashboard",
@@ -57,6 +57,7 @@ export const APP_ROLE_LABELS: Record<AppRole, string> = {
   admin: "Admin",
   doctor: "Doctor",
   medical_staff: "Medical Staff",
+  guest: "ผู้เยี่ยมชม",
 };
 
 export const ROLE_ACCESS: Record<AppRole, AppFeature[]> = {
@@ -64,6 +65,7 @@ export const ROLE_ACCESS: Record<AppRole, AppFeature[]> = {
   admin: ["dashboard", "users", "tracking", "storage", "pdf", "qa", "papers", "export", "event", "log"],
   doctor: ["dashboard", "users", "qa", "pdf"],
   medical_staff: [ "dashboard", "users", "qa", "pdf"],
+  guest: ["dashboard"],
 };
 
 const FEATURE_ROUTE_PREFIXES: Array<{ prefix: string; feature: AppFeature }> = [
@@ -116,6 +118,17 @@ export async function getAccessProfile(
   supabase: SupabaseClient,
   session: Session | null
 ): Promise<AccessProfile> {
+  if (session?.user?.is_anonymous === true) {
+    return {
+      email: null,
+      role: "guest",
+      isActive: true,
+      allowedFeatures: ROLE_ACCESS.guest,
+      source: "guest",
+      debugError: null,
+    };
+  }
+
   const email = session?.user?.email?.toLowerCase() ?? null;
 
   if (!session || !email) {

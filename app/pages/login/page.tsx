@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase'
 import SessionListener from '@/components/SessionListener'
 import { getAccessProfile, getDefaultAuthorizedPath } from '@/lib/access'
 import { logActivity } from '@/lib/activityLog'
+import { signOutEverywhere } from '@/lib/auth'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -30,11 +31,12 @@ export default function LoginPage() {
       }
 
       const session = signInData.session
+      document.cookie = "chulapd-guest=; path=/; max-age=0; samesite=lax"
 
       const accessProfile = await getAccessProfile(supabase, session)
 
       if (!accessProfile.role || !accessProfile.isActive) {
-        await supabase.auth.signOut()
+        await signOutEverywhere(supabase)
         setError(
           accessProfile.debugError
             ? `Access lookup failed: ${accessProfile.debugError}`
@@ -47,6 +49,31 @@ export default function LoginPage() {
       window.location.href = getDefaultAuthorizedPath(accessProfile.role)
     } catch (_err) {
       setError('An unexpected error occurred')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleGuestEnter = async () => {
+    setLoading(true)
+    setError('')
+    try {
+      const { data, error } = await supabase.auth.signInAnonymously()
+      if (error) {
+        setError(error.message)
+        return
+      }
+
+      document.cookie = `chulapd-guest=1; path=/; max-age=${60 * 60 * 24}; samesite=lax`
+      logActivity({
+        action: 'LOGIN',
+        page: 'auth',
+        description: `เข้าใช้แบบผู้เยี่ยมชม (anonymous: ${data.user?.id ?? 'unknown'})`,
+        userEmail: 'guest@checkpd.local'
+      })
+      window.location.href = '/pages/index'
+    } catch (_err) {
+      setError('ไม่สามารถเข้าใช้แบบผู้เยี่ยมชมได้')
     } finally {
       setLoading(false)
     }
@@ -182,6 +209,21 @@ export default function LoginPage() {
               )}
             </button>
           </div>
+          <div className="relative my-2">
+            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-200" /></div>
+            <div className="relative flex justify-center text-xs"><span className="bg-gray-50 px-2 text-gray-500">หรือ</span></div>
+          </div>
+          <button
+            type="button"
+            onClick={handleGuestEnter}
+            disabled={loading}
+            className="w-full py-2 px-4 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+          >
+            เข้าใช้แบบผู้เยี่ยมชม · ดูเฉพาะแดชบอร์ด
+          </button>
+          <p className="text-center text-xs text-gray-500 mt-2">
+            สำหรับการดูภาพรวมข้อมูล CheckPD เท่านั้น
+          </p>
         </form>
       </div>
     </div>

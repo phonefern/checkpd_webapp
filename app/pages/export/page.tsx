@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { useSession } from '@/app/providers/SessionProvider'
 import AuthRedirect from '@/components/AuthRedirect'
 import JSZip from 'jszip'
+import { signOutEverywhere } from '@/lib/auth'
 
 const conditionOptions = [
   { value: '', label: 'All Conditions' },
@@ -36,11 +37,11 @@ export type User = {
 }
 
 const handleLogout = async () => {
-  const { error } = await supabase.auth.signOut()
-  if (error) {
-    console.error('Logout error:', error)
-  } else {
+  try {
+    await signOutEverywhere(supabase)
     window.location.href = '/login'
+  } catch (error) {
+    console.error('Logout error:', error)
   }
 }
 const formatToThaiTime = (timestamp: string | undefined) => {
