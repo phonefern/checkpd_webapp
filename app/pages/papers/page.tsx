@@ -7,6 +7,7 @@ import ErrorState from '@/app/component/papers/ErrorState';
 import EmptyState from '@/app/component/papers/EmptyState';
 import EditModal from '@/app/component/papers/EditModal';
 import { supabase } from '@/lib/supabase';
+import { signOutEverywhere } from '@/lib/auth';
 import { useSession } from '@/app/providers/SessionProvider';
 import { PatientData } from '@/app/component/papers/types';
 import Link from "next/link";
@@ -36,11 +37,11 @@ export default function PapersPage() {
   }, [session]);
 
   const handleLogout = async () => {
-    const { error } = await supabase.auth.signOut()
-    if (error) {
-      console.error('Logout error:', error)
-    } else {
+    try {
+      await signOutEverywhere(supabase)
       window.location.href = '/pages/login'
+    } catch (error) {
+      console.error('Logout error:', error)
     }
   }
 

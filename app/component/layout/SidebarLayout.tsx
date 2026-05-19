@@ -11,6 +11,7 @@ import { useSession } from "@/app/providers/SessionProvider";
 import { APP_ROLE_LABELS } from "@/lib/access";
 import { supabase } from "@/lib/supabase";
 import { logActivity } from "@/lib/activityLog";
+import { signOutEverywhere } from "@/lib/auth";
 
 type Props = {
   children: React.ReactNode;
@@ -48,7 +49,7 @@ export default function SidebarLayout({ children, activePath, mainClassName }: P
 
   const handleLogout = async () => {
     logActivity({ action: 'LOGOUT', page: 'auth', description: `ออกจากระบบ: ${userEmail}`, userEmail })
-    await supabase.auth.signOut();
+    await signOutEverywhere(supabase);
     window.location.href = "/pages/login";
   };
 

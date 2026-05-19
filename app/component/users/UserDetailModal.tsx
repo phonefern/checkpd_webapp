@@ -17,7 +17,7 @@ interface UserDetailModalProps {
 
 export default function UserDetailModal({ open, user, onClose, hasScreeningThaiId }: UserDetailModalProps) {
   const [historyOpen, setHistoryOpen] = useState(false)
-  const { loading, error, publicUser, recordSummary, checkpdUser, checkpdSummary, perTest } = useDetailData({
+  const { loading, error, publicUser, recordSummary, checkpdUser, checkpdSummary, diagnosisV2, coreScores, perTest } = useDetailData({
     id: user?.id,
     recorder: user?.recorder,
     recordId: user?.record_id,
@@ -81,6 +81,39 @@ export default function UserDetailModal({ open, user, onClose, hasScreeningThaiI
                   <InfoCell key={row.label} label={row.label} value={row.value} />
                 ))}
               </div>
+            </section>
+
+            <section className="rounded-lg border bg-white p-3">
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Clinical Flags & Scores</h3>
+              {!diagnosisV2 ? (
+                <div className="text-sm text-slate-500">ไม่มีข้อมูลจาก core.patient_diagnosis_v2</div>
+              ) : (
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  <InfoCell label="Diagnosis Condition" value={toText(diagnosisV2.condition)} />
+                  <InfoCell label="HY Stage" value={toText(diagnosisV2.hy_stage)} />
+                  <InfoCell label="Disease Duration" value={toText(diagnosisV2.disease_duration)} />
+                  <InfoCell label="RBD Suspected" value={toYesNo(diagnosisV2.rbd_suspected)} />
+                  <InfoCell label="Hyposmia" value={toYesNo(diagnosisV2.hyposmia)} />
+                  <InfoCell label="Constipation" value={toYesNo(diagnosisV2.constipation)} />
+                  <InfoCell label="Depression" value={toYesNo(diagnosisV2.depression)} />
+                  <InfoCell label="EDS" value={toYesNo(diagnosisV2.eds)} />
+                  <InfoCell label="ANS Dysfunction" value={toYesNo(diagnosisV2.ans_dysfunction)} />
+                  <InfoCell label="Mild Parkinsonian Sign" value={toYesNo(diagnosisV2.mild_parkinsonian_sign)} />
+                  <InfoCell label="Family History PD" value={toYesNo(diagnosisV2.family_history_pd)} />
+                  <InfoCell label="ADL Score" value={formatScore(diagnosisV2.adl_score)} />
+                  <InfoCell label="SCOPA-AUT Score" value={formatScore(diagnosisV2.scopa_aut_score)} />
+                  <InfoCell label="FDOPA PET Score" value={toText(diagnosisV2.fdopa_pet_score)} />
+                  <InfoCell label="MOCA Total Score" value={formatScore(coreScores?.moca_total)} />
+                  <InfoCell label="HAM-D Total Score" value={formatScore(coreScores?.hamd_total)} />
+                  <InfoCell label="HAM-D Severity" value={toText(coreScores?.hamd_severity)} />
+                  <InfoCell label="MDS-UPDRS Total Score" value={formatScore(coreScores?.mds_updrs_total)} />
+                  <InfoCell label="Epworth Total Score" value={formatScore(coreScores?.epworth_total)} />
+                  <InfoCell label="Smell Test Total Score" value={formatScore(coreScores?.smell_total)} />
+                  <InfoCell label="TMSE Total Score" value={formatScore(coreScores?.tmse_total)} />
+                  <InfoCell label="RBD Questionnaire Total Score" value={formatScore(coreScores?.rbd_total)} />
+                  <InfoCell label="Rome IV Total Score" value={formatScore(coreScores?.rome4_total)} />
+                </div>
+              )}
             </section>
 
             <section className="rounded-lg border bg-white p-3">
@@ -189,3 +222,16 @@ function formatRiskText(value: unknown) {
   return "Unknown"
 }
 
+function toYesNo(value: unknown) {
+  if (value === true) return "Yes"
+  if (value === false) return "No"
+  return "-"
+}
+
+function formatScore(value: unknown) {
+  if (typeof value === "number") {
+    return Number.isInteger(value) ? String(value) : value.toFixed(2)
+  }
+  if (typeof value === "string" && value.trim() !== "") return value
+  return "-"
+}
