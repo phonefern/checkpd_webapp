@@ -25,6 +25,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { APP_ROLE_LABELS, APP_ROLES, type AdminUserRow, type AppRole } from "@/lib/access";
 import { supabase } from "@/lib/supabase";
+import { signOutEverywhere } from "@/lib/auth";
 
 type UserProfile = {
   name: string;
@@ -59,6 +60,7 @@ const roleStyles: Record<AppRole, string> = {
   admin: "border-emerald-200 bg-emerald-50 text-emerald-700",
   doctor: "border-sky-200 bg-sky-50 text-sky-700",
   medical_staff: "border-purple-200 bg-purple-50 text-purple-700",
+  guest: "border-amber-200 bg-amber-50 text-amber-700",
 };
 
 const roleDescriptions: Record<AppRole, string> = {
@@ -66,6 +68,7 @@ const roleDescriptions: Record<AppRole, string> = {
   admin: "Users, tracking, storage, QA, papers, export, and event access.",
   doctor: "Users, storage, QA, and PDF access.",
   medical_staff: "Medical staff access to patient records and assessments.",
+  guest: "Dashboard view only for guest visitors.",
 };
 
 export default function AdminPage() {
@@ -118,8 +121,9 @@ export default function AdminPage() {
   }, [session, accessLoading, accessProfile.role]);
 
   const handleLogout = async () => {
-    const { error: logoutError } = await supabase.auth.signOut();
-    if (logoutError) {
+    try {
+      await signOutEverywhere(supabase);
+    } catch (logoutError) {
       console.error("Logout error:", logoutError);
       return;
     }

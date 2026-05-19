@@ -19,6 +19,8 @@ type DetailDataState = {
   recordSummary: Record<string, unknown> | null
   checkpdUser: Record<string, unknown> | null
   checkpdSummary: Record<string, unknown> | null
+  diagnosisV2: Record<string, unknown> | null
+  coreScores: Record<string, unknown> | null
   perTest: PerTestPredictionRow[]
 }
 
@@ -30,6 +32,8 @@ export function useDetailData(params: { id?: string; recorder?: string; recordId
     recordSummary: null,
     checkpdUser: null,
     checkpdSummary: null,
+    diagnosisV2: null,
+    coreScores: null,
     perTest: [],
   })
 
@@ -67,6 +71,69 @@ export function useDetailData(params: { id?: string; recorder?: string; recordId
             .limit(1)
             .maybeSingle()
           if (!fallbackRes.error) checkpdSummary = fallbackRes.data as Record<string, unknown> | null
+        }
+
+        const summaryRow = (recordSummaryRes.data as Record<string, unknown> | null) ?? null
+        const publicUser = (publicUserRes.data as Record<string, unknown> | null) ?? null
+        const thaiId = asText(summaryRow?.thaiid) || asText(publicUser?.thaiid)
+
+        let diagnosisV2: Record<string, unknown> | null = null
+        let coreScores: Record<string, unknown> | null = null
+        if (thaiId) {
+          const patientRes = await supabase
+            .schema("core")
+            .from("patients_v2")
+            .select("id")
+            .eq("thaiid", thaiId)
+            .order("submission_timestamp", { ascending: false, nullsFirst: false })
+            .order("created_at", { ascending: false, nullsFirst: false })
+            .order("id", { ascending: false })
+            .limit(1)
+            .maybeSingle<{ id: number }>()
+          if (patientRes.error) throw patientRes.error
+
+          if (patientRes.data?.id) {
+            const patientId = patientRes.data.id
+            const [diagnosisRes, mocaRes, hamdRes, mdsRes, epworthRes, smellRes, tmseRes, rbdRes, rome4Res] = await Promise.all([
+              supabase
+                .schema("core")
+                .from("patient_diagnosis_v2")
+                .select(
+                  "rbd_suspected,hyposmia,constipation,depression,eds,ans_dysfunction,mild_parkinsonian_sign,family_history_pd,adl_score,scopa_aut_score,fdopa_pet_score,condition,hy_stage,disease_duration"
+                )
+                .eq("patient_id", patientId)
+                .maybeSingle(),
+              supabase.schema("core").from("moca_v2").select("patient_id,total_score").eq("patient_id", patientId).maybeSingle(),
+              supabase.schema("core").from("hamd_v2").select("patient_id,total_score,severity_level").eq("patient_id", patientId).maybeSingle(),
+              supabase.schema("core").from("mds_updrs_v2").select("patient_id,total_score").eq("patient_id", patientId).maybeSingle(),
+              supabase.schema("core").from("epworth_v2").select("patient_id,total_score").eq("patient_id", patientId).maybeSingle(),
+              supabase.schema("core").from("smell_test_v2").select("patient_id,total_score").eq("patient_id", patientId).maybeSingle(),
+              supabase.schema("core").from("tmse_v2").select("patient_id,total_score").eq("patient_id", patientId).maybeSingle(),
+              supabase.schema("core").from("rbd_questionnaire_v2").select("patient_id,total_score").eq("patient_id", patientId).maybeSingle(),
+              supabase.schema("core").from("rome4_v2").select("patient_id,total_score").eq("patient_id", patientId).maybeSingle(),
+            ])
+            if (diagnosisRes.error) throw diagnosisRes.error
+            if (mocaRes.error) throw mocaRes.error
+            if (hamdRes.error) throw hamdRes.error
+            if (mdsRes.error) throw mdsRes.error
+            if (epworthRes.error) throw epworthRes.error
+            if (smellRes.error) throw smellRes.error
+            if (tmseRes.error) throw tmseRes.error
+            if (rbdRes.error) throw rbdRes.error
+            if (rome4Res.error) throw rome4Res.error
+            diagnosisV2 = (diagnosisRes.data as Record<string, unknown> | null) ?? null
+            coreScores = {
+              moca_total: asNumber((mocaRes.data as Record<string, unknown> | null)?.total_score),
+              hamd_total: asNumber((hamdRes.data as Record<string, unknown> | null)?.total_score),
+              hamd_severity: asText((hamdRes.data as Record<string, unknown> | null)?.severity_level),
+              mds_updrs_total: asNumber((mdsRes.data as Record<string, unknown> | null)?.total_score),
+              epworth_total: asNumber((epworthRes.data as Record<string, unknown> | null)?.total_score),
+              smell_total: asNumber((smellRes.data as Record<string, unknown> | null)?.total_score),
+              tmse_total: asNumber((tmseRes.data as Record<string, unknown> | null)?.total_score),
+              rbd_total: asNumber((rbdRes.data as Record<string, unknown> | null)?.total_score),
+              rome4_total: asNumber((rome4Res.data as Record<string, unknown> | null)?.total_score),
+            }
+          }
         }
 
         const checkpdRecords = (checkpdRecordsRes.data ?? []) as Array<{ id: number }>
@@ -137,6 +204,8 @@ export function useDetailData(params: { id?: string; recorder?: string; recordId
           recordSummary: (recordSummaryRes.data as Record<string, unknown> | null) ?? null,
           checkpdUser: (checkpdUserRes.data as Record<string, unknown> | null) ?? null,
           checkpdSummary,
+          diagnosisV2,
+          coreScores,
           perTest,
         })
       } catch (err) {
@@ -167,3 +236,11 @@ function asBool(value: unknown): boolean | null {
   return null
 }
 
+function asNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value
+  if (typeof value === "string" && value.trim() !== "") {
+    const n = Number(value)
+    return Number.isFinite(n) ? n : null
+  }
+  return null
+}

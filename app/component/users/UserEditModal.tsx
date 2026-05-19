@@ -41,17 +41,24 @@ type CheckpdUserLifestyle = {
 type SummaryRow = {
   recorder: string | null
   record_id: string | null
+  thaiid: string | null
   condition: string | null
   other: string | null
   test_result: string | null
 }
 
 type AssessmentScores = {
+  adl: number | null
+  scopa_aut: number | null
+  fdopa_pet_score: string | null
+  moca: number | null
   hamd: number | null
+  hamd_severity: string | null
+  mds_updrs: number | null
   epworth: number | null
   smell: number | null
-  mds: number | null
-  rbd: number | null
+  tmse: number | null
+  rbd_questionnaire: number | null
   rome4: number | null
 }
 
@@ -61,15 +68,23 @@ type ProdromalFlags = {
   constipation: boolean
   depression: boolean
   eds: boolean
+  ans_dysfunction: boolean
   mild_parkinsonian_sign: boolean
+  family_history_pd: boolean
 }
 
 const EMPTY_ASSESSMENTS: AssessmentScores = {
+  adl: null,
+  scopa_aut: null,
+  fdopa_pet_score: null,
+  moca: null,
   hamd: null,
+  hamd_severity: null,
+  mds_updrs: null,
   epworth: null,
   smell: null,
-  mds: null,
-  rbd: null,
+  tmse: null,
+  rbd_questionnaire: null,
   rome4: null,
 }
 
@@ -79,7 +94,9 @@ const EMPTY_FLAGS: ProdromalFlags = {
   constipation: false,
   depression: false,
   eds: false,
+  ans_dysfunction: false,
   mild_parkinsonian_sign: false,
+  family_history_pd: false,
 }
 
 export default function UserEditModal({ open, user, onClose, onSaved }: UserEditModalProps) {
@@ -123,7 +140,7 @@ export default function UserEditModal({ open, user, onClose, onSaved }: UserEdit
           if (user.recorder) {
             const byRecorder = await supabase
               .from("user_record_summary")
-              .select("recorder,record_id,condition,other,test_result")
+              .select("recorder,record_id,thaiid,condition,other,test_result")
               .eq("user_id", user.id)
               .eq("recorder", user.recorder)
               .maybeSingle<SummaryRow>()
@@ -134,7 +151,7 @@ export default function UserEditModal({ open, user, onClose, onSaved }: UserEdit
           if (user.record_id) {
             const byRecordId = await supabase
               .from("user_record_summary")
-              .select("recorder,record_id,condition,other,test_result")
+              .select("recorder,record_id,thaiid,condition,other,test_result")
               .eq("user_id", user.id)
               .eq("record_id", user.record_id)
               .order("last_update", { ascending: false, nullsFirst: false })
@@ -146,7 +163,7 @@ export default function UserEditModal({ open, user, onClose, onSaved }: UserEdit
 
           const latest = await supabase
             .from("user_record_summary")
-            .select("recorder,record_id,condition,other,test_result")
+            .select("recorder,record_id,thaiid,condition,other,test_result")
             .eq("user_id", user.id)
             .order("last_update", { ascending: false, nullsFirst: false })
             .order("updated_at", { ascending: false, nullsFirst: false })
@@ -156,7 +173,7 @@ export default function UserEditModal({ open, user, onClose, onSaved }: UserEdit
           return latest.data
         })()
 
-        const [publicUserRes, summaryRow, checkpdUserRes, riskFactorsRes] = await Promise.all([
+        const [publicUserRes, summaryRow, checkpdUserRes] = await Promise.all([
           supabase.from("users").select("*").eq("id", user.id).maybeSingle(),
           summaryPromise,
           supabase
@@ -164,13 +181,6 @@ export default function UserEditModal({ open, user, onClose, onSaved }: UserEdit
             .from("users")
             .select("occupation,emolument,smoking,alcohol,coffee,milk,exercise,insecticide,narcotic,severe_head_injury,diagnosis,medicine,level_respond_medicine,relative")
             .eq("id", user.id)
-            .maybeSingle(),
-          supabase
-            .from("risk_factors_test")
-            .select("hamd_score,epworth_score,smell_score,mds_score,rbd_score,rome4_score")
-            .eq("patient_id", user.id)
-            .order("id", { ascending: false })
-            .limit(1)
             .maybeSingle(),
         ])
 
@@ -204,24 +214,86 @@ export default function UserEditModal({ open, user, onClose, onSaved }: UserEdit
         setTestResult(toText(rs?.test_result) || null)
         setSummaryRecorder(rs?.recorder ?? user.recorder ?? null)
         setCheckpdUser(checkpdUserRes.error ? null : (checkpdUserRes.data as CheckpdUserLifestyle | null))
-        const rawScores = (riskFactorsRes.error ? null : (riskFactorsRes.data as Record<string, unknown> | null)) ?? null
-        const nextAssessments: AssessmentScores = {
-          hamd: toNullableNumber(rawScores?.hamd_score),
-          epworth: toNullableNumber(rawScores?.epworth_score),
-          smell: toNullableNumber(rawScores?.smell_score),
-          mds: toNullableNumber(rawScores?.mds_score),
-          rbd: toNullableNumber(rawScores?.rbd_score),
-          rome4: toNullableNumber(rawScores?.rome4_score),
+        const thaiId = toText(rs?.thaiid) || toText(pu?.thaiid)
+        if (thaiId) {
+          const patientRes = await supabase
+            .schema("core")
+            .from("patients_v2")
+            .select("id")
+            .eq("thaiid", thaiId)
+            .order("submission_timestamp", { ascending: false, nullsFirst: false })
+            .order("created_at", { ascending: false, nullsFirst: false })
+            .order("id", { ascending: false })
+            .limit(1)
+            .maybeSingle<{ id: number }>()
+          if (patientRes.error) throw patientRes.error
+
+          if (patientRes.data?.id) {
+            const patientId = patientRes.data.id
+            const [diagnosisRes, mocaRes, hamdRes, mdsRes, epworthRes, smellRes, tmseRes, rbdRes, rome4Res] = await Promise.all([
+              supabase
+                .schema("core")
+                .from("patient_diagnosis_v2")
+                .select(
+                  "rbd_suspected,hyposmia,constipation,depression,eds,ans_dysfunction,mild_parkinsonian_sign,family_history_pd,adl_score,scopa_aut_score,fdopa_pet_score"
+                )
+                .eq("patient_id", patientId)
+                .maybeSingle(),
+              supabase.schema("core").from("moca_v2").select("patient_id,total_score").eq("patient_id", patientId).maybeSingle(),
+              supabase.schema("core").from("hamd_v2").select("patient_id,total_score,severity_level").eq("patient_id", patientId).maybeSingle(),
+              supabase.schema("core").from("mds_updrs_v2").select("patient_id,total_score").eq("patient_id", patientId).maybeSingle(),
+              supabase.schema("core").from("epworth_v2").select("patient_id,total_score").eq("patient_id", patientId).maybeSingle(),
+              supabase.schema("core").from("smell_test_v2").select("patient_id,total_score").eq("patient_id", patientId).maybeSingle(),
+              supabase.schema("core").from("tmse_v2").select("patient_id,total_score").eq("patient_id", patientId).maybeSingle(),
+              supabase.schema("core").from("rbd_questionnaire_v2").select("patient_id,total_score").eq("patient_id", patientId).maybeSingle(),
+              supabase.schema("core").from("rome4_v2").select("patient_id,total_score").eq("patient_id", patientId).maybeSingle(),
+            ])
+            if (diagnosisRes.error) throw diagnosisRes.error
+            if (mocaRes.error) throw mocaRes.error
+            if (hamdRes.error) throw hamdRes.error
+            if (mdsRes.error) throw mdsRes.error
+            if (epworthRes.error) throw epworthRes.error
+            if (smellRes.error) throw smellRes.error
+            if (tmseRes.error) throw tmseRes.error
+            if (rbdRes.error) throw rbdRes.error
+            if (rome4Res.error) throw rome4Res.error
+
+            const diagnosis = (diagnosisRes.data as Record<string, unknown> | null) ?? null
+            const moca = (mocaRes.data as Record<string, unknown> | null) ?? null
+            const hamd = (hamdRes.data as Record<string, unknown> | null) ?? null
+            const mds = (mdsRes.data as Record<string, unknown> | null) ?? null
+            const epworth = (epworthRes.data as Record<string, unknown> | null) ?? null
+            const smell = (smellRes.data as Record<string, unknown> | null) ?? null
+            const tmse = (tmseRes.data as Record<string, unknown> | null) ?? null
+            const rbd = (rbdRes.data as Record<string, unknown> | null) ?? null
+            const rome4 = (rome4Res.data as Record<string, unknown> | null) ?? null
+            setProdromalFlags({
+              rbd_suspected: Boolean(diagnosis?.rbd_suspected),
+              hyposmia: Boolean(diagnosis?.hyposmia),
+              constipation: Boolean(diagnosis?.constipation),
+              depression: Boolean(diagnosis?.depression),
+              eds: Boolean(diagnosis?.eds),
+              ans_dysfunction: Boolean(diagnosis?.ans_dysfunction),
+              mild_parkinsonian_sign: Boolean(diagnosis?.mild_parkinsonian_sign),
+              family_history_pd: Boolean(diagnosis?.family_history_pd),
+            })
+
+            setAssessments({
+              adl: toNullableNumber(diagnosis?.adl_score),
+              scopa_aut: toNullableNumber(diagnosis?.scopa_aut_score),
+              fdopa_pet_score: toText(diagnosis?.fdopa_pet_score) || null,
+              moca: toNullableNumber(moca?.total_score),
+              hamd: toNullableNumber(hamd?.total_score),
+              hamd_severity: toText(hamd?.severity_level) || null,
+              mds_updrs: toNullableNumber(mds?.total_score),
+              epworth: toNullableNumber(epworth?.total_score),
+              smell: toNullableNumber(smell?.total_score),
+              tmse: toNullableNumber(tmse?.total_score),
+              rbd_questionnaire: toNullableNumber(rbd?.total_score),
+              rome4: toNullableNumber(rome4?.total_score),
+            })
+          }
         }
-        setAssessments(nextAssessments)
-        setProdromalFlags({
-          rbd_suspected: (nextAssessments.rbd ?? -1) >= 17,
-          hyposmia: nextAssessments.smell != null && nextAssessments.smell <= 9,
-          constipation: (nextAssessments.rome4 ?? -1) >= 2,
-          depression: (nextAssessments.hamd ?? -1) >= 13,
-          eds: (nextAssessments.epworth ?? -1) >= 10,
-          mild_parkinsonian_sign: (nextAssessments.mds ?? -1) >= 7,
-        })
       } catch (err) {
         if (cancelled) return
         setFetchError(err instanceof Error ? err.message : String(err))
@@ -427,15 +499,31 @@ export default function UserEditModal({ open, user, onClose, onSaved }: UserEdit
                 {canUseProdromalAssist && (
                   <div className="rounded-md border bg-slate-50 p-3">
                     <p className="mb-2 text-xs font-medium text-slate-500">
-                      Prodromal Flags (auto-selected from assessment scores)
+                      Prodromal Flags (from core.patient_diagnosis_v2)
                     </p>
                     <div className="grid gap-2 sm:grid-cols-2">
-                      <ReadOnlyCheckRow label="Suspected RBD (RBD >= 17)" checked={prodromalFlags.rbd_suspected} />
-                      <ReadOnlyCheckRow label="Hyposmia (Smell <= 9)" checked={prodromalFlags.hyposmia} />
-                      <ReadOnlyCheckRow label="Constipation (Rome4 >= 2)" checked={prodromalFlags.constipation} />
-                      <ReadOnlyCheckRow label="Depression (HAM-D >= 13)" checked={prodromalFlags.depression} />
-                      <ReadOnlyCheckRow label="EDS (Epworth >= 10)" checked={prodromalFlags.eds} />
-                      <ReadOnlyCheckRow label="Mild Parkinsonian Sign (MDS >= 7)" checked={prodromalFlags.mild_parkinsonian_sign} />
+                      <ReadOnlyCheckRow label="Suspected RBD" checked={prodromalFlags.rbd_suspected} />
+                      <ReadOnlyCheckRow label="Hyposmia" checked={prodromalFlags.hyposmia} />
+                      <ReadOnlyCheckRow label="Constipation" checked={prodromalFlags.constipation} />
+                      <ReadOnlyCheckRow label="Depression" checked={prodromalFlags.depression} />
+                      <ReadOnlyCheckRow label="EDS" checked={prodromalFlags.eds} />
+                      <ReadOnlyCheckRow label="ANS dysfunction" checked={prodromalFlags.ans_dysfunction} />
+                      <ReadOnlyCheckRow label="Mild Parkinsonian Sign" checked={prodromalFlags.mild_parkinsonian_sign} />
+                      <ReadOnlyCheckRow label="Family History PD" checked={prodromalFlags.family_history_pd} />
+                    </div>
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                      <ReadOnlyRow label="ADL Score" value={toDisplayNumber(assessments.adl)} />
+                      <ReadOnlyRow label="SCOPA-AUT Score" value={toDisplayNumber(assessments.scopa_aut)} />
+                      <ReadOnlyRow label="FDOPA PET Score" value={assessments.fdopa_pet_score} />
+                      <ReadOnlyRow label="MOCA Total Score" value={toDisplayNumber(assessments.moca)} />
+                      <ReadOnlyRow label="HAM-D Total Score" value={toDisplayNumber(assessments.hamd)} />
+                      <ReadOnlyRow label="HAM-D Severity" value={assessments.hamd_severity} />
+                      <ReadOnlyRow label="MDS-UPDRS Total Score" value={toDisplayNumber(assessments.mds_updrs)} />
+                      <ReadOnlyRow label="Epworth Total Score" value={toDisplayNumber(assessments.epworth)} />
+                      <ReadOnlyRow label="Smell Test Total Score" value={toDisplayNumber(assessments.smell)} />
+                      <ReadOnlyRow label="TMSE Total Score" value={toDisplayNumber(assessments.tmse)} />
+                      <ReadOnlyRow label="RBD Questionnaire Total Score" value={toDisplayNumber(assessments.rbd_questionnaire)} />
+                      <ReadOnlyRow label="Rome IV Total Score" value={toDisplayNumber(assessments.rome4)} />
                     </div>
                   </div>
                 )}
@@ -537,4 +625,9 @@ function toNullableNumber(value: unknown): number | null {
   if (value == null) return null
   const n = Number(value)
   return Number.isFinite(n) ? n : null
+}
+
+function toDisplayNumber(value: number | null): string | null {
+  if (value == null) return null
+  return Number.isInteger(value) ? String(value) : value.toFixed(2)
 }
