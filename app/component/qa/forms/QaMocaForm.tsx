@@ -117,7 +117,7 @@ function PracticeCard({ instruction }: { instruction: string }) {
 // ── Main Form ───────────────────────────────────────────────────────────────
 export default function QaMocaForm({ open, patientId, onClose, onSaved }: Props) {
   const [form, setForm] = useState<FormState>(EMPTY)
-  const [totalScore, setTotalScore] = useState(0)
+  const [totalScoreInput, setTotalScoreInput] = useState('0')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -143,18 +143,19 @@ export default function QaMocaForm({ open, patientId, onClose, onSaved }: Props)
           }
           const calculated = Object.values(nextForm).reduce((a, b) => a + b, 0)
           setForm(nextForm)
-          setTotalScore(d.total_score ?? calculated)
+          setTotalScoreInput(String(d.total_score ?? calculated))
         } else {
           setForm(EMPTY)
-          setTotalScore(0)
+          setTotalScoreInput('0')
         }
         setError(null)
       })
   }, [open, patientId])
 
   const calculatedScore = Object.values(form).reduce((a, b) => a + b, 0)
-  const normalizedTotalScore = Number.isFinite(totalScore)
-    ? Math.max(0, Math.min(30, totalScore))
+  const parsedTotalScore = totalScoreInput === '' ? NaN : Number(totalScoreInput)
+  const normalizedTotalScore = Number.isFinite(parsedTotalScore)
+    ? Math.max(0, Math.min(30, parsedTotalScore))
     : 0
   const set = (key: keyof FormState, val: number) => setForm((p) => ({ ...p, [key]: val }))
 
@@ -191,14 +192,20 @@ export default function QaMocaForm({ open, patientId, onClose, onSaved }: Props)
             <div className="flex items-center gap-2">
               <input
                 id="moca-total-score"
-                type="number"
-                min={0}
-                max={30}
-                value={totalScore}
-                onChange={(e) => setTotalScore(Number(e.target.value))}
+                type="text"
+                inputMode="numeric"
+                value={totalScoreInput}
+                onChange={(e) => {
+                  const digitsOnly = e.target.value.replace(/\D/g, '')
+                  if (digitsOnly === '') {
+                    setTotalScoreInput('')
+                    return
+                  }
+                  setTotalScoreInput(String(Number(digitsOnly)))
+                }}
                 className="w-24 rounded border px-2 py-1 text-sm"
               />
-              <Button type="button" variant="outline" onClick={() => setTotalScore(calculatedScore)} className="h-8 px-2 text-xs">
+              <Button type="button" variant="outline" onClick={() => setTotalScoreInput(String(calculatedScore))} className="h-8 px-2 text-xs">
                 Use calc
               </Button>
             </div>
@@ -389,17 +396,6 @@ export default function QaMocaForm({ open, patientId, onClose, onSaved }: Props)
             />
           </section>
 
-        </div>
-
-        {/* Total score footer */}
-        <div className={`mt-4 rounded-xl p-4 flex items-center justify-between border bg-white ${normalizedTotalScore >= 26 ? 'border-green-200' : 'border-red-200'}`}>
-          <div>
-            <p className="text-xs text-slate-500">คะแนนรวม MoCA</p>
-            <p className={`text-2xl font-extrabold ${normalizedTotalScore >= 26 ? 'text-green-800' : 'text-red-800'}`}>{normalizedTotalScore} / 30</p>
-          </div>
-          <p className={`text-sm font-medium ${normalizedTotalScore >= 26 ? 'text-green-700' : 'text-red-700'}`}>
-            {normalizedTotalScore >= 26 ? 'ปกติ (≥ 26)' : 'มีความเสี่ยง / ความบกพร่องทางสติปัญญา (< 26)'}
-          </p>
         </div>
 
         {error && <p className="text-sm text-red-600 mt-2">{error}</p>}

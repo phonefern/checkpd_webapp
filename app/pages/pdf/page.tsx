@@ -277,7 +277,7 @@ export default function ExportTestPage() {
   const [qaOpen, setQaOpen] = useState(false);
   const [qaEditPatient, setQaEditPatient] = useState<QaPatient | null>(null);
   const [qaEditDiag, setQaEditDiag] = useState<QaDiagnosisRow | null>(null);
-  const [qaPrefill, setQaPrefill] = useState<{ first_name: string; last_name: string; thaiid: string; age: string } | undefined>(undefined);
+  const [qaPrefill, setQaPrefill] = useState<{ first_name: string; last_name: string; thaiid: string; age: string; province: string } | undefined>(undefined);
 
   const handleQaClick = async (user: UserRow) => {
     const thaiid = (user.thaiId || "").trim();
@@ -301,6 +301,7 @@ export default function ExportTestPage() {
       setQaEditDiag(diag as QaDiagnosisRow | null);
       setQaPrefill(undefined);
     } else {
+      const province = extractProvince(user.liveAddress) || extractProvince(user.idCardAddress) || "";
       setQaEditPatient(null);
       setQaEditDiag(null);
       setQaPrefill({
@@ -308,6 +309,7 @@ export default function ExportTestPage() {
         last_name: user.lastName ?? "",
         thaiid,
         age: user.age != null ? String(user.age) : "",
+        province,
       });
     }
     setQaOpen(true);

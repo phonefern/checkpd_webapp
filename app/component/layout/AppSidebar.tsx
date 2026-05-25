@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
+  BarChart3,
   Bell,
   Building2,
   ChevronLeft,
@@ -10,6 +11,7 @@ import {
   Download,
   FileDown,
   FileText,
+  Home,
   LogOut,
   LogIn,
   Package,
@@ -35,10 +37,12 @@ type SidebarItem = {
   path: string;
   feature: AppFeature;
   badge?: string;
+  hideForRoles?: AppRole[];
 };
 
 const mainItems: SidebarItem[] = [
-  { label: "Dashboard", icon: Building2, path: "/pages/index", feature: "dashboard" },
+  { label: "Home", icon: Home, path: "/pages/index", feature: "dashboard", hideForRoles: ["guest"] },
+  { label: "Statistics Dashboard", icon: BarChart3, path: "/pages/dashboard", feature: "dashboard" },
   { label: "User Management", icon: ShieldCheck, path: "/pages/admin", feature: "admin" },
   { label: "Activity Logs", icon: Bell, path: "/pages/log", feature: "log" },
 ];
@@ -82,12 +86,20 @@ export default function AppSidebar({ activePath, role, user, onNavigate, onLogou
 
 
   const visibleMainItems = useMemo(
-    () => mainItems.filter((item) => canAccessFeature(role, item.feature)),
+    () => mainItems.filter((item) => {
+      if (!canAccessFeature(role, item.feature)) return false;
+      if (role && item.hideForRoles?.includes(role)) return false;
+      return true;
+    }),
     [role]
   );
 
   const visibleWorkspaceItems = useMemo(
-    () => workspaceItems.filter((item) => canAccessFeature(role, item.feature)),
+    () => workspaceItems.filter((item) => {
+      if (!canAccessFeature(role, item.feature)) return false;
+      if (role && item.hideForRoles?.includes(role)) return false;
+      return true;
+    }),
     [role]
   );
 
