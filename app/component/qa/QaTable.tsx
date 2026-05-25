@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { QaRow, QaPatient, hasQaGp2, isQaDiagnosed } from './types'
 import { Button } from '@/components/ui/button'
 import {
@@ -29,6 +29,16 @@ export default function QaTable({ rows, role, onAssess, onEdit, onQuickDiag, onD
   const [focusedDiagRowId, setFocusedDiagRowId] = useState<number | null>(null)
   const [savingDiagRowId, setSavingDiagRowId] = useState<number | null>(null)
   const useModalForDiag = role === 'doctor' || role === 'admin' || role === 'super_admin'
+  const sortedRows = useMemo(
+    () =>
+      [...rows].sort((a, b) => {
+        const aTime = toUnixMs(a.patient.submission_timestamp ?? a.patient.created_at)
+        const bTime = toUnixMs(b.patient.submission_timestamp ?? b.patient.created_at)
+        if (aTime !== bTime) return bTime - aTime
+        return b.patient.id - a.patient.id
+      }),
+    [rows]
+  )
 
   if (rows.length === 0) {
     return (
@@ -57,7 +67,7 @@ export default function QaTable({ rows, role, onAssess, onEdit, onQuickDiag, onD
           </tr>
         </thead>
         <tbody className="divide-y">
-          {rows.map((row) => {
+          {sortedRows.map((row) => {
             const { patient: p, diag, conditionLabel } = row
             const isDiagnosedRow = isQaDiagnosed(diag)
             const hasGp2Value = hasQaGp2(diag)
@@ -258,10 +268,23 @@ export default function QaTable({ rows, role, onAssess, onEdit, onQuickDiag, onD
   )
 }
 
+function toUnixMs(value: string | null | undefined): number {
+  if (!value) return 0
+  const ts = Date.parse(value)
+  return Number.isNaN(ts) ? 0 : ts
+}
+
 function formatVisitCreatedAt(value: string | null | undefined): string | null {
   if (!value) return null
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return null
-  return `submitted ${date.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}`
+  return `submitted ${date.toLocaleString('th-TH', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  })}`
 }
 

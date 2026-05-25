@@ -78,6 +78,7 @@ const FEATURE_ROUTE_PREFIXES: Array<{ prefix: string; feature: AppFeature }> = [
   { prefix: "/pages/papers", feature: "papers" },
   { prefix: "/pages/export", feature: "export" },
   { prefix: "/pages/event", feature: "event" },
+  { prefix: "/pages/dashboard", feature: "dashboard" },
   { prefix: "/pages/index", feature: "dashboard" },
   { prefix: "/pages/log", feature: "log" },
 ];
@@ -102,6 +103,12 @@ export function getFeatureFromPathname(pathname: string): AppFeature | null {
 export function getDefaultAuthorizedPath(role: AppRole | null | undefined) {
   const allowed = getAllowedFeatures(role);
   if (allowed.length === 0) return "/pages/login";
+
+  // Guest lands directly on the stats dashboard (their only allowed route).
+  if (role === "guest") return "/pages/dashboard";
+
+  // Admin / doctor / staff land on the tile menu first; clicking a tile loads
+  // the actual module, keeping post-login navigation zero-query.
   if (allowed.includes("dashboard")) return "/pages/index";
 
   const firstFeature = allowed[0];

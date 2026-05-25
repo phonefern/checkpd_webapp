@@ -134,7 +134,7 @@ export default function QaPatientSummaryModal({ row, onClose, onUpdated }: Props
             supabase.schema('core').from('hamd_v2').select('patient_id,total_score,severity_level').in('patient_id', patientIds),
             supabase.schema('core').from('mds_updrs_v2').select('patient_id,total_score').in('patient_id', patientIds),
             supabase.schema('core').from('epworth_v2').select('patient_id,total_score').in('patient_id', patientIds),
-            supabase.schema('core').from('smell_test_v2').select('patient_id,total_score').in('patient_id', patientIds),
+            supabase.schema('core').from('smell_test_v2').select('patient_id,total_score,recognize_count,perceive_count').in('patient_id', patientIds),
             supabase.schema('core').from('tmse_v2').select('patient_id,total_score').in('patient_id', patientIds),
             supabase.schema('core').from('rbd_questionnaire_v2').select('patient_id,total_score').in('patient_id', patientIds),
             supabase.schema('core').from('rome4_v2').select('patient_id,total_score').in('patient_id', patientIds),
@@ -435,6 +435,7 @@ export default function QaPatientSummaryModal({ row, onClose, onUpdated }: Props
                 label="Smell Test"
                 score={smell?.total_score}
                 maxScore={TEST_MAX_SCORES.smell}
+                suffix={`รู้จัก ${smell?.recognize_count ?? '-'} / 16 · ได้กลิ่น ${smell?.perceive_count ?? '-'} / 16`}
                 category={getScoreCategory('smell', smell?.total_score)}
               />
               <AssessmentCard

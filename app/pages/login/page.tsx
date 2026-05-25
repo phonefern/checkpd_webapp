@@ -71,7 +71,7 @@ export default function LoginPage() {
         description: `เข้าใช้แบบผู้เยี่ยมชม (anonymous: ${data.user?.id ?? 'unknown'})`,
         userEmail: 'guest@checkpd.local'
       })
-      window.location.href = '/pages/index'
+      window.location.href = '/pages/dashboard'
     } catch (_err) {
       setError('ไม่สามารถเข้าใช้แบบผู้เยี่ยมชมได้')
     } finally {

@@ -62,7 +62,12 @@ export type QaDiagnosisRow = {
   fdopa_pet_score: string | null
 }
 
-export type QaScoreRow = { patient_id: number; total_score: number | null }
+export type QaScoreRow = {
+  patient_id: number
+  total_score: number | null
+  recognize_count?: number | null
+  perceive_count?: number | null
+}
 export type QaHamdRow = { patient_id: number; total_score: number | null; severity_level: string | null }
 export type QaConditionFilter = '' | 'pd' | 'pdm' | 'other' | 'ctrl'
 

@@ -108,7 +108,9 @@ export default function QaPage() {
       let patientQuery = supabase
         .from('patient_visits_v2')
         .select(PATIENT_VISIT_SELECT, { count: 'exact' })
-        .order('collection_date', { ascending: false, nullsFirst: false })
+        .order('submission_timestamp', { ascending: false, nullsFirst: false })
+        .order('created_at', { ascending: false, nullsFirst: false })
+        .order('id', { ascending: false })
         .range(from, to)
 
       if (search.trim()) {
@@ -217,7 +219,7 @@ export default function QaPage() {
           supabase.schema('core').from('hamd_v2').select('patient_id,total_score,severity_level').in('patient_id', patientIds),
           supabase.schema('core').from('mds_updrs_v2').select('patient_id,total_score').in('patient_id', patientIds),
           supabase.schema('core').from('epworth_v2').select('patient_id,total_score').in('patient_id', patientIds),
-          supabase.schema('core').from('smell_test_v2').select('patient_id,total_score').in('patient_id', patientIds),
+          supabase.schema('core').from('smell_test_v2').select('patient_id,total_score,recognize_count,perceive_count').in('patient_id', patientIds),
           supabase.schema('core').from('tmse_v2').select('patient_id,total_score').in('patient_id', patientIds),
           supabase.schema('core').from('rbd_questionnaire_v2').select('patient_id,total_score').in('patient_id', patientIds),
           supabase.schema('core').from('rome4_v2').select('patient_id,total_score').in('patient_id', patientIds),
