@@ -141,7 +141,7 @@ export default function QaSmellForm({ open, patientId, onClose, onSaved }: Props
         <DialogHeader>
           <DialogTitle>แบบทดสอบความสามารถในการดมกลิ่น (Sniffin stick test)</DialogTitle>
         </DialogHeader>
-        <div className="grid grid-cols-1 gap-3 mt-2 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 mt-2">
           {QUESTIONS.map((q, i) => {
             const chosen = answers[q.answerKey]
             const isCorrect = chosen === q.correct
@@ -149,64 +149,69 @@ export default function QaSmellForm({ open, patientId, onClose, onSaved }: Props
             const perceive = flags[q.perceiveKey]
 
             return (
-              <div key={q.answerKey} className="border rounded p-3">
-                <p className="text-sm font-medium mb-2 text-muted-foreground">{i + 1}. {q.label}</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {q.options.map((opt) => {
-                    const val = opt.charAt(0)
-                    const active = chosen === val
-                    return (
-                      <button
-                        key={val}
-                        type="button"
-                        onClick={() => setAnswerWithAutoYes(q, val)}
-                        className={`px-2.5 py-1 text-sm rounded border transition-colors ${active ? 'bg-blue-600 text-white border-blue-600' : 'hover:bg-muted/60'}`}
-                      >
-                        {opt}
-                      </button>
-                    )
-                  })}
-                  {chosen && (
-                    <span className={`ml-1 text-sm self-center ${isCorrect ? 'text-green-600' : 'text-red-500'}`}>
-                      {isCorrect ? '✓' : `✗ (${q.correct})`}
-                    </span>
-                  )}
+              <div key={q.answerKey} className="border rounded p-3 flex flex-col gap-3 sm:flex-row sm:items-start">
+                {/* Left: รู้จักกลิ่น / ได้กลิ่น */}
+                <div className="flex flex-col gap-2 sm:w-64 sm:shrink-0">
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="w-24 shrink-0 text-muted-foreground">รู้จักกลิ่น:</span>
+                    <button
+                      type="button"
+                      onClick={() => toggleFlag(q.recognizeKey, true)}
+                      className={`rounded border px-2 py-0.5 ${recognize === true ? 'border-emerald-600 bg-emerald-600 text-white' : 'hover:bg-muted/60'}`}
+                    >
+                      ใช่
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => toggleFlag(q.recognizeKey, false)}
+                      className={`rounded border px-2 py-0.5 ${recognize === false ? 'border-slate-700 bg-slate-700 text-white' : 'hover:bg-muted/60'}`}
+                    >
+                      ไม่ใช่
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="w-24 shrink-0 text-muted-foreground">ได้กลิ่น:</span>
+                    <button
+                      type="button"
+                      onClick={() => toggleFlag(q.perceiveKey, true)}
+                      className={`rounded border px-2 py-0.5 ${perceive === true ? 'border-emerald-600 bg-emerald-600 text-white' : 'hover:bg-muted/60'}`}
+                    >
+                      ใช่
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => toggleFlag(q.perceiveKey, false)}
+                      className={`rounded border px-2 py-0.5 ${perceive === false ? 'border-slate-700 bg-slate-700 text-white' : 'hover:bg-muted/60'}`}
+                    >
+                      ไม่ใช่
+                    </button>
+                  </div>
                 </div>
 
-                <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
-                  <span className="text-muted-foreground">รู้จักกลิ่น:</span>
-                  <button
-                    type="button"
-                    onClick={() => toggleFlag(q.recognizeKey, true)}
-                    className={`rounded border px-2 py-0.5 ${recognize === true ? 'border-emerald-600 bg-emerald-600 text-white' : 'hover:bg-muted/60'}`}
-                  >
-                    ใช่
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => toggleFlag(q.recognizeKey, false)}
-                    className={`rounded border px-2 py-0.5 ${recognize === false ? 'border-slate-700 bg-slate-700 text-white' : 'hover:bg-muted/60'}`}
-                  >
-                    ไม่ใช่
-                  </button>
-                </div>
-
-                <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
-                  <span className="text-muted-foreground">ได้กลิ่น:</span>
-                  <button
-                    type="button"
-                    onClick={() => toggleFlag(q.perceiveKey, true)}
-                    className={`rounded border px-2 py-0.5 ${perceive === true ? 'border-emerald-600 bg-emerald-600 text-white' : 'hover:bg-muted/60'}`}
-                  >
-                    ใช่
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => toggleFlag(q.perceiveKey, false)}
-                    className={`rounded border px-2 py-0.5 ${perceive === false ? 'border-slate-700 bg-slate-700 text-white' : 'hover:bg-muted/60'}`}
-                  >
-                    ไม่ใช่
-                  </button>
+                {/* Right: label + answer options */}
+                <div className="flex-1">
+                  <p className="text-sm font-medium mb-2 text-muted-foreground">{i + 1}. {q.label}</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {q.options.map((opt) => {
+                      const val = opt.charAt(0)
+                      const active = chosen === val
+                      return (
+                        <button
+                          key={val}
+                          type="button"
+                          onClick={() => setAnswerWithAutoYes(q, val)}
+                          className={`px-2.5 py-1 text-sm rounded border transition-colors ${active ? 'bg-blue-600 text-white border-blue-600' : 'hover:bg-muted/60'}`}
+                        >
+                          {opt}
+                        </button>
+                      )
+                    })}
+                    {chosen && (
+                      <span className={`ml-1 text-sm self-center ${isCorrect ? 'text-green-600' : 'text-red-500'}`}>
+                        {isCorrect ? '✓' : `✗ (${q.correct})`}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             )
