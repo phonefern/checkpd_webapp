@@ -17,6 +17,16 @@ import SidebarLayout from "@/app/component/layout/SidebarLayout";
 
 const ITEMS_PER_PAGE = 50;
 
+// Firestore Timestamp -> local "yyyy-MM-dd" for the date input (avoids UTC off-by-one)
+const toDateInputValue = (ts?: { toDate?: () => Date }): string => {
+  const d = ts?.toDate?.();
+  if (!d || Number.isNaN(d.getTime())) return "";
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+};
+
 export default function ExportTestPage() {
   // ===== State Management =====
   const [userDocId, setUserDocId] = useState("");
@@ -277,7 +287,7 @@ export default function ExportTestPage() {
   const [qaOpen, setQaOpen] = useState(false);
   const [qaEditPatient, setQaEditPatient] = useState<QaPatient | null>(null);
   const [qaEditDiag, setQaEditDiag] = useState<QaDiagnosisRow | null>(null);
-  const [qaPrefill, setQaPrefill] = useState<{ first_name: string; last_name: string; thaiid: string; age: string; province: string } | undefined>(undefined);
+  const [qaPrefill, setQaPrefill] = useState<{ first_name: string; last_name: string; thaiid: string; age: string; province: string; collection_date: string } | undefined>(undefined);
 
   const handleQaClick = async (user: UserRow) => {
     const thaiid = (user.thaiId || "").trim();
@@ -302,6 +312,7 @@ export default function ExportTestPage() {
       setQaPrefill(undefined);
     } else {
       const province = extractProvince(user.liveAddress) || extractProvince(user.idCardAddress) || "";
+      const collection_date = toDateInputValue(user.timestamp) || toDateInputValue(user.lastUpdate);
       setQaEditPatient(null);
       setQaEditDiag(null);
       setQaPrefill({
@@ -310,6 +321,7 @@ export default function ExportTestPage() {
         thaiid,
         age: user.age != null ? String(user.age) : "",
         province,
+        collection_date,
       });
     }
     setQaOpen(true);

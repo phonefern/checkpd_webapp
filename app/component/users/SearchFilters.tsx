@@ -73,7 +73,7 @@ export default function SearchFilters({
           <label className="block text-sm font-medium text-foreground mb-2">Search Patient</label>
           <input
             type="text"
-            placeholder="ID, Name, or Thai ID"
+            placeholder="ID, Record ID, Name, or Thai ID"
             value={searchId}
             onChange={(e) => {
               setSearchId(e.target.value)

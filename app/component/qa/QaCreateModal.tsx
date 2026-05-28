@@ -373,6 +373,7 @@ interface Props {
 export default function QaCreateModal({ open, onClose, onCreated, editPatient, editDiag, prefillPatient, prefillData, role }: Props) {
   const isEdit = !!editPatient
   const canUseAssessmentAssist = isEdit && (role === 'doctor' || role === 'admin' || role === 'super_admin')
+  const canEditPatientInfo = isEdit && (role === 'admin' || role === 'super_admin')
   const editPatientId = editPatient?.id ?? null
   const canEditDiag = role !== 'medical_staff'
   const [form, setForm] = useState<FormState>(EMPTY)
@@ -696,14 +697,38 @@ export default function QaCreateModal({ open, onClose, onCreated, editPatient, e
           {canUseAssessmentAssist && (
             <>
               <div className="col-span-2 rounded-xl border border-slate-200 bg-slate-50 p-4">
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-600">
-                  <span className="font-semibold text-slate-900">
-                    {form.first_name || '-'} {form.last_name || '-'}
-                  </span>
-                  <span>HN: {form.hn_number || '-'}</span>
-                  <span>Age: {form.age || '-'}</span>
-                  <span>Collection: {form.collection_date || '-'}</span>
-                </div>
+                {canEditPatientInfo ? (
+                  <>
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">ชื่อ</Label>
+                        <Input value={form.first_name} onChange={(e) => set('first_name', e.target.value)} placeholder="ชื่อจริง" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">นามสกุล</Label>
+                        <Input value={form.last_name} onChange={(e) => set('last_name', e.target.value)} placeholder="นามสกุล" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">อายุ</Label>
+                        <Input type="number" min={0} max={150} value={form.age} onChange={(e) => set('age', e.target.value)} placeholder="ปี" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">วันที่เก็บข้อมูล</Label>
+                        <Input type="date" value={form.collection_date} onChange={(e) => set('collection_date', e.target.value)} />
+                      </div>
+                    </div>
+                    <div className="mt-2 text-xs text-slate-500">HN: {form.hn_number || '-'}</div>
+                  </>
+                ) : (
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-600">
+                    <span className="font-semibold text-slate-900">
+                      {form.first_name || '-'} {form.last_name || '-'}
+                    </span>
+                    <span>HN: {form.hn_number || '-'}</span>
+                    <span>Age: {form.age || '-'}</span>
+                    <span>Collection: {form.collection_date || '-'}</span>
+                  </div>
+                )}
               </div>
 
               <div className="col-span-2 border-t pt-2">

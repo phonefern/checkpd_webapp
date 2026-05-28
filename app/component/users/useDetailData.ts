@@ -38,44 +38,50 @@ export function useDetailData(params: { id?: string; recorder?: string; recordId
   })
 
   useEffect(() => {
-    const { id, recorder, recordId } = params
+    const { id, recordId } = params
     if (!id) return
 
     let cancelled = false
     const run = async () => {
       setState((prev) => ({ ...prev, loading: true, error: null }))
       try {
-        const [publicUserRes, recordSummaryRes, checkpdUserRes, checkpdSummaryExactRes, checkpdRecordsRes] = await Promise.all([
+        const [publicUserRes, recordSummaryRes, checkpdUserRes, checkpdRecordsRes] = await Promise.all([
           supabase.from("users").select("*").eq("id", id).maybeSingle(),
           recordId
             ? supabase.from("user_record_summary").select("*").eq("user_id", id).eq("record_id", recordId).maybeSingle()
             : Promise.resolve({ data: null, error: null }),
           supabase.schema("checkpd").from("users").select("*").eq("id", id).maybeSingle(),
-          recorder
-            ? supabase.schema("checkpd").from("record_summary").select("*").eq("user_id", id).eq("recorder", recorder).maybeSingle()
-            : Promise.resolve({ data: null, error: null }),
           supabase.schema("checkpd").from("records").select("id,record_id,recorder,recorded_at").eq("user_id", id),
         ])
 
         if (publicUserRes.error) throw publicUserRes.error
         if (recordSummaryRes.error) throw recordSummaryRes.error
 
-        let checkpdSummary = checkpdSummaryExactRes.data as Record<string, unknown> | null
-        if (!checkpdSummary) {
-          const fallbackRes = await supabase
-            .schema("checkpd")
-            .from("record_summary")
-            .select("*")
-            .eq("user_id", id)
-            .order("last_record_at", { ascending: false, nullsFirst: false })
-            .limit(1)
-            .maybeSingle()
-          if (!fallbackRes.error) checkpdSummary = fallbackRes.data as Record<string, unknown> | null
-        }
-
         const summaryRow = (recordSummaryRes.data as Record<string, unknown> | null) ?? null
         const publicUser = (publicUserRes.data as Record<string, unknown> | null) ?? null
         const thaiId = asText(summaryRow?.thaiid) || asText(publicUser?.thaiid)
+
+        // checkpd.record_summary.user_id mirrors public.users.id (the same key checkpd.records
+        // is queried by above), so match on user_id; fall back to thaiid for rows where the
+        // user_id space differs. Take the latest row per patient.
+        let checkpdSummary: Record<string, unknown> | null = null
+        {
+          const filter = thaiId ? `user_id.eq.${id},thaiid.eq.${thaiId}` : `user_id.eq.${id}`
+          const summaryRes = await supabase
+            .schema("checkpd")
+            .from("record_summary")
+            .select("*")
+            .or(filter)
+            .order("last_record_at", { ascending: false, nullsFirst: false })
+            .order("updated_at", { ascending: false, nullsFirst: false })
+            .limit(1)
+            .maybeSingle()
+          if (summaryRes.error) {
+            console.error("[record_summary] lookup failed", summaryRes.error)
+          } else {
+            checkpdSummary = (summaryRes.data as Record<string, unknown> | null) ?? null
+          }
+        }
 
         let diagnosisV2: Record<string, unknown> | null = null
         let coreScores: Record<string, unknown> | null = null
@@ -222,7 +228,7 @@ export function useDetailData(params: { id?: string; recorder?: string; recordId
     return () => {
       cancelled = true
     }
-  }, [params.id, params.recorder, params.recordId])
+  }, [params.id, params.recordId])
 
   return state
 }
