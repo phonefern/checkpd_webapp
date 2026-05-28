@@ -45,7 +45,7 @@ export default function UsersClientPage() {
 
     if (searchId.trim()) {
       query = query.or(
-        `id.ilike.${likePattern},firstname.ilike.${likePattern},lastname.ilike.${likePattern},recorder.ilike.${likePattern},thaiid.ilike.${likePattern}`
+        `id.ilike.${likePattern},record_id.ilike.${likePattern},firstname.ilike.${likePattern},lastname.ilike.${likePattern},recorder.ilike.${likePattern},thaiid.ilike.${likePattern}`
       )
     }
 
@@ -209,4 +209,3 @@ export default function UsersClientPage() {
     </SidebarLayout>
   )
 }
-

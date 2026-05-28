@@ -188,6 +188,9 @@ export default function QaTmseForm({ open, patientId, onClose, onSaved }: Props)
               <Button type="button" variant="outline" onClick={() => setTotalScoreInput(String(calculatedScore))} className="h-8 px-2 text-xs">
                 Use calc
               </Button>
+              <Button type="button" onClick={handleSave} disabled={saving} className="h-8 px-3 text-xs bg-blue-600 hover:bg-blue-700 text-white">
+                {saving ? 'กำลังบันทึก...' : 'บันทึก'}
+              </Button>
             </div>
           </div>
           <div className={`px-4 py-2 rounded-xl border text-sm font-semibold ${normalizedTotalScore >= 23 ? 'text-green-700 border-green-200' : 'text-red-700 border-red-200'}`}>

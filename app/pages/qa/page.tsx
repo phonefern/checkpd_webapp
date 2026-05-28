@@ -82,20 +82,35 @@ export default function QaPage() {
     setError(null)
 
     try {
-      // --- Step 1: resolve patient IDs from diagnosis filters (condition / H&Y) ---
+      // --- Step 1: resolve patient IDs from diagnosis filters (condition / H&Y / GP2) ---
       let diagFilteredIds: number[] | null = null
 
       if (condition || hyStage || gp2) {
-        let diagQuery = supabase
-          .schema('core')
-          .from('patient_diagnosis_v2')
-          .select(DIAG_SELECT)
+        // condition/GP2 matching is fuzzy, so it must run in memory — but page past
+        // Supabase's default 1000-row API cap, otherwise matches beyond the first
+        // 1000 diagnosis rows are silently dropped and the filter looks broken.
+        const DIAG_FILTER_SELECT = 'patient_id,condition,other_diagnosis_text,blood_test_note'
+        const CHUNK = 1000
+        const diagRows: QaDiagnosisRow[] = []
 
-        if (hyStage) diagQuery = diagQuery.eq('hy_stage', hyStage)
+        for (let offset = 0; ; offset += CHUNK) {
+          let diagQuery = supabase
+            .schema('core')
+            .from('patient_diagnosis_v2')
+            .select(DIAG_FILTER_SELECT)
+            .order('patient_id', { ascending: true })
+            .range(offset, offset + CHUNK - 1)
 
-        const { data: diagData, error: diagErr } = await diagQuery
-        if (diagErr) throw new Error(`patient_diagnosis_v2: ${diagErr.message}`)
-        const diagRows = (diagData ?? []) as QaDiagnosisRow[]
+          if (hyStage) diagQuery = diagQuery.eq('hy_stage', hyStage)
+
+          const { data: diagData, error: diagErr } = await diagQuery
+          if (diagErr) throw new Error(`patient_diagnosis_v2: ${diagErr.message}`)
+
+          const batch = (diagData ?? []) as QaDiagnosisRow[]
+          diagRows.push(...batch)
+          if (batch.length < CHUNK) break
+        }
+
         const filteredRows = diagRows.filter((d) => {
           if (condition && !matchesQaConditionFilter(d, condition)) return false
           if (gp2 && !hasQaGp2(d)) return false
