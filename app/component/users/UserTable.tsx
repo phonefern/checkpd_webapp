@@ -6,12 +6,18 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import UserActionsMenu from "./UserActionsMenu"
 
+export function rowKey(user: User): string {
+  return `${user.id}||${user.record_id ?? ""}`
+}
+
 interface UserTableProps {
   users: User[]
   currentPage: number
   itemsPerPage: number
   onEdit: (user: User) => void
   onViewDetail: (user: User) => void
+  selectedKeys: Set<string>
+  onSelectionChange: (keys: Set<string>) => void
 }
 
 export function getConditionBadge(condition: string | null) {
@@ -67,13 +73,46 @@ export default function UserTable({
   itemsPerPage,
   onEdit,
   onViewDetail,
+  selectedKeys,
+  onSelectionChange,
 }: UserTableProps) {
+  const pageKeys = users.map(rowKey)
+  const allPageSelected = pageKeys.length > 0 && pageKeys.every((k) => selectedKeys.has(k))
+  const somePageSelected = pageKeys.some((k) => selectedKeys.has(k))
+
+  function toggleAll() {
+    const next = new Set(selectedKeys)
+    if (allPageSelected) {
+      pageKeys.forEach((k) => next.delete(k))
+    } else {
+      pageKeys.forEach((k) => next.add(k))
+    }
+    onSelectionChange(next)
+  }
+
+  function toggleRow(key: string) {
+    const next = new Set(selectedKeys)
+    if (next.has(key)) next.delete(key)
+    else next.add(key)
+    onSelectionChange(next)
+  }
+
   return (
     <div className="w-full space-y-4">
       <div className="hidden rounded-lg border border-border bg-card shadow-sm md:block">
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50 hover:bg-muted/50">
+              <TableHead className="w-10">
+                <input
+                  type="checkbox"
+                  checked={allPageSelected}
+                  ref={(el) => { if (el) el.indeterminate = !allPageSelected && somePageSelected }}
+                  onChange={toggleAll}
+                  className="cursor-pointer accent-blue-600"
+                  title="Select all on this page"
+                />
+              </TableHead>
               <TableHead className="font-semibold">#</TableHead>
               <TableHead className="font-semibold">Patient ID</TableHead>
               <TableHead className="font-semibold">Name</TableHead>
@@ -89,8 +128,18 @@ export default function UserTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {users.map((user, index) => (
+            {users.map((user, index) => {
+              const key = rowKey(user)
+              return (
               <TableRow key={`${user.id}-${user.record_id ?? index}`} className="group hover:bg-muted/30">
+                <TableCell className="w-10">
+                  <input
+                    type="checkbox"
+                    checked={selectedKeys.has(key)}
+                    onChange={() => toggleRow(key)}
+                    className="cursor-pointer accent-blue-600"
+                  />
+                </TableCell>
                 <TableCell className="text-muted-foreground">{(currentPage - 1) * itemsPerPage + index + 1}</TableCell>
                 <TableCell>
                   <div className="font-medium text-foreground">{user.id}</div>
@@ -126,7 +175,8 @@ export default function UserTable({
                   </div>
                 </TableCell>
               </TableRow>
-            ))}
+              )
+            })}
           </TableBody>
         </Table>
       </div>

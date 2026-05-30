@@ -30,7 +30,75 @@ export default function UsersClientPage() {
   const [viewingUser, setViewingUser] = useState<User | null>(null)
   const [editingUser, setEditingUser] = useState<User | null>(null)
   const [screeningThaiIds, setScreeningThaiIds] = useState<string[]>([])
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set())
+  const [isExporting, setIsExporting] = useState(false)
   const itemsPerPage = 50
+
+  const buildFilterPayload = () => ({
+    searchId,
+    searchCondition,
+    searchRisk,
+    searchOther,
+    searchArea,
+    searchSource,
+    searchProvince,
+    startDate,
+    endDate,
+  })
+
+  const selectedPairs = Array.from(selectedKeys).map((key) => {
+    const [userId, recordIdRaw] = key.split('||')
+    return {
+      userId,
+      recordId: recordIdRaw ? recordIdRaw : null,
+    }
+  })
+
+  const handleExport = async (mode: 'selected' | 'filtered') => {
+    try {
+      setIsExporting(true)
+      const payload =
+        mode === 'selected'
+          ? { mode, pairs: selectedPairs }
+          : {
+              mode,
+              filters: buildFilterPayload(),
+            }
+
+      const res = await fetch('/api/export/users-csv', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+
+      if (!res.ok) {
+        let message = 'Export failed'
+        try {
+          const data = await res.json()
+          if (data?.error) message = data.error
+        } catch {
+          message = `Export failed (${res.status})`
+        }
+        alert(message)
+        return
+      }
+
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `checkpd_export_${new Date().toISOString().slice(0, 10).replace(/-/g, '')}.csv`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Error exporting CSV:', error)
+      alert('Failed to export CSV. Please try again.')
+    } finally {
+      setIsExporting(false)
+    }
+  }
 
   const fetchUsers = async () => {
     setLoading(true)
@@ -164,6 +232,11 @@ export default function UsersClientPage() {
           totalCount={totalCount}
           currentPage={currentPage}
           itemsPerPage={itemsPerPage}
+          selectedCount={selectedKeys.size}
+          isExporting={isExporting}
+          onExportSelected={() => handleExport('selected')}
+          onExportAll={() => handleExport('filtered')}
+          onClearSelection={() => setSelectedKeys(new Set())}
         />
 
         {loading ? (
@@ -178,6 +251,8 @@ export default function UsersClientPage() {
               itemsPerPage={itemsPerPage}
               onEdit={setEditingUser}
               onViewDetail={setViewingUser}
+              selectedKeys={selectedKeys}
+              onSelectionChange={setSelectedKeys}
             />
             <Pagination
               currentPage={currentPage}
