@@ -4,9 +4,11 @@ import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import JSZip from "jszip"
 
-const MAX_ROWS = 5000
 const IN_CHUNK_SIZE = 200
+const QUERY_PAGE_SIZE = 1000
 const BOM = "\uFEFF"
+
+export const maxDuration = 300
 
 const hasServiceRole = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY)
 
@@ -72,12 +74,6 @@ export async function POST(req: NextRequest) {
       rowPairs = pairs
     } else if (mode === "filtered") {
       rowPairs = await fetchFilteredPairs(filters ?? {})
-      if (rowPairs.length > MAX_ROWS) {
-        return NextResponse.json(
-          { error: `Too many rows (${rowPairs.length}). Max is ${MAX_ROWS}. Please narrow the filters.` },
-          { status: 400 }
-        )
-      }
     } else {
       return NextResponse.json({ error: "Invalid mode" }, { status: 400 })
     }
@@ -105,11 +101,34 @@ export async function POST(req: NextRequest) {
 }
 
 async function fetchFilteredPairs(filters: FilterParams): Promise<Pair[]> {
+  const out: Pair[] = []
+  let from = 0
+
+  while (true) {
+    const { data, error } = await buildFilteredPairsQuery(filters, from, from + QUERY_PAGE_SIZE - 1)
+    if (error) throw error
+    if (!data || data.length === 0) break
+
+    out.push(
+      ...(data as Record<string, unknown>[]).map((r) => ({
+        userId: r.id as string,
+        recordId: (r.record_id as string | null) ?? null,
+      }))
+    )
+
+    if (data.length < QUERY_PAGE_SIZE) break
+    from += QUERY_PAGE_SIZE
+  }
+
+  return out
+}
+
+function buildFilteredPairsQuery(filters: FilterParams, from: number, to: number) {
   let query = supabaseAdmin
     .from("user_record_summary_with_users")
     .select("id,record_id")
     .order("timestamp", { ascending: false })
-    .limit(MAX_ROWS + 1)
+    .range(from, to)
 
   if (filters.searchId?.trim()) {
     const p = `%${filters.searchId.trim()}%`
@@ -133,12 +152,7 @@ async function fetchFilteredPairs(filters: FilterParams): Promise<Pair[]> {
   if (filters.searchSource?.trim()) query = query.eq("source", filters.searchSource)
   if (filters.searchProvince?.trim()) query = query.eq("province", filters.searchProvince)
 
-  const { data, error } = await query
-  if (error) throw error
-  return (data ?? []).map((r: Record<string, unknown>) => ({
-    userId: r.id as string,
-    recordId: (r.record_id as string | null) ?? null,
-  }))
+  return query
 }
 
 async function buildCsv(pairs: Pair[], scope: ExportScope): Promise<CsvBuildResult> {
@@ -148,7 +162,7 @@ async function buildCsv(pairs: Pair[], scope: ExportScope): Promise<CsvBuildResu
   const includeAdmin = scope === "full"
 
   const [viewRows, pubUsersData, pubSummaryData, cpUsersData] = await Promise.all([
-    fetchInChunks<Record<string, unknown>>(userIds, (chunkIds) =>
+    fetchInChunks<Record<string, unknown>>(userIds, (chunkIds, from, to) =>
       supabaseAdmin
         .from("user_record_summary_with_users")
         .select(
@@ -156,17 +170,22 @@ async function buildCsv(pairs: Pair[], scope: ExportScope): Promise<CsvBuildResu
         )
         .in("id", chunkIds as string[])
         .order("timestamp", { ascending: false, nullsFirst: false })
+        .range(from, to)
     ),
-    fetchInChunks<Record<string, unknown>>(userIds, (chunkIds) =>
-      supabaseAdmin.from("users").select("*").in("id", chunkIds as string[])
+    fetchInChunks<Record<string, unknown>>(userIds, (chunkIds, from, to) =>
+      supabaseAdmin.from("users").select("*").in("id", chunkIds as string[]).range(from, to)
     ),
     includeAdmin
-      ? fetchInChunks<Record<string, unknown>>(userIds, (chunkIds) =>
-          supabaseAdmin.from("user_record_summary").select("user_id,record_id,condition,other").in("user_id", chunkIds as string[])
+      ? fetchInChunks<Record<string, unknown>>(userIds, (chunkIds, from, to) =>
+          supabaseAdmin
+            .from("user_record_summary")
+            .select("user_id,record_id,condition,other")
+            .in("user_id", chunkIds as string[])
+            .range(from, to)
         )
       : Promise.resolve([]),
-    fetchInChunks<Record<string, unknown>>(userIds, (chunkIds) =>
-      supabaseAdmin.schema("checkpd").from("users").select("*").in("id", chunkIds as string[])
+    fetchInChunks<Record<string, unknown>>(userIds, (chunkIds, from, to) =>
+      supabaseAdmin.schema("checkpd").from("users").select("*").in("id", chunkIds as string[]).range(from, to)
     ),
   ])
 
@@ -193,16 +212,22 @@ async function buildCsv(pairs: Pair[], scope: ExportScope): Promise<CsvBuildResu
 
   if (includeScreening) {
     const [cpSummaryData, cpRecordsData] = await Promise.all([
-      fetchInChunks<Record<string, unknown>>(userIds, (chunkIds) =>
+      fetchInChunks<Record<string, unknown>>(userIds, (chunkIds, from, to) =>
         supabaseAdmin
           .schema("checkpd")
           .from("record_summary")
           .select("user_id,record_id,questionnaire_total")
           .in("user_id", chunkIds as string[])
           .order("last_record_at", { ascending: false, nullsFirst: false })
+          .range(from, to)
       ),
-      fetchInChunks<Record<string, unknown>>(userIds, (chunkIds) =>
-        supabaseAdmin.schema("checkpd").from("records").select("id,user_id,record_id").in("user_id", chunkIds as string[])
+      fetchInChunks<Record<string, unknown>>(userIds, (chunkIds, from, to) =>
+        supabaseAdmin
+          .schema("checkpd")
+          .from("records")
+          .select("id,user_id,record_id")
+          .in("user_id", chunkIds as string[])
+          .range(from, to)
       ),
     ])
 
@@ -217,7 +242,7 @@ async function buildCsv(pairs: Pair[], scope: ExportScope): Promise<CsvBuildResu
 
     const recordPks = Object.values(cpRecordPkMap)
     if (recordPks.length > 0) {
-      const cpQuestData = await fetchInChunks<Record<string, unknown>>(recordPks, (chunkIds) =>
+      const cpQuestData = await fetchInChunks<Record<string, unknown>>(recordPks, (chunkIds, from, to) =>
         supabaseAdmin
           .schema("checkpd")
           .from("questionnaire")
@@ -225,6 +250,7 @@ async function buildCsv(pairs: Pair[], scope: ExportScope): Promise<CsvBuildResu
             "record_pk,q01,q02,q03,q04,q05,q06,q07,q08,q09,q10,q11,q12,q13,q14,q15,q16,q17,q18,q19,q20,total"
           )
           .in("record_pk", chunkIds as number[])
+          .range(from, to)
       )
       cpQuestMap = indexBy(cpQuestData, "record_pk") as Record<number, Record<string, unknown>>
     }
@@ -501,7 +527,7 @@ async function fetchCoreData(params: {
 
   const [diagnosisRows, mocaRows, hamdRows, mdsRows, epworthRows, smellRows, tmseRows, rbdRows, rome4Rows] =
     await Promise.all([
-      fetchInChunks<Record<string, unknown>>(patientIds, (chunkIds) =>
+      fetchInChunks<Record<string, unknown>>(patientIds, (chunkIds, from, to) =>
         supabaseAdmin
           .schema("core")
           .from("patient_diagnosis_v2")
@@ -512,38 +538,71 @@ async function fetchCoreData(params: {
               "adl_score,scopa_aut_score,fdopa_pet_score"
           )
           .in("patient_id", chunkIds as number[])
+          .range(from, to)
       ),
-      fetchInChunks<Record<string, unknown>>(patientIds, (chunkIds) =>
-        supabaseAdmin.schema("core").from("moca_v2").select("patient_id,total_score").in("patient_id", chunkIds as number[])
+      fetchInChunks<Record<string, unknown>>(patientIds, (chunkIds, from, to) =>
+        supabaseAdmin
+          .schema("core")
+          .from("moca_v2")
+          .select("patient_id,total_score")
+          .in("patient_id", chunkIds as number[])
+          .range(from, to)
       ),
-      fetchInChunks<Record<string, unknown>>(patientIds, (chunkIds) =>
-        supabaseAdmin.schema("core").from("hamd_v2").select("patient_id,total_score").in("patient_id", chunkIds as number[])
+      fetchInChunks<Record<string, unknown>>(patientIds, (chunkIds, from, to) =>
+        supabaseAdmin
+          .schema("core")
+          .from("hamd_v2")
+          .select("patient_id,total_score")
+          .in("patient_id", chunkIds as number[])
+          .range(from, to)
       ),
-      fetchInChunks<Record<string, unknown>>(patientIds, (chunkIds) =>
+      fetchInChunks<Record<string, unknown>>(patientIds, (chunkIds, from, to) =>
         supabaseAdmin
           .schema("core")
           .from("mds_updrs_v2")
           .select("patient_id,total_score,p3_total")
           .in("patient_id", chunkIds as number[])
+          .range(from, to)
       ),
-      fetchInChunks<Record<string, unknown>>(patientIds, (chunkIds) =>
-        supabaseAdmin.schema("core").from("epworth_v2").select("patient_id,total_score").in("patient_id", chunkIds as number[])
+      fetchInChunks<Record<string, unknown>>(patientIds, (chunkIds, from, to) =>
+        supabaseAdmin
+          .schema("core")
+          .from("epworth_v2")
+          .select("patient_id,total_score")
+          .in("patient_id", chunkIds as number[])
+          .range(from, to)
       ),
-      fetchInChunks<Record<string, unknown>>(patientIds, (chunkIds) =>
-        supabaseAdmin.schema("core").from("smell_test_v2").select("patient_id,total_score").in("patient_id", chunkIds as number[])
+      fetchInChunks<Record<string, unknown>>(patientIds, (chunkIds, from, to) =>
+        supabaseAdmin
+          .schema("core")
+          .from("smell_test_v2")
+          .select("patient_id,total_score")
+          .in("patient_id", chunkIds as number[])
+          .range(from, to)
       ),
-      fetchInChunks<Record<string, unknown>>(patientIds, (chunkIds) =>
-        supabaseAdmin.schema("core").from("tmse_v2").select("patient_id,total_score").in("patient_id", chunkIds as number[])
+      fetchInChunks<Record<string, unknown>>(patientIds, (chunkIds, from, to) =>
+        supabaseAdmin
+          .schema("core")
+          .from("tmse_v2")
+          .select("patient_id,total_score")
+          .in("patient_id", chunkIds as number[])
+          .range(from, to)
       ),
-      fetchInChunks<Record<string, unknown>>(patientIds, (chunkIds) =>
+      fetchInChunks<Record<string, unknown>>(patientIds, (chunkIds, from, to) =>
         supabaseAdmin
           .schema("core")
           .from("rbd_questionnaire_v2")
           .select("patient_id,total_score")
           .in("patient_id", chunkIds as number[])
+          .range(from, to)
       ),
-      fetchInChunks<Record<string, unknown>>(patientIds, (chunkIds) =>
-        supabaseAdmin.schema("core").from("rome4_v2").select("patient_id,total_score").in("patient_id", chunkIds as number[])
+      fetchInChunks<Record<string, unknown>>(patientIds, (chunkIds, from, to) =>
+        supabaseAdmin
+          .schema("core")
+          .from("rome4_v2")
+          .select("patient_id,total_score")
+          .in("patient_id", chunkIds as number[])
+          .range(from, to)
       ),
     ])
 
@@ -561,7 +620,7 @@ async function fetchCoreData(params: {
 }
 
 async function fetchPatientRows(thaiids: string[]) {
-  const patientsRows = await fetchInChunks<Record<string, unknown>>(thaiids, (chunkIds) =>
+  const patientsRows = await fetchInChunks<Record<string, unknown>>(thaiids, (chunkIds, from, to) =>
     supabaseAdmin
       .schema("core")
       .from("patients_v2")
@@ -569,6 +628,7 @@ async function fetchPatientRows(thaiids: string[]) {
       .in("thaiid", chunkIds as string[])
       .order("submission_timestamp", { ascending: false, nullsFirst: false })
       .order("id", { ascending: false })
+      .range(from, to)
   )
 
   if (patientsRows.length > 0) return patientsRows
@@ -719,16 +779,24 @@ function indexSummaryRows(rows: Record<string, unknown>[], userKey: "id" | "user
 
 async function fetchInChunks<T>(
   ids: (string | number)[],
-  fn: (chunkIds: (string | number)[]) => PromiseLike<{ data: unknown[] | null; error: unknown }>
+  fn: (chunkIds: (string | number)[], from: number, to: number) => PromiseLike<{ data: unknown[] | null; error: unknown }>
 ): Promise<T[]> {
   if (ids.length === 0) return []
 
-  const results = await Promise.all(chunk(ids, IN_CHUNK_SIZE).map((chunkIds) => fn(chunkIds)))
   const out: T[] = []
-  for (const result of results) {
-    if (result.error) throw result.error
-    if (result.data) out.push(...(result.data as T[]))
-  }
+  await Promise.all(
+    chunk(ids, IN_CHUNK_SIZE).map(async (chunkIds) => {
+      let from = 0
+      while (true) {
+        const result = await fn(chunkIds, from, from + QUERY_PAGE_SIZE - 1)
+        if (result.error) throw result.error
+        const rows = result.data ?? []
+        out.push(...(rows as T[]))
+        if (rows.length < QUERY_PAGE_SIZE) break
+        from += QUERY_PAGE_SIZE
+      }
+    })
+  )
   return out
 }
 

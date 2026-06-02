@@ -10,6 +10,17 @@ import SidebarLayout from '@/app/component/layout/SidebarLayout'
 import { logActivity } from '@/lib/activityLog'
 import UserEditModal from '@/app/component/users/UserEditModal'
 import UserDetailModal from '@/app/component/users/UserDetailModal'
+import TqdmSpinner from '@/app/component/dashboard/TqdmSpinner'
+import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { AlertTriangle, RefreshCw } from 'lucide-react'
 
 export default function UsersClientPage() {
   const [users, setUsers] = useState<User[]>([])
@@ -32,6 +43,9 @@ export default function UsersClientPage() {
   const [screeningThaiIds, setScreeningThaiIds] = useState<string[]>([])
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set())
   const [isExporting, setIsExporting] = useState(false)
+  const [isSyncingDemographic, setIsSyncingDemographic] = useState(false)
+  const [demographicSyncDialogOpen, setDemographicSyncDialogOpen] = useState(false)
+  const [demographicSyncMessage, setDemographicSyncMessage] = useState<string | null>(null)
   const [exportScope, setExportScope] = useState<'demo' | 'demo_test' | 'demo_test_screening' | 'full'>('full')
   const itemsPerPage = 50
 
@@ -112,6 +126,41 @@ export default function UsersClientPage() {
       alert('Failed to export users. Please try again.')
     } finally {
       setIsExporting(false)
+    }
+  }
+
+  const handleTriggerDemographicSync = async () => {
+    try {
+      setIsSyncingDemographic(true)
+      setDemographicSyncMessage(null)
+
+      const res = await fetch('/api/users/demographic-migration/trigger-job', {
+        method: 'POST',
+        cache: 'no-store',
+      })
+      const data = await res.json()
+      if (!res.ok || !data?.ok) {
+        throw new Error(data?.error || 'Failed to trigger demographic sync job')
+      }
+
+      const startedAt = data.startedAt
+        ? new Date(data.startedAt).toLocaleTimeString('th-TH', {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+          })
+        : '--:--:--'
+
+      setDemographicSyncMessage(
+        `Started ${data.jobName ?? 'migrate-demographic'} (${data.region ?? 'asia-southeast1'}) at ${startedAt} [${data.mode ?? 'gcloud'}]`
+      )
+      setDemographicSyncDialogOpen(false)
+      await fetchUsers()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to trigger demographic sync job'
+      setDemographicSyncMessage(message)
+    } finally {
+      setIsSyncingDemographic(false)
     }
   }
 
@@ -249,13 +298,21 @@ export default function UsersClientPage() {
           itemsPerPage={itemsPerPage}
           selectedCount={selectedKeys.size}
           isExporting={isExporting}
+          isSyncingDemographic={isSyncingDemographic}
           exportScope={exportScope}
           setExportScope={setExportScope}
           onExportSelected={() => handleExport('selected')}
           onExportAll={() => handleExport('filtered')}
           onClearSelection={() => setSelectedKeys(new Set())}
           onResetFilters={handleResetFilters}
+          onOpenDemographicSync={() => setDemographicSyncDialogOpen(true)}
         />
+
+        {demographicSyncMessage ? (
+          <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            {demographicSyncMessage}
+          </div>
+        ) : null}
 
         {loading ? (
           <div className="flex h-64 items-center justify-center">
@@ -298,6 +355,58 @@ export default function UsersClientPage() {
           onClose={() => setViewingUser(null)}
           hasScreeningThaiId={(thaiid) => screeningThaiIds.includes(thaiid)}
         />
+
+        <Dialog open={demographicSyncDialogOpen} onOpenChange={(open) => !isSyncingDemographic && setDemographicSyncDialogOpen(open)}>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <div className="mb-2 flex h-11 w-11 items-center justify-center rounded-full bg-amber-100 text-amber-700">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+              <DialogTitle>Run demographic migration now?</DialogTitle>
+              <DialogDescription>
+                This will manually execute the Cloud Run Job <span className="font-medium text-foreground">migrate-demographic</span> in
+                asia-southeast1. Use this when you want to pull the latest demographic data immediately instead of waiting for the scheduled run.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              The job can update patient demographic data used by this page and exports. Please avoid clicking multiple times while a run is already starting.
+            </div>
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setDemographicSyncDialogOpen(false)}
+                disabled={isSyncingDemographic}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={handleTriggerDemographicSync}
+                disabled={isSyncingDemographic}
+                className="bg-amber-600 text-white hover:bg-amber-700"
+              >
+                {isSyncingDemographic ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Run Job
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {isExporting || isSyncingDemographic ? (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 px-4 backdrop-blur-sm">
+            <TqdmSpinner
+              label={isSyncingDemographic ? "Starting demographic sync" : "กำลังเตรียมไฟล์ Export"}
+              detail={
+                isSyncingDemographic
+                  ? "Triggering migrate-demographic on Cloud Run"
+                  : `กำลังรวมข้อมูล ${exportScope.replace(/_/g, " ")} และบีบอัดเป็น ZIP`
+              }
+            />
+          </div>
+        ) : null}
       </div>
     </SidebarLayout>
   )
