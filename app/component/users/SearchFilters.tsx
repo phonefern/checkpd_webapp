@@ -4,7 +4,8 @@ import { conditionOptions, riskOptions, sourceOptions, provinceOptions } from "@
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Button } from "@/components/ui/button"
-import { CalendarIcon, Download, RefreshCw, X } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { CalendarIcon, Download, RefreshCw, RotateCcw, X } from "lucide-react"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 
@@ -36,9 +37,12 @@ interface SearchFiltersProps {
   itemsPerPage: number
   selectedCount: number
   isExporting: boolean
+  exportScope: "demo" | "demo_test" | "demo_test_screening" | "full"
+  setExportScope: (value: "demo" | "demo_test" | "demo_test_screening" | "full") => void
   onExportSelected: () => void
   onExportAll: () => void
   onClearSelection: () => void
+  onResetFilters: () => void
 }
 
 export default function SearchFilters({
@@ -69,20 +73,63 @@ export default function SearchFilters({
   itemsPerPage,
   selectedCount,
   isExporting,
+  exportScope,
+  setExportScope,
   onExportSelected,
   onExportAll,
   onClearSelection,
+  onResetFilters,
 }: SearchFiltersProps) {
   const startDateObj = startDate ? new Date(startDate) : undefined
   const endDateObj   = endDate   ? new Date(endDate)   : undefined
 
   const showing = `Showing ${(currentPage - 1) * itemsPerPage + 1}–${Math.min(currentPage * itemsPerPage, totalCount)} of ${totalCount.toLocaleString()} records`
 
+  const activeFilters = [
+    searchId.trim(),
+    searchCondition,
+    searchRisk,
+    searchOther,
+    searchArea,
+    searchSource,
+    searchProvince,
+    startDate,
+    endDate,
+  ].filter(Boolean).length
+
   return (
     <div className="mb-6 rounded-xl border border-border bg-card shadow-sm">
       {/* ── Filter grid ── */}
       <div className="p-5">
-        <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Filters</p>
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Filters</p>
+            {activeFilters > 0 && (
+              <Badge
+                variant="secondary"
+                className="h-5 bg-blue-100 px-2 text-[10px] font-semibold text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
+              >
+                {activeFilters} active
+              </Badge>
+            )}
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onResetFilters}
+            disabled={activeFilters === 0}
+            title={activeFilters === 0 ? "No active filters" : "Clear all filters"}
+            className={cn(
+              "h-8 gap-1.5 text-xs font-medium transition-colors",
+              activeFilters > 0
+                ? "text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:text-rose-400 dark:hover:bg-rose-950/40"
+                : "text-muted-foreground"
+            )}
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            Reset Filters
+          </Button>
+        </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
           {/* Search */}
           <div className="sm:col-span-2 lg:col-span-1">
@@ -247,6 +294,22 @@ export default function SearchFilters({
 
         {/* Right: actions */}
         <div className="flex flex-wrap items-center gap-2">
+          {/* Export scope */}
+          <label className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+            <span className="text-muted-foreground">Scope</span>
+            <select
+              value={exportScope}
+              onChange={(e) => setExportScope(e.target.value as SearchFiltersProps["exportScope"])}
+              title="Choose export scope before downloading. The file will be a .zip archive."
+              className="h-8 rounded-md border border-input bg-background px-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer"
+            >
+              <option value="demo">Demo only</option>
+              <option value="demo_test">Demo + Test</option>
+              <option value="demo_test_screening">Demo + Test + Screening</option>
+              <option value="full">Full</option>
+            </select>
+          </label>
+
           {/* Refresh */}
           <button
             onClick={fetchUsers}
