@@ -32,6 +32,7 @@ export default function UsersClientPage() {
   const [screeningThaiIds, setScreeningThaiIds] = useState<string[]>([])
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set())
   const [isExporting, setIsExporting] = useState(false)
+  const [exportScope, setExportScope] = useState<'demo' | 'demo_test' | 'demo_test_screening' | 'full'>('full')
   const itemsPerPage = 50
 
   const buildFilterPayload = () => ({
@@ -54,14 +55,28 @@ export default function UsersClientPage() {
     }
   })
 
+  const handleResetFilters = () => {
+    setSearchId('')
+    setSearchCondition('')
+    setSearchRisk('')
+    setSearchOther('')
+    setSearchArea('')
+    setSearchSource('')
+    setSearchProvince('')
+    setStartDate('')
+    setEndDate('')
+    setCurrentPage(1)
+  }
+
   const handleExport = async (mode: 'selected' | 'filtered') => {
     try {
       setIsExporting(true)
       const payload =
         mode === 'selected'
-          ? { mode, pairs: selectedPairs }
+          ? { mode, pairs: selectedPairs, scope: exportScope }
           : {
               mode,
+              scope: exportScope,
               filters: buildFilterPayload(),
             }
 
@@ -87,14 +102,14 @@ export default function UsersClientPage() {
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `checkpd_export_${new Date().toISOString().slice(0, 10).replace(/-/g, '')}.csv`
+      a.download = `checkpd_${exportScope}_${new Date().toISOString().slice(0, 10).replace(/-/g, '')}.zip`
       document.body.appendChild(a)
       a.click()
       a.remove()
       URL.revokeObjectURL(url)
     } catch (error) {
-      console.error('Error exporting CSV:', error)
-      alert('Failed to export CSV. Please try again.')
+      console.error('Error exporting users:', error)
+      alert('Failed to export users. Please try again.')
     } finally {
       setIsExporting(false)
     }
@@ -234,9 +249,12 @@ export default function UsersClientPage() {
           itemsPerPage={itemsPerPage}
           selectedCount={selectedKeys.size}
           isExporting={isExporting}
+          exportScope={exportScope}
+          setExportScope={setExportScope}
           onExportSelected={() => handleExport('selected')}
           onExportAll={() => handleExport('filtered')}
           onClearSelection={() => setSelectedKeys(new Set())}
+          onResetFilters={handleResetFilters}
         />
 
         {loading ? (
