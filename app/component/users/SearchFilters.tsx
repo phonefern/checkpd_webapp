@@ -5,7 +5,7 @@ import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { CalendarIcon, Download, RefreshCw, RotateCcw, X } from "lucide-react"
+import { AlertTriangle, CalendarIcon, Download, RefreshCw, RotateCcw, X } from "lucide-react"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 
@@ -37,12 +37,14 @@ interface SearchFiltersProps {
   itemsPerPage: number
   selectedCount: number
   isExporting: boolean
+  isSyncingDemographic: boolean
   exportScope: "demo" | "demo_test" | "demo_test_screening" | "full"
   setExportScope: (value: "demo" | "demo_test" | "demo_test_screening" | "full") => void
   onExportSelected: () => void
   onExportAll: () => void
   onClearSelection: () => void
   onResetFilters: () => void
+  onOpenDemographicSync: () => void
 }
 
 export default function SearchFilters({
@@ -73,12 +75,14 @@ export default function SearchFilters({
   itemsPerPage,
   selectedCount,
   isExporting,
+  isSyncingDemographic,
   exportScope,
   setExportScope,
   onExportSelected,
   onExportAll,
   onClearSelection,
   onResetFilters,
+  onOpenDemographicSync,
 }: SearchFiltersProps) {
   const startDateObj = startDate ? new Date(startDate) : undefined
   const endDateObj   = endDate   ? new Date(endDate)   : undefined
@@ -294,6 +298,26 @@ export default function SearchFilters({
 
         {/* Right: actions */}
         <div className="flex flex-wrap items-center gap-2">
+          {/* Manual demographic sync */}
+          <button
+            onClick={onOpenDemographicSync}
+            disabled={isSyncingDemographic}
+            title="Run the Cloud Run demographic migration job now"
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium shadow-sm transition-colors",
+              isSyncingDemographic
+                ? "cursor-not-allowed border-border bg-muted text-muted-foreground"
+                : "border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
+            )}
+          >
+            {isSyncingDemographic ? (
+              <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <AlertTriangle className="h-3.5 w-3.5" />
+            )}
+            Sync Demographic
+          </button>
+
           {/* Export scope */}
           <label className="flex items-center gap-1.5 text-sm font-medium text-foreground">
             <span className="text-muted-foreground">Scope</span>
