@@ -471,12 +471,28 @@ CREATE TABLE core.vision_tests_v2 (
   -- Color discrimination — Paper
   color_paper_re_test             TEXT NULL,     -- result text (pass/fail/tritan/etc.)
   color_paper_re_test_abnormal    INTEGER NULL,  -- 0=normal, 1=abnormal
+  color_paper_re_test_order       SMALLINT[] NULL, -- D-15 cap order, caps 1..15 without reference cap
+  color_paper_re_test_crossings   SMALLINT NULL,
+  color_paper_re_test_axis        TEXT NULL,     -- normal/protan/deutan/tritan
+  color_paper_re_test_tes         REAL NULL,     -- reserved for future quantitative scoring
   color_paper_re_retest           TEXT NULL,
   color_paper_re_retest_abnormal  INTEGER NULL,
+  color_paper_re_retest_order     SMALLINT[] NULL,
+  color_paper_re_retest_crossings SMALLINT NULL,
+  color_paper_re_retest_axis      TEXT NULL,
+  color_paper_re_retest_tes       REAL NULL,
   color_paper_le_test             TEXT NULL,
   color_paper_le_test_abnormal    INTEGER NULL,
+  color_paper_le_test_order       SMALLINT[] NULL,
+  color_paper_le_test_crossings   SMALLINT NULL,
+  color_paper_le_test_axis        TEXT NULL,
+  color_paper_le_test_tes         REAL NULL,
   color_paper_le_retest           TEXT NULL,
   color_paper_le_retest_abnormal  INTEGER NULL,
+  color_paper_le_retest_order     SMALLINT[] NULL,
+  color_paper_le_retest_crossings SMALLINT NULL,
+  color_paper_le_retest_axis      TEXT NULL,
+  color_paper_le_retest_tes       REAL NULL,
 
   -- Color discrimination — Application
   color_app_re_test               TEXT NULL,
