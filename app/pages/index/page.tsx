@@ -1,11 +1,12 @@
 "use client"
 
-import { useEffect, useMemo } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import {
   ArrowRight,
   BarChart3,
   Bell,
+  Database,
   FileDown,
   ShieldCheck,
   Stethoscope,
@@ -15,6 +16,7 @@ import {
 import type { LucideIcon } from "lucide-react"
 
 import SidebarLayout from "@/app/component/layout/SidebarLayout"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { useSession } from "@/app/providers/SessionProvider"
 import { useAccessProfile } from "@/app/hooks/useAccessProfile"
 import { APP_ROLE_LABELS, canAccessFeature, type AppFeature } from "@/lib/access"
@@ -103,6 +105,7 @@ export default function HomeMenuPage() {
   const router = useRouter()
   const { session } = useSession()
   const { accessProfile } = useAccessProfile(session)
+  const [rawDataChooserOpen, setRawDataChooserOpen] = useState(false)
 
   // Guest mode lands on /pages/dashboard, not here. Middleware already redirects them.
   // Belt-and-suspenders: bounce on the client too in case middleware is stale.
@@ -164,7 +167,13 @@ export default function HomeMenuPage() {
                 return (
                   <button
                     key={tile.path}
-                    onClick={() => router.push(tile.path)}
+                    onClick={() => {
+                      if (tile.title === "Raw Data Access") {
+                        setRawDataChooserOpen(true)
+                        return
+                      }
+                      router.push(tile.path)
+                    }}
                     className={`group flex flex-col gap-4 rounded-2xl border border-slate-200/70 bg-white p-5 text-left shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(15,23,42,0.08)] border-l-4 ${tile.tone.accent}`}
                   >
                     <div className="flex items-start justify-between gap-3">
@@ -184,6 +193,48 @@ export default function HomeMenuPage() {
           )}
         </section>
 
+        <Dialog open={rawDataChooserOpen} onOpenChange={setRawDataChooserOpen}>
+          <DialogContent className="sm:max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>เลือกระบบข้อมูลดิบ (Raw Data Access)</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => router.push("/pages/export")}
+                className="rounded-xl border border-slate-200 bg-white p-4 text-left transition hover:border-slate-700 hover:shadow-sm"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
+                    <Package className="h-5 w-5" strokeWidth={1.75} />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-slate-900">Patient Records ZIP</p>
+                    <p className="text-xs text-slate-500">JSON + WAV from Firestore export</p>
+                  </div>
+                </div>
+                <p className="mt-3 text-sm text-slate-600">ส่งออกข้อมูลราย record เป็น ZIP รูปแบบเดิม</p>
+              </button>
+              <button
+                type="button"
+                onClick={() => router.push("/pages/storage")}
+                className="rounded-xl border border-slate-200 bg-white p-4 text-left transition hover:border-slate-700 hover:shadow-sm"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
+                    <Database className="h-5 w-5" strokeWidth={1.75} />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-slate-900">Storage Files</p>
+                    <p className="text-xs text-slate-500">Supabase Storage raw sensor files</p>
+                  </div>
+                </div>
+                <p className="mt-3 text-sm text-slate-600">ค้นหาและดาวน์โหลดไฟล์เซ็นเซอร์ดิบจาก storage</p>
+              </button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
         <footer className="mt-4 rounded-2xl border border-slate-200/70 bg-white/70 px-5 py-4 text-xs text-slate-500 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
           <p className="font-medium text-slate-700">Excellence Center for Parkinson&apos;s Disease</p>
           <p className="mt-0.5">King Chulalongkorn Memorial Hospital · ระบบบริหารจัดการข้อมูล CheckPD</p>
@@ -192,4 +243,3 @@ export default function HomeMenuPage() {
     </SidebarLayout>
   )
 }
-

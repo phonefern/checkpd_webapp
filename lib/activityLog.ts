@@ -1,5 +1,5 @@
-export type ActivityAction = 'LOGIN' | 'LOGOUT' | 'CREATE' | 'UPDATE' | 'DELETE' | 'VIEW'
-export type ActivityPage = 'auth' | 'users' | 'qa'
+export type ActivityAction = 'LOGIN' | 'LOGOUT' | 'CREATE' | 'UPDATE' | 'DELETE' | 'VIEW' | 'EXPORT'
+export type ActivityPage = 'auth' | 'users' | 'qa' | 'export'
 
 export interface ActivityEntry {
   id: string
