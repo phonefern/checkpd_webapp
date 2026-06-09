@@ -17,7 +17,7 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
-const exportScopes = ["demo", "demo_test", "demo_test_screening", "full"] as const
+const exportScopes = ["demo", "demo_test", "demo_test_screening", "full", "full_detail"] as const
 
 type ExportScope = (typeof exportScopes)[number]
 type Pair = { userId: string; recordId: string | null }
@@ -155,11 +155,21 @@ function buildFilteredPairsQuery(filters: FilterParams, from: number, to: number
   return query
 }
 
+// Correct answer key for smell_test_v2 items 1–16
+const SMELL_CORRECT = ["A","B","D","C","C","C","A","D","B","B","D","A","D","B","A","C"]
+
+function encodeSmell(given: unknown, correct: string): string {
+  const g = str(given).trim().toUpperCase()
+  if (!g) return ""
+  return g === correct ? "1" : "0"
+}
+
 async function buildCsv(pairs: Pair[], scope: ExportScope): Promise<CsvBuildResult> {
   const userIds = [...new Set(pairs.map((p) => p.userId))]
-  const includeCore = scope === "demo_test" || scope === "demo_test_screening" || scope === "full"
-  const includeScreening = scope === "demo_test_screening" || scope === "full"
-  const includeAdmin = scope === "full"
+  const includeCore = scope === "demo_test" || scope === "demo_test_screening" || scope === "full" || scope === "full_detail"
+  const includeScreening = scope === "demo_test_screening" || scope === "full" || scope === "full_detail"
+  const includeAdmin = scope === "full" || scope === "full_detail"
+  const includeDetail = scope === "full_detail"
 
   const [viewRows, pubUsersData, pubSummaryData, cpUsersData] = await Promise.all([
     fetchInChunks<Record<string, unknown>>(userIds, (chunkIds, from, to) =>
@@ -263,10 +273,11 @@ async function buildCsv(pairs: Pair[], scope: ExportScope): Promise<CsvBuildResu
         cpUsersMap,
         viewByRecord,
         viewByUser,
+        includeDetail,
       })
     : emptyCoreData()
 
-  const headers = buildHeaders({ includeCore, includeScreening, includeAdmin })
+  const headers = buildHeaders({ includeCore, includeScreening, includeAdmin, includeDetail })
   const lines: string[] = [headers.map(csvCell).join(",")]
 
   for (const pair of pairs) {
@@ -382,6 +393,16 @@ async function buildCsv(pairs: Pair[], scope: ExportScope): Promise<CsvBuildResu
         str(rbd.total_score),
         str(rome4.total_score)
       )
+      if (includeDetail) {
+        for (let i = 1; i <= 13; i++) {
+          const q = String(i).padStart(2, "0")
+          row.push(str(rbd[`q${q}_score`]), str(rbd[`q${q}_frequency`]))
+        }
+        for (let i = 0; i < 16; i++) {
+          const q = String(i + 1).padStart(2, "0")
+          row.push(encodeSmell(smell[`smell_${q}_answer`], SMELL_CORRECT[i]))
+        }
+      }
     }
 
     lines.push(row.map(csvCell).join(","))
@@ -393,7 +414,7 @@ async function buildCsv(pairs: Pair[], scope: ExportScope): Promise<CsvBuildResu
   }
 }
 
-function buildHeaders(flags: { includeCore: boolean; includeScreening: boolean; includeAdmin: boolean }) {
+function buildHeaders(flags: { includeCore: boolean; includeScreening: boolean; includeAdmin: boolean; includeDetail?: boolean }) {
   const headers = [
     "user_id",
     "record_id",
@@ -479,6 +500,14 @@ function buildHeaders(flags: { includeCore: boolean; includeScreening: boolean; 
       "rbd_total",
       "rome4_total"
     )
+    if (flags.includeDetail) {
+      for (let i = 1; i <= 13; i++) {
+        headers.push(`rbd${i}`, `rbd${i}.1`)
+      }
+      for (let i = 1; i <= 16; i++) {
+        headers.push(`s${i}`)
+      }
+    }
   }
 
   return headers
@@ -490,6 +519,7 @@ async function fetchCoreData(params: {
   cpUsersMap: RowMap
   viewByRecord: RowMap
   viewByUser: RowMap
+  includeDetail?: boolean
 }) {
   const thaiids = [
     ...new Set(
@@ -576,7 +606,11 @@ async function fetchCoreData(params: {
         supabaseAdmin
           .schema("core")
           .from("smell_test_v2")
-          .select("patient_id,total_score")
+          .select(
+            params.includeDetail
+              ? "patient_id,total_score,smell_01_answer,smell_02_answer,smell_03_answer,smell_04_answer,smell_05_answer,smell_06_answer,smell_07_answer,smell_08_answer,smell_09_answer,smell_10_answer,smell_11_answer,smell_12_answer,smell_13_answer,smell_14_answer,smell_15_answer,smell_16_answer"
+              : "patient_id,total_score"
+          )
           .in("patient_id", chunkIds as number[])
           .range(from, to)
       ),
@@ -592,7 +626,11 @@ async function fetchCoreData(params: {
         supabaseAdmin
           .schema("core")
           .from("rbd_questionnaire_v2")
-          .select("patient_id,total_score")
+          .select(
+            params.includeDetail
+              ? "patient_id,total_score,q01_score,q01_frequency,q02_score,q02_frequency,q03_score,q03_frequency,q04_score,q04_frequency,q05_score,q05_frequency,q06_score,q06_frequency,q07_score,q07_frequency,q08_score,q08_frequency,q09_score,q09_frequency,q10_score,q10_frequency,q11_score,q11_frequency,q12_score,q12_frequency,q13_score,q13_frequency"
+              : "patient_id,total_score"
+          )
           .in("patient_id", chunkIds as number[])
           .range(from, to)
       ),
@@ -709,6 +747,7 @@ function buildReadme(scope: ExportScope, includesQuestionnaire: boolean) {
     demo_test: "Demo + Test - demographics plus in-clinic clinical scores.",
     demo_test_screening: "Demo + Test + Screening - adds mobile app screening, q01-q20, and prediction.",
     full: "Full - all export columns, including admin condition/other metadata.",
+    full_detail: "Full + Detail - all full columns plus RBD item breakdown (rbd1-rbd13 score/frequency) and Smell encoding (s1-s16: 1=correct, 0=wrong).",
   }
   const files = [
     `1. checkpd_${scope}_<date>.csv - data for the selected export scope`,
