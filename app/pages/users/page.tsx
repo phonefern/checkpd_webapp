@@ -46,7 +46,7 @@ export default function UsersClientPage() {
   const [isSyncingDemographic, setIsSyncingDemographic] = useState(false)
   const [demographicSyncDialogOpen, setDemographicSyncDialogOpen] = useState(false)
   const [demographicSyncMessage, setDemographicSyncMessage] = useState<string | null>(null)
-  const [exportScope, setExportScope] = useState<'demo' | 'demo_test' | 'demo_test_screening' | 'full'>('full')
+  const [exportScope, setExportScope] = useState<'demo' | 'demo_test' | 'demo_test_screening' | 'full' | 'full_detail'>('full')
   const itemsPerPage = 50
 
   const buildFilterPayload = () => ({
@@ -316,7 +316,7 @@ export default function UsersClientPage() {
 
         {loading ? (
           <div className="flex h-64 items-center justify-center">
-            <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-t-2 border-blue-500" />
+            <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-teal-500" />
           </div>
         ) : (
           <>
@@ -396,7 +396,7 @@ export default function UsersClientPage() {
         </Dialog>
 
         {isExporting || isSyncingDemographic ? (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 px-4 backdrop-blur-sm">
+          <div className="fixed inset-0 z-50 flex items-start justify-center bg-slate-950/40 px-4 pt-16 backdrop-blur-sm">
             <TqdmSpinner
               label={isSyncingDemographic ? "Starting demographic sync" : "กำลังเตรียมไฟล์ Export"}
               detail={

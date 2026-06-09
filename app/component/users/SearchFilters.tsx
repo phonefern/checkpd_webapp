@@ -38,8 +38,8 @@ interface SearchFiltersProps {
   selectedCount: number
   isExporting: boolean
   isSyncingDemographic: boolean
-  exportScope: "demo" | "demo_test" | "demo_test_screening" | "full"
-  setExportScope: (value: "demo" | "demo_test" | "demo_test_screening" | "full") => void
+  exportScope: "demo" | "demo_test" | "demo_test_screening" | "full" | "full_detail"
+  setExportScope: (value: "demo" | "demo_test" | "demo_test_screening" | "full" | "full_detail") => void
   onExportSelected: () => void
   onExportAll: () => void
   onClearSelection: () => void
@@ -331,6 +331,7 @@ export default function SearchFilters({
               <option value="demo_test">Demo + Test</option>
               <option value="demo_test_screening">Demo + Test + Screening</option>
               <option value="full">Full</option>
+              <option value="full_detail">Full + Detail</option>
             </select>
           </label>
 
