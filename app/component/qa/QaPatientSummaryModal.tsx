@@ -171,6 +171,8 @@ export default function QaPatientSummaryModal({ row, onClose, onUpdated }: Props
             tmse: tmseMap[patient.id] as QaScoreRow | undefined,
             rbd: rbdMap[patient.id] as QaScoreRow | undefined,
             rome4: rome4Map[patient.id] as QaScoreRow | undefined,
+            food: undefined,
+            colorvision: undefined,
           }
         })
 

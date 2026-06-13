@@ -9,7 +9,8 @@
       "Bash(node -e \"console.log\\('react:', require\\('react/package.json'\\).version\\); console.log\\('react-dom:', require\\('react-dom/package.json'\\).version\\)\")",
       "Bash(npx next:*)",
       "Bash(node -e ' *)",
-      "Bash(mkdir -p \"d:\\\\DEV_WEB\\\\checkpd\\\\checkpd_webapp\\\\docs\")"
+      "Bash(mkdir -p \"d:\\\\DEV_WEB\\\\checkpd\\\\checkpd_webapp\\\\docs\")",
+      "Bash(npx eslint *)"
     ],
     "additionalDirectories": [
       "d:\\DEV_WEB\\checkpd\\checkpd_webapp\\docs"

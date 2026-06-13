@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
-import { QaPatient } from './types'
+import { QaPatient, getScoreSeverity, getSeverityLabel, SEVERITY_TEXT_CLASS, SEVERITY_CARD_CLASS } from './types'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { X } from 'lucide-react'
@@ -153,15 +153,19 @@ export default function QaAssessmentModal({ open, patient, onClose, onUpdated }:
               <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500" />
             </div>
           ) : (
-            <div className="grid grid-cols-3 gap-3 mt-2">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-2">
               {TESTS.map((t) => {
                 const score = scores[t.key]
                 const done = score !== null
+                const sev  = getScoreSeverity(t.key, score)
+                const sevLabel = getSeverityLabel(t.key, score)
                 return (
                   <button
                     key={t.key}
                     onClick={() => setActiveForm(t.key)}
-                    className="text-left border rounded-lg p-3 hover:bg-muted/40 hover:border-blue-400 transition-all group"
+                    className={`text-left border-2 rounded-lg p-3 hover:border-blue-400 transition-all group ${
+                      done ? SEVERITY_CARD_CLASS[sev] : 'border-slate-200 hover:bg-muted/30'
+                    }`}
                   >
                     <div className="flex items-start justify-between mb-1">
                       <span className="text-xl">{t.emoji}</span>
@@ -174,7 +178,17 @@ export default function QaAssessmentModal({ open, patient, onClose, onUpdated }:
                     {done && t.key === 'colorvision' ? (
                       <p className="text-sm font-bold text-blue-700 mt-1">{visionSummary ?? '✓ บันทึกแล้ว'}</p>
                     ) : done ? (
-                      <p className="text-sm font-bold text-blue-700 mt-1">{score} <span className="font-normal text-xs text-muted-foreground">/ {t.maxScore}</span></p>
+                      <div className="mt-1">
+                        <span className={`text-sm font-bold ${SEVERITY_TEXT_CLASS[sev]}`}>
+                          {score}
+                          <span className="font-normal text-xs text-muted-foreground"> / {t.maxScore}</span>
+                        </span>
+                        {sevLabel && (
+                          <span className={`ml-1.5 text-[10px] font-semibold ${SEVERITY_TEXT_CLASS[sev]}`}>
+                            {sevLabel}
+                          </span>
+                        )}
+                      </div>
                     ) : (
                       <p className="text-xs text-muted-foreground mt-1">คลิกเพื่อเริ่ม</p>
                     )}
