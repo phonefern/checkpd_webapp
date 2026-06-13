@@ -227,7 +227,7 @@ export default function QaPage() {
       }
 
       // --- Step 3: fetch related data for this page's patients ---
-      const [diagRes, mocaRes, hamdRes, mdsRes, epwRes, smellRes, tmseRes, rbdRes, rome4Res] =
+      const [diagRes, mocaRes, hamdRes, mdsRes, epwRes, smellRes, tmseRes, rbdRes, rome4Res, foodRes, visionRes] =
         await Promise.all([
           supabase.schema('core').from('patient_diagnosis_v2').select(DIAG_SELECT).in('patient_id', patientIds),
           supabase.schema('core').from('moca_v2').select('patient_id,total_score').in('patient_id', patientIds),
@@ -238,9 +238,13 @@ export default function QaPage() {
           supabase.schema('core').from('tmse_v2').select('patient_id,total_score').in('patient_id', patientIds),
           supabase.schema('core').from('rbd_questionnaire_v2').select('patient_id,total_score').in('patient_id', patientIds),
           supabase.schema('core').from('rome4_v2').select('patient_id,total_score').in('patient_id', patientIds),
+          supabase.schema('core').from('food_questionnaire_v2').select('patient_id,total_score').in('patient_id', patientIds),
+          supabase.schema('core').from('vision_tests_v2')
+            .select('patient_id,color_paper_re_test,color_paper_re_retest,color_paper_le_test,color_paper_le_retest,color_paper_re_test_order,color_paper_re_retest_order,color_paper_le_test_order,color_paper_le_retest_order')
+            .in('patient_id', patientIds),
         ])
 
-      const errors = [diagRes, mocaRes, hamdRes, mdsRes, epwRes, smellRes, tmseRes, rbdRes, rome4Res]
+      const errors = [diagRes, mocaRes, hamdRes, mdsRes, epwRes, smellRes, tmseRes, rbdRes, rome4Res, foodRes, visionRes]
         .map((r, i) => r.error ? `table[${i}]: ${r.error.message}` : null)
         .filter(Boolean)
       if (errors.length > 0) throw new Error(errors.join(', '))
@@ -254,21 +258,40 @@ export default function QaPage() {
       const tmseMap   = Object.fromEntries((tmseRes.data   ?? []).map((d: QaScoreRow)    => [d.patient_id, d]))
       const rbdMap    = Object.fromEntries((rbdRes.data    ?? []).map((d: QaScoreRow)    => [d.patient_id, d]))
       const rome4Map  = Object.fromEntries((rome4Res.data  ?? []).map((d: QaScoreRow)    => [d.patient_id, d]))
+      const foodMap   = Object.fromEntries((foodRes.data   ?? []).map((d: QaScoreRow)    => [d.patient_id, d]))
+      type VisionRow = {
+        patient_id: number
+        color_paper_re_test_order?: unknown[] | null
+        color_paper_le_test_order?: unknown[] | null
+        color_paper_re_test?: string | null
+        color_paper_le_test?: string | null
+      }
+      const visionMap = Object.fromEntries((visionRes.data ?? []).map((d: VisionRow) => [d.patient_id, d]))
 
-      setRows(normalizedPatients.map((p) => ({
-        patient: p,
-        diag:  diagMap[p.id] as QaDiagnosisRow | undefined,
-        conditionLabel: formatQaConditionLabel(diagMap[p.id] as QaDiagnosisRow | undefined),
-        has_checkpd: !!p.thaiid?.trim() && checkpdThaiIdSet.has(p.thaiid.trim()),
-        moca:  mocaMap[p.id] as QaScoreRow | undefined,
-        hamd:  hamdMap[p.id] as QaHamdRow | undefined,
-        mds:   mdsMap[p.id] as QaScoreRow | undefined,
-        epw:   epwMap[p.id] as QaScoreRow | undefined,
-        smell: smellMap[p.id] as QaScoreRow | undefined,
-        tmse:  tmseMap[p.id] as QaScoreRow | undefined,
-        rbd:   rbdMap[p.id] as QaScoreRow | undefined,
-        rome4: rome4Map[p.id] as QaScoreRow | undefined,
-      })))
+      setRows(normalizedPatients.map((p) => {
+        const vis = visionMap[p.id] as VisionRow | undefined
+        return {
+          patient: p,
+          diag:  diagMap[p.id] as QaDiagnosisRow | undefined,
+          conditionLabel: formatQaConditionLabel(diagMap[p.id] as QaDiagnosisRow | undefined),
+          has_checkpd: !!p.thaiid?.trim() && checkpdThaiIdSet.has(p.thaiid.trim()),
+          moca:  mocaMap[p.id] as QaScoreRow | undefined,
+          hamd:  hamdMap[p.id] as QaHamdRow | undefined,
+          mds:   mdsMap[p.id] as QaScoreRow | undefined,
+          epw:   epwMap[p.id] as QaScoreRow | undefined,
+          smell: smellMap[p.id] as QaScoreRow | undefined,
+          tmse:  tmseMap[p.id] as QaScoreRow | undefined,
+          rbd:   rbdMap[p.id] as QaScoreRow | undefined,
+          rome4: rome4Map[p.id] as QaScoreRow | undefined,
+          food:  foodMap[p.id] as QaScoreRow | undefined,
+          colorvision: vis
+            ? {
+                done: Boolean(vis.color_paper_re_test_order || vis.color_paper_le_test_order),
+                summary: vis.color_paper_re_test ?? vis.color_paper_le_test ?? null,
+              }
+            : undefined,
+        }
+      }))
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
