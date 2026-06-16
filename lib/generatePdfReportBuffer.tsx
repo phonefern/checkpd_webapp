@@ -90,7 +90,9 @@ async function buildQaBridge(
   if (!qaUid) return null;
 
   const baseUrl = normalizeBaseUrl(assetBaseUrl) ?? 'http://localhost:3000';
-  const qaUrl = `${baseUrl}/pages/qa?focus_uid=${encodeURIComponent(qaUid)}`;
+  const qaParams = new URLSearchParams({ focus_uid: qaUid });
+  if (qaId != null) qaParams.set('focus_id', String(qaId));
+  const qaUrl = `${baseUrl}/pages/qa?${qaParams.toString()}`;
 
   try {
     const qrDataUri = await QRCode.toDataURL(qaUrl, {

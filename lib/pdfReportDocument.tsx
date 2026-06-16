@@ -213,7 +213,7 @@ export function PdfReportDocument({
               <Text style={styles.qaBridgeId}>
                 {qaBridge.qaId != null ? qaBridge.qaId : '-'}
               </Text>
-              <Text style={styles.qaBridgeCaption}>สแกนเพื่อเปิดข้อมูลใน QA</Text>
+              <Text style={styles.qaBridgeCaption}>สแกนเพื่อทำแบบประเมิน</Text>
             </View>
           </View>
         ) : null}

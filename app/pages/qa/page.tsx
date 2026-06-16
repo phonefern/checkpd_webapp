@@ -413,7 +413,7 @@ export default function QaPage() {
     [fetchData, rows, session?.user?.email]
   )
 
-  const openFocusedSummary = useCallback(
+  const openFocusedAssessment = useCallback(
     async (focus: { id?: string | null; uid?: string | null }) => {
       if (!session) return
 
@@ -427,14 +427,14 @@ export default function QaPage() {
           .select(PATIENT_VISIT_SELECT)
           .limit(1)
 
-        if (focusUid) {
+        if (focusId && /^\d+$/.test(focusId)) {
+          patientQuery = patientQuery.eq('id', Number(focusId))
+        } else if (focusUid) {
           patientQuery = patientQuery
             .eq('patient_uid', focusUid)
             .order('submission_timestamp', { ascending: false, nullsFirst: false })
             .order('created_at', { ascending: false, nullsFirst: false })
             .order('id', { ascending: false })
-        } else if (focusId && /^\d+$/.test(focusId)) {
-          patientQuery = patientQuery.eq('id', Number(focusId))
         } else {
           setError('Invalid QA focus link')
           return
@@ -448,31 +448,10 @@ export default function QaPage() {
         }
 
         const patient = patientData as QaPatient
-        const { data: diagData, error: diagErr } = await supabase
-          .schema('core')
-          .from('patient_diagnosis_v2')
-          .select(DIAG_SELECT)
-          .eq('patient_id', patient.id)
-          .maybeSingle()
-
-        if (diagErr) throw new Error(`patient_diagnosis_v2: ${diagErr.message}`)
-
-        setSummaryRow({
-          patient,
-          diag: (diagData as QaDiagnosisRow | null) ?? undefined,
-          conditionLabel: formatQaConditionLabel((diagData as QaDiagnosisRow | null) ?? undefined),
-          has_checkpd: false,
-          moca: undefined,
-          hamd: undefined,
-          mds: undefined,
-          epw: undefined,
-          smell: undefined,
-          tmse: undefined,
-          rbd: undefined,
-          rome4: undefined,
-          food: undefined,
-          colorvision: undefined,
-        })
+        setSearch(String(patient.id))
+        setCurrentPage(1)
+        setSummaryRow(null)
+        setAssessingPatient(patient)
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err))
       }
@@ -501,8 +480,8 @@ export default function QaPage() {
     if (!focusUid && !focusId) return
 
     setFocusHandled(true)
-    openFocusedSummary({ id: focusId, uid: focusUid })
-  }, [focusHandled, openFocusedSummary, session, sessionLoading])
+    openFocusedAssessment({ id: focusId, uid: focusUid })
+  }, [focusHandled, openFocusedAssessment, session, sessionLoading])
 
   return (
     <SidebarLayout activePath="/pages/qa" mainClassName="bg-gray-50">
