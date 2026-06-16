@@ -12,6 +12,7 @@ import { PaginationControls } from "@/app/component/pdf/PaginationControls";
 import { UserRow, RecordRow, extractProvince } from "./types";
 import { Card, CardContent } from "@/components/ui/card";
 import QaCreateModal from "@/app/component/qa/QaCreateModal";
+import type { QaCreatedIdentity } from "@/app/component/qa/QaCreateModal";
 import { QaPatient, QaDiagnosisRow } from "@/app/component/qa/types";
 import SidebarLayout from "@/app/component/layout/SidebarLayout";
 
@@ -43,6 +44,7 @@ export default function ExportTestPage() {
   const [provinceFilter, setProvinceFilter] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [qaIdentityByUser, setQaIdentityByUser] = useState<Record<string, QaCreatedIdentity>>({});
 
   const calculateAgeFromBod = (bod: any): number | null => {
     try {
@@ -186,6 +188,40 @@ export default function ExportTestPage() {
     return () => unsub();
   }, [selectedUser]);
 
+  // Auto-resolve QA registration by thaiid when a user is selected, so the
+  // "ยังไม่ได้ลงทะเบียน QA" warning only shows for patients that truly aren't in
+  // core.patients_v2 yet (and print can reuse the existing id/uid).
+  useEffect(() => {
+    const thaiid = (selectedUser?.thaiId || "").trim();
+    if (!selectedUser || !thaiid) return;
+    if (qaIdentityByUser[selectedUser.userDocId]?.id) return;
+
+    const userDocId = selectedUser.userDocId;
+    let cancelled = false;
+
+    (async () => {
+      const { data, error } = await supabase
+        .schema("core")
+        .from("patients_v2")
+        .select("id,patient_uid")
+        .eq("thaiid", thaiid)
+        .order("collection_date", { ascending: false, nullsFirst: false })
+        .order("id", { ascending: false })
+        .limit(1);
+
+      if (cancelled || error || !data || data.length === 0) return;
+      const row = data[0] as { id: number; patient_uid: string | null };
+      setQaIdentityByUser((prev) => ({
+        ...prev,
+        [userDocId]: { id: row.id, patient_uid: row.patient_uid ?? null },
+      }));
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedUser, qaIdentityByUser]);
+
   // ===== Filtering and Pagination =====
   const filteredUsers = users.filter((u) => {
     const q = searchQuery.toLowerCase().trim();
@@ -228,7 +264,12 @@ export default function ExportTestPage() {
 
     setLoadingSingle(true);
     try {
-      const url = `/api/pdf-v2/${userDocId}?record_id=${recordId}`;
+      const params = new URLSearchParams({ record_id: recordId });
+      const qaIdentity = selectedUser ? qaIdentityByUser[selectedUser.userDocId] : undefined;
+      if (qaIdentity?.id) params.set("qa_id", String(qaIdentity.id));
+      if (qaIdentity?.patient_uid) params.set("qa_uid", qaIdentity.patient_uid);
+
+      const url = `/api/pdf-v2/${userDocId}?${params.toString()}`;
       window.open(url, "_blank");
     } catch (err: any) {
       alert(err.message || "เกิดข้อผิดพลาด");
@@ -288,19 +329,29 @@ export default function ExportTestPage() {
   const [qaEditPatient, setQaEditPatient] = useState<QaPatient | null>(null);
   const [qaEditDiag, setQaEditDiag] = useState<QaDiagnosisRow | null>(null);
   const [qaPrefill, setQaPrefill] = useState<{ first_name: string; last_name: string; thaiid: string; age: string; province: string; collection_date: string } | undefined>(undefined);
+  const [qaTargetUserId, setQaTargetUserId] = useState<string | null>(null);
 
   const handleQaClick = async (user: UserRow) => {
     const thaiid = (user.thaiId || "").trim();
+    setQaTargetUserId(user.userDocId);
 
     // Check if patient already exists in core.patients_v2
     const { data: existing } = await supabase
       .schema("core")
       .from("patients_v2")
-      .select("id,first_name,last_name,thaiid,hn_number,age,province,collection_date,bmi,weight,height,chest_cm,waist_cm,hip_cm,neck_cm,bp_supine,pr_supine,bp_upright,pr_upright")
+      .select("id,patient_uid,first_name,last_name,thaiid,hn_number,age,province,collection_date,bmi,weight,height,chest_cm,waist_cm,hip_cm,neck_cm,bp_supine,pr_supine,bp_upright,pr_upright")
       .eq("thaiid", thaiid)
       .maybeSingle();
 
     if (existing) {
+      setQaIdentityByUser((prev) => ({
+        ...prev,
+        [user.userDocId]: {
+          id: (existing as QaPatient).id,
+          patient_uid: (existing as QaPatient).patient_uid ?? null,
+        },
+      }));
+
       const { data: diag } = await supabase
         .schema("core")
         .from("patient_diagnosis_v2")
@@ -355,8 +406,20 @@ export default function ExportTestPage() {
           {/* QA Modal */}
           <QaCreateModal
             open={qaOpen}
-            onClose={() => setQaOpen(false)}
-            onCreated={() => setQaOpen(false)}
+            onClose={() => {
+              setQaOpen(false);
+              setQaTargetUserId(null);
+            }}
+            onCreated={(created) => {
+              if (qaTargetUserId) {
+                setQaIdentityByUser((prev) => ({
+                  ...prev,
+                  [qaTargetUserId]: created,
+                }));
+              }
+              setQaOpen(false);
+              setQaTargetUserId(null);
+            }}
             editPatient={qaEditPatient}
             editDiag={qaEditDiag}
             prefillData={qaPrefill}
@@ -402,6 +465,8 @@ export default function ExportTestPage() {
               onRecordSelect={setRecordId}
               onExport={handleExportSingle}
               isExporting={loadingSingle}
+              qaIdentity={selectedUser ? qaIdentityByUser[selectedUser.userDocId] : undefined}
+              onQaRegister={() => selectedUser && handleQaClick(selectedUser)}
             />
           </div>
         </div>

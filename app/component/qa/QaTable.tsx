@@ -1,6 +1,6 @@
 'use client'
 
-import { Fragment, useMemo, useState } from 'react'
+import { Fragment, useState } from 'react'
 import {
   QaRow, QaPatient, hasQaGp2, isQaDiagnosed,
   getConditionColor, CONDITION_BADGE_CLASS,
@@ -15,9 +15,23 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { MoreHorizontal, ClipboardList, Pencil, Trash2, Printer, FileSearch, CalendarPlus } from 'lucide-react'
+import {
+  MoreHorizontal, ClipboardList, Pencil, Trash2, Printer, FileSearch, CalendarPlus,
+  ArrowDown, ArrowUp, ChevronsUpDown,
+} from 'lucide-react'
 import type { AppRole } from '@/lib/access'
 import QaRowActionPanel from './QaRowActionPanel'
+
+export type QaSortColumn =
+  | 'id'
+  | 'visit_no'
+  | 'first_name'
+  | 'hn_number'
+  | 'age'
+  | 'province'
+  | 'collection_date'
+
+export type QaSortDirection = 'asc' | 'desc'
 
 const TEST_DOTS = [
   { key: 'moca',        label: 'MoCA' },
@@ -57,26 +71,41 @@ interface QaTableProps {
   onDelete: (patientId: number, name: string) => void
   onDetail: (row: QaRow) => void
   onAddVisit: (patient: QaPatient) => void
+  sortColumn: QaSortColumn
+  sortDirection: QaSortDirection
+  onSort: (column: QaSortColumn) => void
 }
 
 const TOTAL_COLS = 11
 
-export default function QaTable({ rows, role, onAssess, onEdit, onQuickDiag, onDelete, onDetail, onAddVisit }: QaTableProps) {
+export default function QaTable({ rows, role, onAssess, onEdit, onQuickDiag, onDelete, onDetail, onAddVisit, sortColumn, sortDirection, onSort }: QaTableProps) {
   const [expandedRowId, setExpandedRowId] = useState<number | null>(null)
   const [savingDiagRowId, setSavingDiagRowId] = useState<number | null>(null)
 
   const useModalForDiag = role === 'doctor' || role === 'admin' || role === 'super_admin'
 
-  const sortedRows = useMemo(
-    () =>
-      [...rows].sort((a, b) => {
-        const aTime = toUnixMs(a.patient.submission_timestamp ?? a.patient.created_at)
-        const bTime = toUnixMs(b.patient.submission_timestamp ?? b.patient.created_at)
-        if (aTime !== bTime) return bTime - aTime
-        return b.patient.id - a.patient.id
-      }),
-    [rows]
-  )
+  // Rows arrive already ordered by the server query (patient_visits_v2 .order()),
+  // so render them as-is — sorting is server-side to cover all paginated pages.
+  function SortableTh({ column, label, className }: { column: QaSortColumn; label: string; className: string }) {
+    const active = sortColumn === column
+    return (
+      <th className={className}>
+        <button
+          type="button"
+          onClick={() => onSort(column)}
+          className={`inline-flex items-center gap-1 font-medium transition-colors hover:text-foreground ${active ? 'text-foreground' : ''}`}
+          title={`Sort by ${label}`}
+        >
+          {label}
+          {active ? (
+            sortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+          ) : (
+            <ChevronsUpDown className="h-3 w-3 opacity-40" />
+          )}
+        </button>
+      </th>
+    )
+  }
 
   if (rows.length === 0) {
     return (
@@ -91,13 +120,13 @@ export default function QaTable({ rows, role, onAssess, onEdit, onQuickDiag, onD
       <table className="min-w-full text-sm">
         <thead className="bg-muted text-muted-foreground">
           <tr>
-            <th className="hidden lg:table-cell px-3 py-2 text-left font-medium">ID</th>
-            <th className="px-3 py-2 text-center font-medium">Visit No</th>
-            <th className="px-3 py-2 text-left font-medium">Name</th>
-            <th className="px-3 py-2 text-left font-medium">HN</th>
-            <th className="hidden md:table-cell px-3 py-2 text-center font-medium">Age</th>
-            <th className="hidden md:table-cell px-3 py-2 text-left font-medium">Province</th>
-            <th className="px-3 py-2 text-left font-medium">Collection date</th>
+            <SortableTh column="id" label="ID" className="hidden lg:table-cell px-3 py-2 text-left font-medium" />
+            <SortableTh column="visit_no" label="Visit No" className="px-3 py-2 text-center font-medium" />
+            <SortableTh column="first_name" label="Name" className="px-3 py-2 text-left font-medium" />
+            <SortableTh column="hn_number" label="HN" className="px-3 py-2 text-left font-medium" />
+            <SortableTh column="age" label="Age" className="hidden md:table-cell px-3 py-2 text-center font-medium" />
+            <SortableTh column="province" label="Province" className="hidden md:table-cell px-3 py-2 text-left font-medium" />
+            <SortableTh column="collection_date" label="Collection date" className="px-3 py-2 text-left font-medium" />
             <th className="px-3 py-2 text-left font-medium">Condition</th>
             <th className="hidden md:table-cell px-3 py-2 text-center font-medium">GP2</th>
             <th className="px-3 py-2 text-center font-medium">Diag Status</th>
@@ -105,7 +134,7 @@ export default function QaTable({ rows, role, onAssess, onEdit, onQuickDiag, onD
           </tr>
         </thead>
         <tbody>
-          {sortedRows.map((row) => {
+          {rows.map((row) => {
             const { patient: p, diag, conditionLabel } = row
             const isDiagnosedRow = isQaDiagnosed(diag)
             const hasGp2Value = hasQaGp2(diag)
@@ -383,12 +412,6 @@ export default function QaTable({ rows, role, onAssess, onEdit, onQuickDiag, onD
       </table>
     </div>
   )
-}
-
-function toUnixMs(value: string | null | undefined): number {
-  if (!value) return 0
-  const ts = Date.parse(value)
-  return Number.isNaN(ts) ? 0 : ts
 }
 
 function formatVisitCreatedAt(value: string | null | undefined): string | null {

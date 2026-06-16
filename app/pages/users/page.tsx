@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import UserTable from '@/app/component/users/UserTable'
+import UserTable, { type SortColumn, type SortDirection } from '@/app/component/users/UserTable'
 import Pagination from '@/app/component/users/Pagination'
 import SearchFilters from '@/app/component/users/SearchFilters'
 import { User } from '@/app/types/user'
@@ -42,6 +42,8 @@ export default function UsersClientPage() {
   const [editingUser, setEditingUser] = useState<User | null>(null)
   const [screeningThaiIds, setScreeningThaiIds] = useState<string[]>([])
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set())
+  const [sortColumn, setSortColumn] = useState<SortColumn>('timestamp')
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
   const [isExporting, setIsExporting] = useState(false)
   const [isSyncingDemographic, setIsSyncingDemographic] = useState(false)
   const [demographicSyncDialogOpen, setDemographicSyncDialogOpen] = useState(false)
@@ -68,6 +70,16 @@ export default function UsersClientPage() {
       recordId: recordIdRaw ? recordIdRaw : null,
     }
   })
+
+  const handleSort = (column: SortColumn) => {
+    if (sortColumn === column) {
+      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSortColumn(column)
+      setSortDirection('desc')
+    }
+    setCurrentPage(1)
+  }
 
   const handleResetFilters = () => {
     setSearchId('')
@@ -172,8 +184,14 @@ export default function UsersClientPage() {
     let query = supabase
       .from('user_record_summary_with_users')
       .select('*', { count: 'exact' })
-      .order('timestamp', { ascending: false })
+      .order(sortColumn, { ascending: sortDirection === 'asc', nullsFirst: false })
       .range(from, to)
+
+    // Stable tiebreaker so rows with equal sort values keep a deterministic
+    // order across paginated pages.
+    if (sortColumn !== 'id') {
+      query = query.order('id', { ascending: true })
+    }
 
     if (searchId.trim()) {
       query = query.or(
@@ -224,7 +242,7 @@ export default function UsersClientPage() {
 
   useEffect(() => {
     fetchUsers()
-  }, [currentPage, searchId, startDate, endDate, searchCondition, searchRisk, searchOther, searchArea, searchSource, searchProvince])
+  }, [currentPage, searchId, startDate, endDate, searchCondition, searchRisk, searchOther, searchArea, searchSource, searchProvince, sortColumn, sortDirection])
 
   useEffect(() => {
     const loadOtherOptions = async () => {
@@ -328,6 +346,9 @@ export default function UsersClientPage() {
               onViewDetail={setViewingUser}
               selectedKeys={selectedKeys}
               onSelectionChange={setSelectedKeys}
+              sortColumn={sortColumn}
+              sortDirection={sortDirection}
+              onSort={handleSort}
             />
             <Pagination
               currentPage={currentPage}
