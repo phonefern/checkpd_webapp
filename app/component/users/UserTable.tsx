@@ -4,11 +4,40 @@ import { type User, formatToThaiTime } from "@/app/types/user"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react"
 import UserActionsMenu from "./UserActionsMenu"
 
 export function rowKey(user: User): string {
   return `${user.id}||${user.record_id ?? ""}`
 }
+
+export type SortColumn =
+  | "id"
+  | "firstname"
+  | "source"
+  | "age"
+  | "province"
+  | "timestamp"
+  | "prediction_risk"
+  | "condition"
+  | "other"
+  | "area"
+
+export type SortDirection = "asc" | "desc"
+
+// Sortable columns offered in the mobile picker (desktop uses clickable headers).
+export const SORT_OPTIONS: { value: SortColumn; label: string }[] = [
+  { value: "timestamp", label: "Recorded" },
+  { value: "id", label: "Patient ID" },
+  { value: "firstname", label: "Name" },
+  { value: "source", label: "Source" },
+  { value: "age", label: "Age" },
+  { value: "province", label: "Location" },
+  { value: "prediction_risk", label: "Risk" },
+  { value: "condition", label: "Condition" },
+  { value: "other", label: "Other" },
+  { value: "area", label: "Area" },
+]
 
 interface UserTableProps {
   users: User[]
@@ -18,6 +47,9 @@ interface UserTableProps {
   onViewDetail: (user: User) => void
   selectedKeys: Set<string>
   onSelectionChange: (keys: Set<string>) => void
+  sortColumn: SortColumn
+  sortDirection: SortDirection
+  onSort: (column: SortColumn) => void
 }
 
 export function getConditionBadge(condition: string | null) {
@@ -75,8 +107,46 @@ export default function UserTable({
   onViewDetail,
   selectedKeys,
   onSelectionChange,
+  sortColumn,
+  sortDirection,
+  onSort,
 }: UserTableProps) {
   const pageKeys = users.map(rowKey)
+
+  function SortableHead({
+    column,
+    label,
+    className,
+  }: {
+    column: SortColumn
+    label: string
+    className?: string
+  }) {
+    const active = sortColumn === column
+    return (
+      <TableHead className={className}>
+        <button
+          type="button"
+          onClick={() => onSort(column)}
+          className={`group/sort -ml-1 inline-flex items-center gap-1 rounded px-1 py-0.5 font-semibold transition-colors hover:text-foreground ${
+            active ? "text-foreground" : "text-muted-foreground"
+          }`}
+          title={`Sort by ${label}`}
+        >
+          {label}
+          {active ? (
+            sortDirection === "asc" ? (
+              <ArrowUp className="h-3.5 w-3.5" />
+            ) : (
+              <ArrowDown className="h-3.5 w-3.5" />
+            )
+          ) : (
+            <ChevronsUpDown className="h-3.5 w-3.5 opacity-40 group-hover/sort:opacity-70" />
+          )}
+        </button>
+      </TableHead>
+    )
+  }
   const allPageSelected = pageKeys.length > 0 && pageKeys.every((k) => selectedKeys.has(k))
   const somePageSelected = pageKeys.some((k) => selectedKeys.has(k))
 
@@ -114,16 +184,16 @@ export default function UserTable({
                 />
               </TableHead>
               <TableHead className="font-semibold">#</TableHead>
-              <TableHead className="font-semibold">Patient ID</TableHead>
-              <TableHead className="font-semibold">Name</TableHead>
-              <TableHead className="font-semibold">Source</TableHead>
-              <TableHead className="font-semibold">Age/Gender</TableHead>
-              <TableHead className="font-semibold">Location</TableHead>
-              <TableHead className="font-semibold">Recorded</TableHead>
-              <TableHead className="font-semibold">Risk</TableHead>
-              <TableHead className="font-semibold">Condition</TableHead>
-              <TableHead className="font-semibold">Other</TableHead>
-              <TableHead className="font-semibold">Area</TableHead>
+              <SortableHead column="id" label="Patient ID" />
+              <SortableHead column="firstname" label="Name" />
+              <SortableHead column="source" label="Source" />
+              <SortableHead column="age" label="Age/Gender" />
+              <SortableHead column="province" label="Location" />
+              <SortableHead column="timestamp" label="Recorded" />
+              <SortableHead column="prediction_risk" label="Risk" />
+              <SortableHead column="condition" label="Condition" />
+              <SortableHead column="other" label="Other" />
+              <SortableHead column="area" label="Area" />
               <TableHead className="text-right font-semibold">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -182,6 +252,39 @@ export default function UserTable({
       </div>
 
       <div className="space-y-4 md:hidden">
+        <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 shadow-sm">
+          <label htmlFor="mobile-sort" className="text-sm font-medium text-muted-foreground">
+            Sort by
+          </label>
+          <select
+            id="mobile-sort"
+            value={sortColumn}
+            onChange={(e) => onSort(e.target.value as SortColumn)}
+            className="flex-1 rounded-md border border-input bg-background px-2 py-1.5 text-sm text-foreground"
+          >
+            {SORT_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={() => onSort(sortColumn)}
+            className="inline-flex items-center gap-1 rounded-md border border-input bg-background px-2 py-1.5 text-sm font-medium text-foreground"
+            title={sortDirection === "asc" ? "Ascending" : "Descending"}
+          >
+            {sortDirection === "asc" ? (
+              <>
+                <ArrowUp className="h-4 w-4" /> Asc
+              </>
+            ) : (
+              <>
+                <ArrowDown className="h-4 w-4" /> Desc
+              </>
+            )}
+          </button>
+        </div>
         {users.map((user, index) => (
           <Card key={`${user.id}-${user.record_id ?? index}`} className="shadow-sm">
             <CardHeader className="pb-3">

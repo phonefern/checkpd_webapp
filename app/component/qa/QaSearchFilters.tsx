@@ -94,7 +94,7 @@ export default function QaSearchFilters({
           <label className="block text-sm font-medium text-foreground mb-2">Search Patient</label>
           <input
             type="text"
-            placeholder="Name or HN"
+            placeholder="Name, HN, or ID"
             value={search}
             onChange={(e) => { setSearch(e.target.value); setCurrentPage(1) }}
             className="w-full border border-gray-300 p-2 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"

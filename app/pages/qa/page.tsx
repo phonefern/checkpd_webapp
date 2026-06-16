@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import QaSearchFilters from '@/app/component/qa/QaSearchFilters'
-import QaTable from '@/app/component/qa/QaTable'
+import QaTable, { type QaSortColumn, type QaSortDirection } from '@/app/component/qa/QaTable'
 import QaCreateModal from '@/app/component/qa/QaCreateModal'
 import QaAssessmentModal from '@/app/component/qa/QaAssessmentModal'
 import QaPatientSummaryModal from '@/app/component/qa/QaPatientSummaryModal'
@@ -54,10 +54,15 @@ export default function QaPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
 
+  // Sort state (server-side, mirrors the Users page pattern)
+  const [sortColumn, setSortColumn] = useState<QaSortColumn>('collection_date')
+  const [sortDirection, setSortDirection] = useState<QaSortDirection>('desc')
+
   // Data state
   const [rows, setRows] = useState<QaRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [focusHandled, setFocusHandled] = useState(false)
 
   // Create / Edit modal state
   const [createOpen, setCreateOpen] = useState(false)
@@ -120,17 +125,37 @@ export default function QaPage() {
       }
 
       // --- Step 2: query patient_visits_v2 with all patient-level filters ---
+      const ascending = sortDirection === 'asc'
       let patientQuery = supabase
         .from('patient_visits_v2')
         .select(PATIENT_VISIT_SELECT, { count: 'exact' })
-        .order('submission_timestamp', { ascending: false, nullsFirst: false })
-        .order('created_at', { ascending: false, nullsFirst: false })
-        .order('id', { ascending: false })
-        .range(from, to)
+        .order(sortColumn, { ascending, nullsFirst: false })
+
+      // When sorting by collection_date keep the original time-based tiebreakers so
+      // same-day visits stay in submission order; otherwise just stabilise by id.
+      if (sortColumn === 'collection_date') {
+        patientQuery = patientQuery
+          .order('submission_timestamp', { ascending, nullsFirst: false })
+          .order('created_at', { ascending, nullsFirst: false })
+      }
+      if (sortColumn !== 'id') {
+        patientQuery = patientQuery.order('id', { ascending: false })
+      }
+      patientQuery = patientQuery.range(from, to)
 
       if (search.trim()) {
-        const q = `%${search.trim()}%`
-        patientQuery = patientQuery.or(`first_name.ilike.${q},last_name.ilike.${q},hn_number.ilike.${q}`)
+        const raw = search.trim()
+        const q = `%${raw}%`
+        const orParts = [
+          `first_name.ilike.${q}`,
+          `last_name.ilike.${q}`,
+          `hn_number.ilike.${q}`,
+        ]
+
+        if (/^\d+$/.test(raw)) orParts.push(`id.eq.${raw}`)
+        if (/^[0-9a-f-]{32,36}$/i.test(raw)) orParts.push(`patient_uid.eq.${raw}`)
+
+        patientQuery = patientQuery.or(orParts.join(','))
       }
       if (thaiId.trim()) patientQuery = patientQuery.ilike('thaiid', `%${thaiId.trim()}%`)
       if (province)  patientQuery = patientQuery.eq('province', province)
@@ -297,7 +322,17 @@ export default function QaPage() {
     } finally {
       setLoading(false)
     }
-  }, [session, search, thaiId, condition, gp2, hyStage, province, startDate, endDate, currentPage])
+  }, [session, search, thaiId, condition, gp2, hyStage, province, startDate, endDate, currentPage, sortColumn, sortDirection])
+
+  const handleSort = (column: QaSortColumn) => {
+    if (sortColumn === column) {
+      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSortColumn(column)
+      setSortDirection('desc')
+    }
+    setCurrentPage(1)
+  }
 
   const handleEdit = (patient: QaPatient) => {
     const row = rows.find((r) => r.patient.id === patient.id)
@@ -378,6 +413,73 @@ export default function QaPage() {
     [fetchData, rows, session?.user?.email]
   )
 
+  const openFocusedSummary = useCallback(
+    async (focus: { id?: string | null; uid?: string | null }) => {
+      if (!session) return
+
+      const focusId = focus.id?.trim()
+      const focusUid = focus.uid?.trim()
+      if (!focusId && !focusUid) return
+
+      try {
+        let patientQuery = supabase
+          .from('patient_visits_v2')
+          .select(PATIENT_VISIT_SELECT)
+          .limit(1)
+
+        if (focusUid) {
+          patientQuery = patientQuery
+            .eq('patient_uid', focusUid)
+            .order('submission_timestamp', { ascending: false, nullsFirst: false })
+            .order('created_at', { ascending: false, nullsFirst: false })
+            .order('id', { ascending: false })
+        } else if (focusId && /^\d+$/.test(focusId)) {
+          patientQuery = patientQuery.eq('id', Number(focusId))
+        } else {
+          setError('Invalid QA focus link')
+          return
+        }
+
+        const { data: patientData, error: patientErr } = await patientQuery.maybeSingle()
+        if (patientErr) throw new Error(`patient_visits_v2: ${patientErr.message}`)
+        if (!patientData) {
+          setError('QA patient from link was not found')
+          return
+        }
+
+        const patient = patientData as QaPatient
+        const { data: diagData, error: diagErr } = await supabase
+          .schema('core')
+          .from('patient_diagnosis_v2')
+          .select(DIAG_SELECT)
+          .eq('patient_id', patient.id)
+          .maybeSingle()
+
+        if (diagErr) throw new Error(`patient_diagnosis_v2: ${diagErr.message}`)
+
+        setSummaryRow({
+          patient,
+          diag: (diagData as QaDiagnosisRow | null) ?? undefined,
+          conditionLabel: formatQaConditionLabel((diagData as QaDiagnosisRow | null) ?? undefined),
+          has_checkpd: false,
+          moca: undefined,
+          hamd: undefined,
+          mds: undefined,
+          epw: undefined,
+          smell: undefined,
+          tmse: undefined,
+          rbd: undefined,
+          rome4: undefined,
+          food: undefined,
+          colorvision: undefined,
+        })
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err))
+      }
+    },
+    [session]
+  )
+
   const handleModalClose = () => {
     setCreateOpen(false)
     setEditPatient(null)
@@ -389,6 +491,18 @@ export default function QaPage() {
     if (sessionLoading || !session) return
     fetchData()
   }, [fetchData, sessionLoading, session])
+
+  useEffect(() => {
+    if (sessionLoading || !session || focusHandled) return
+
+    const params = new URLSearchParams(window.location.search)
+    const focusUid = params.get('focus_uid')
+    const focusId = params.get('focus_id')
+    if (!focusUid && !focusId) return
+
+    setFocusHandled(true)
+    openFocusedSummary({ id: focusId, uid: focusUid })
+  }, [focusHandled, openFocusedSummary, session, sessionLoading])
 
   return (
     <SidebarLayout activePath="/pages/qa" mainClassName="bg-gray-50">
@@ -492,6 +606,9 @@ export default function QaPage() {
             onDelete={handleDelete}
             onDetail={setSummaryRow}
             onAddVisit={handleAddVisit}
+            sortColumn={sortColumn}
+            sortDirection={sortDirection}
+            onSort={handleSort}
           />
           <TablePagination
             currentPage={currentPage}

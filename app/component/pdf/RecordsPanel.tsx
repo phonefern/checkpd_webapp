@@ -7,8 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, FileText, X, AlertCircle, CheckCircle, HelpCircle } from "lucide-react";
+import { Loader2, FileText, X, AlertCircle, CheckCircle, HelpCircle, UserPlus } from "lucide-react";
 import { UserRow, RecordRow } from "@/app/pages/pdf/types";
+import type { QaCreatedIdentity } from "@/app/component/qa/QaCreateModal";
 
 interface RecordsPanelProps {
   selectedUser: UserRow | null;
@@ -19,6 +20,8 @@ interface RecordsPanelProps {
   onRecordSelect: (recordId: string) => void;
   onExport: () => void;
   isExporting: boolean;
+  qaIdentity?: QaCreatedIdentity;
+  onQaRegister?: () => void;
 }
 
 export function RecordsPanel({
@@ -30,6 +33,8 @@ export function RecordsPanel({
   onRecordSelect,
   onExport,
   isExporting,
+  qaIdentity,
+  onQaRegister,
 }: RecordsPanelProps) {
   const formatTime = (timestamp?: any) => {
     if (!timestamp) return "-";
@@ -70,6 +75,10 @@ export function RecordsPanel({
   };
 
   if (!selectedUser) return null;
+
+  const exportButtonLabel = qaIdentity?.id
+    ? `เปิดรายงาน PDF (ID ${qaIdentity.id})`
+    : "เปิดรายงาน PDF";
 
   return (
     <Card className="sticky top-6 h-fit">
@@ -174,6 +183,32 @@ export function RecordsPanel({
               </ScrollArea>
             </div>
 
+            {!qaIdentity?.id && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium">ยังไม่ได้ลงทะเบียน QA</p>
+                    <p className="mt-0.5 text-xs text-amber-800">
+                      ลงทะเบียนก่อนพิมพ์เพื่อให้รายงานมี Patient ID และ QR
+                    </p>
+                  </div>
+                </div>
+                {onQaRegister && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={onQaRegister}
+                    className="mt-3 w-full border-amber-300 bg-white text-amber-900 hover:bg-amber-100"
+                  >
+                    <UserPlus className="mr-2 h-4 w-4" />
+                    ลงทะเบียน QA
+                  </Button>
+                )}
+              </div>
+            )}
+
             <Button
               onClick={onExport}
               disabled={!selectedRecordId || isExporting}
@@ -188,7 +223,7 @@ export function RecordsPanel({
               ) : (
                 <>
                   <FileText className="mr-2 h-4 w-4" />
-                  เปิดรายงาน PDF
+                  {exportButtonLabel}
                 </>
               )}
             </Button>

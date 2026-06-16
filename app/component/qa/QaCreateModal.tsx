@@ -78,6 +78,11 @@ type AssessmentCategory = {
   tone: string
 }
 
+export type QaCreatedIdentity = {
+  id: number
+  patient_uid: string | null
+}
+
 const EMPTY_ASSESSMENTS: AssessmentScores = {
   moca: null,
   hamd: null,
@@ -362,7 +367,7 @@ function buildDiagPayload(form: FormState) {
 interface Props {
   open: boolean
   onClose: () => void
-  onCreated: () => void
+  onCreated: (created: QaCreatedIdentity) => void
   editPatient?: QaPatient | null
   editDiag?: QaDiagnosisRow | null
   prefillPatient?: QaPatient | null
@@ -580,6 +585,7 @@ export default function QaCreateModal({ open, onClose, onCreated, editPatient, e
     try {
       const diagPayload = buildDiagPayload(form)
       const hasDiag = Object.values(diagPayload).some((v) => v !== null && v !== false && v !== '')
+      let createdIdentity: QaCreatedIdentity
 
       if (isEdit && editPatient) {
         // --- Edit mode: UPDATE patients_v2, UPSERT patient_diagnosis_v2 ---
@@ -617,6 +623,7 @@ export default function QaCreateModal({ open, onClose, onCreated, editPatient, e
           .upsert({ patient_id: editPatient.id, ...diagPayload }, { onConflict: 'patient_id' })
 
         if (diagErr) throw new Error(`patient_diagnosis_v2: ${diagErr.message}`)
+        createdIdentity = { id: editPatient.id, patient_uid: form.patient_uid || null }
       } else {
         // --- Create mode: INSERT patients_v2, then INSERT patient_diagnosis_v2 ---
         const matchedPatientUid = await resolveExistingPatientUid(form)
@@ -648,7 +655,7 @@ export default function QaCreateModal({ open, onClose, onCreated, editPatient, e
             bp_upright: form.bp_upright.trim() || null,
             pr_upright: form.pr_upright ? Number(form.pr_upright) : null,
           })
-          .select('id')
+          .select('id,patient_uid')
           .single()
 
         if (patErr) throw new Error(`patients_v2: ${patErr.message}`)
@@ -661,10 +668,14 @@ export default function QaCreateModal({ open, onClose, onCreated, editPatient, e
 
           if (diagErr) throw new Error(`patient_diagnosis_v2: ${diagErr.message}`)
         }
+        createdIdentity = {
+          id: patientData.id,
+          patient_uid: patientData.patient_uid ?? patientUidForInsert ?? null,
+        }
       }
 
       setForm(EMPTY)
-      onCreated()
+      onCreated(createdIdentity)
       onClose()
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
