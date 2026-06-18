@@ -11,8 +11,12 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils"
 import {
   isCustom,
+  isSca,
   parseOther,
+  parseScaType,
+  SCA_DIAGNOSIS_LABEL,
   serializeOther,
+  serializeSca,
   type OtherDiagnosisTaxonomy,
 } from "@/lib/otherDiagnosis"
 
@@ -35,7 +39,13 @@ export function OtherDiagnosisSelect({
 }: OtherDiagnosisSelectProps) {
   const [customText, setCustomText] = useState("")
   const items = useMemo(() => parseOther(value), [value])
-  const selected = useMemo(() => new Set(items), [items])
+  const selected = useMemo(() => {
+    const next = new Set(items)
+    if (items.some(isSca)) next.add(SCA_DIAGNOSIS_LABEL)
+    return next
+  }, [items])
+  const scaIndex = useMemo(() => items.findIndex(isSca), [items])
+  const scaType = scaIndex >= 0 ? parseScaType(items[scaIndex]) : null
 
   const setItems = (nextItems: string[]) => {
     onChange(serializeOther(nextItems))
@@ -44,6 +54,7 @@ export function OtherDiagnosisSelect({
   const addItem = (item: string) => {
     const next = item.trim()
     if (!next || selected.has(next)) return
+    if (next === SCA_DIAGNOSIS_LABEL && scaIndex >= 0) return
     setItems([...items, next])
   }
 
@@ -56,6 +67,11 @@ export function OtherDiagnosisSelect({
     if (!next) return
     addItem(next)
     setCustomText("")
+  }
+
+  const updateScaType = (nextType: number | null) => {
+    if (scaIndex < 0) return
+    setItems(items.map((item, index) => (index === scaIndex ? serializeSca(nextType) : item)))
   }
 
   const chips = (
@@ -115,6 +131,25 @@ export function OtherDiagnosisSelect({
           </optgroup>
         ))}
       </select>
+
+      {scaIndex >= 0 && (
+        <div className="rounded-md border border-slate-200 bg-slate-50 p-2">
+          <label className="mb-1.5 block text-xs font-medium text-slate-600">SCA type</label>
+          <select
+            value={scaType ?? ""}
+            onChange={(event) => updateScaType(event.target.value ? Number(event.target.value) : null)}
+            disabled={disabled}
+            className="w-full rounded-md border border-slate-300 bg-white p-2 text-sm disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
+          >
+            <option value="">Not specified</option>
+            {Array.from({ length: 50 }, (_, index) => index + 1).map((type) => (
+              <option key={type} value={type}>
+                Type {type}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       <div className="flex gap-2">
         <Input

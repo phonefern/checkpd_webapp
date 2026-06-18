@@ -3,6 +3,7 @@ import path from "path"
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import JSZip from "jszip"
+import { parseOther } from "@/lib/otherDiagnosis"
 
 const IN_CHUNK_SIZE = 200
 const QUERY_PAGE_SIZE = 1000
@@ -147,7 +148,9 @@ function buildFilteredPairsQuery(filters: FilterParams, from: number, to: number
     if (filters.searchRisk === "null") query = query.is("prediction_risk", null)
     else query = query.eq("prediction_risk", filters.searchRisk === "true")
   }
-  if (filters.searchOther?.trim()) query = query.eq("other", filters.searchOther)
+  for (const otherDiagnosis of parseOther(filters.searchOther)) {
+    query = query.ilike("other", `%${otherDiagnosis}%`)
+  }
   if (filters.searchArea?.trim()) query = query.eq("area", filters.searchArea)
   if (filters.searchSource?.trim()) query = query.eq("source", filters.searchSource)
   if (filters.searchProvince?.trim()) query = query.eq("province", filters.searchProvince)
