@@ -1,0 +1,36 @@
+
+> my-supabase-app@0.1.0 dev
+> next dev --turbopack
+
+   ▲ Next.js 15.5.9 (Turbopack)
+   - Local:        http://localhost:3000
+   - Network:      http://172.16.0.2:3000
+   - Environments: .env.local
+
+ ✓ Starting...
+Creating turbopack project {
+  dir: 'D:\\firebase\\firebase_supabase_web_app\\my-supabase-app-deploy',
+  testMode: true
+}
+ ✓ Compiled middleware in 91ms
+ ✓ Ready in 1159ms
+ ○ Compiling /pages/qa ...
+ ✓ Compiled /pages/qa in 3s
+ GET /pages/qa 200 in 3522ms
+ ○ Compiling / ...
+ ✓ Compiled / in 1220ms
+ GET / 307 in 1788ms
+ ○ Compiling /pages/index ...
+ ✓ Compiled /pages/index in 2s
+ GET /pages/index 200 in 2625ms
+ GET /pages/index 200 in 617ms
+ GET /pages/qa 200 in 393ms
+ GET /pages/qa 200 in 352ms
+ ○ Compiling /pages/users ...
+ ✓ Compiled /pages/users in 3.3s
+ GET /pages/users 200 in 3583ms
+ GET /pages/users 200 in 415ms
+ ✓ Compiled in 372ms
+ ✓ Compiled in 347ms
+ ✓ Compiled in 238ms
+ ✓ Compiled in 236ms

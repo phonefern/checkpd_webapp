@@ -567,6 +567,59 @@ CREATE INDEX idx_food_patient_id          ON core.food_questionnaire_v2    (pati
 
 
 -- ============================================================
+-- CROSS-SCHEMA DIAGNOSIS SYNC
+-- core.patient_diagnosis_v2 condition/other_diagnosis_text
+-- syncs patient-wide to public.user_record_summary and checkpd.record_summary
+-- through public.fn_sync_diagnosis, matched by patients_v2.thaiid.
+-- ============================================================
+CREATE OR REPLACE FUNCTION core.tg_sync_diagnosis_to_public()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, checkpd, core
+AS $$
+DECLARE
+  v_thaiid text;
+BEGIN
+  SELECT pt.thaiid
+    INTO v_thaiid
+    FROM core.patients_v2 pt
+   WHERE pt.id = NEW.patient_id;
+
+  PERFORM public.fn_sync_diagnosis(
+    v_thaiid,
+    NEW.condition,
+    NEW.other_diagnosis_text,
+    'core'
+  );
+
+  RETURN NULL;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS tg_sync_diagnosis_to_public ON core.patient_diagnosis_v2;
+DROP TRIGGER IF EXISTS tg_sync_diagnosis_to_public_insert ON core.patient_diagnosis_v2;
+DROP TRIGGER IF EXISTS tg_sync_diagnosis_to_public_update ON core.patient_diagnosis_v2;
+
+CREATE TRIGGER tg_sync_diagnosis_to_public_insert
+AFTER INSERT
+ON core.patient_diagnosis_v2
+FOR EACH ROW
+WHEN (pg_trigger_depth() = 1)
+EXECUTE FUNCTION core.tg_sync_diagnosis_to_public();
+
+CREATE TRIGGER tg_sync_diagnosis_to_public_update
+AFTER UPDATE OF condition, other_diagnosis_text
+ON core.patient_diagnosis_v2
+FOR EACH ROW
+WHEN (
+  pg_trigger_depth() = 1
+  AND (OLD.condition IS DISTINCT FROM NEW.condition OR OLD.other_diagnosis_text IS DISTINCT FROM NEW.other_diagnosis_text)
+)
+EXECUTE FUNCTION core.tg_sync_diagnosis_to_public();
+
+
+-- ============================================================
 -- VIEW: patient_visits_v2
 -- Server-side visit numbering and visit total per patient_uid
 -- ============================================================

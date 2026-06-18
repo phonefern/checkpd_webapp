@@ -47,7 +47,6 @@ export type User = {
     { value: 'ctrl', label: 'ctrl' },
     { value: 'pd', label: 'pd' },
     { value: 'pdm', label: 'pdm' },
-    { value: 'pksm', label: 'pksm' },
     { value: 'other', label: 'other' },
 
   

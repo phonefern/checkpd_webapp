@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { FileSearch, ClipboardList, Pencil, Trash2, Printer, CalendarPlus, Check, X } from 'lucide-react'
 import type { AppRole } from '@/lib/access'
+import { OtherDiagnosisSelect } from '@/app/component/diagnosis/OtherDiagnosisSelect'
 import {
   QaRow,
   QaPatient,
@@ -20,7 +21,7 @@ interface Props {
   testsLocked: boolean
   onAssess: (patient: QaPatient) => void
   onEdit: (patient: QaPatient) => void
-  onQuickDiag: (patientId: number, condition: 'pd' | 'ctrl' | 'pdm' | 'other' | '-') => Promise<void>
+  onQuickDiag: (patientId: number, condition: 'pd' | 'ctrl' | 'pdm' | 'other' | '-', otherDiagnosisText?: string | null) => Promise<void>
   onDelete: (patientId: number, name: string) => void
   onDetail: (row: QaRow) => void
   onAddVisit: (patient: QaPatient) => void
@@ -73,6 +74,7 @@ export default function QaRowActionPanel({
 }: Props) {
   const { patient: p, diag, conditionLabel } = row
   const [confirmingDiag, setConfirmingDiag] = useState<DiagOption | null>(null)
+  const [quickOtherDiagnosis, setQuickOtherDiagnosis] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
   const isDiagnosedRow = isQaDiagnosed(diag)
@@ -86,8 +88,9 @@ export default function QaRowActionPanel({
     if (!confirmingDiag) return
     setSaving(true)
     try {
-      await onQuickDiag(p.id, confirmingDiag)
+      await onQuickDiag(p.id, confirmingDiag, confirmingDiag === 'other' ? quickOtherDiagnosis : null)
       setConfirmingDiag(null)
+      setQuickOtherDiagnosis(null)
       onClose()
     } finally {
       setSaving(false)
@@ -175,7 +178,8 @@ export default function QaRowActionPanel({
               วินิจฉัยด่วน
             </p>
             {confirmingDiag ? (
-              <div className="flex items-center gap-2 flex-wrap">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-xs text-slate-700">
                   ยืนยัน: <strong className="text-slate-900">{confirmingDiag === '-' ? '—' : confirmingDiag.toUpperCase()}</strong>?
                 </span>
@@ -188,11 +192,23 @@ export default function QaRowActionPanel({
                   {saving ? 'Saving…' : 'ยืนยัน'}
                 </button>
                 <button
-                  onClick={() => setConfirmingDiag(null)}
+                  onClick={() => {
+                    setConfirmingDiag(null)
+                    setQuickOtherDiagnosis(null)
+                  }}
                   className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-600 hover:bg-slate-50 transition-colors"
                 >
                   ยกเลิก
                 </button>
+                </div>
+                {confirmingDiag === 'other' && (
+                  <OtherDiagnosisSelect
+                    value={quickOtherDiagnosis}
+                    onChange={setQuickOtherDiagnosis}
+                    disabled={saving}
+                    className="max-w-2xl"
+                  />
+                )}
               </div>
             ) : (
               <div className="flex flex-wrap gap-1.5">

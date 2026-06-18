@@ -15,6 +15,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
+import { OtherDiagnosisSelect } from '@/app/component/diagnosis/OtherDiagnosisSelect'
 
 const CONDITION_OPTIONS = [
   { value: '', label: '-- Select condition --' },
@@ -266,6 +267,15 @@ function generatePatientUid() {
 
 const normalizeIdentityValue = (value: string | null | undefined) => (value ?? '').trim()
 
+function toConditionFormValue(value: string | null | undefined) {
+  const raw = (value ?? '').trim().toLowerCase()
+  if (!raw || raw === '-' || raw === 'null') return ''
+  if (raw === 'pd' || raw.includes('parkinson') || raw.includes('newly diagnosis')) return 'pd'
+  if (raw === 'pdm' || raw.includes('prodromal') || raw.includes('high risk') || raw.includes('high-risk')) return 'pdm'
+  if (raw === 'ctrl' || raw.includes('control') || raw.includes('healthy') || raw === 'normal') return 'ctrl'
+  return 'other'
+}
+
 async function resolveExistingPatientUid(form: FormState): Promise<string | null> {
   const thaiid = normalizeIdentityValue(form.thaiid)
   const hnNumber = normalizeIdentityValue(form.hn_number)
@@ -416,7 +426,7 @@ export default function QaCreateModal({ open, onClose, onCreated, editPatient, e
         pr_supine: editPatient.pr_supine != null ? String(editPatient.pr_supine) : '',
         bp_upright: editPatient.bp_upright ?? '',
         pr_upright: editPatient.pr_upright != null ? String(editPatient.pr_upright) : '',
-        condition: editDiag?.condition ?? '',
+        condition: toConditionFormValue(editDiag?.condition),
         hy_stage: editDiag?.hy_stage ?? '',
         disease_duration: editDiag?.disease_duration ?? '',
         other_diagnosis_text: editDiag?.other_diagnosis_text ?? '',
@@ -475,6 +485,7 @@ export default function QaCreateModal({ open, onClose, onCreated, editPatient, e
         ...EMPTY,
         patient_uid: generatePatientUid(),
         ...(prefillData ?? {}),
+        condition: toConditionFormValue(prefillData?.condition),
       })
     }
   }, [open, editPatient, editDiag, prefillPatient, prefillData])
@@ -923,13 +934,10 @@ export default function QaCreateModal({ open, onClose, onCreated, editPatient, e
           </div>
           <div className="col-span-2 space-y-1">
             <Label>Other diagnosis</Label>
-            <textarea
+            <OtherDiagnosisSelect
               value={form.other_diagnosis_text}
-              onChange={(e) => set('other_diagnosis_text', e.target.value)}
-              placeholder="Additional diagnosis details"
+              onChange={(next) => set('other_diagnosis_text', next ?? '')}
               disabled={!canEditDiag}
-              rows={4}
-              className="w-full resize-y rounded-md border border-gray-300 px-3 py-2 text-sm disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-muted-foreground"
             />
           </div>
 

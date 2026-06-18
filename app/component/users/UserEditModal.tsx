@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { userEditSchema, type UserEditValues } from "./userEditSchema"
+import { OtherDiagnosisSelect } from "@/app/component/diagnosis/OtherDiagnosisSelect"
 
 interface UserEditModalProps {
   open: boolean
@@ -122,6 +123,7 @@ export default function UserEditModal({ open, user, onClose, onSaved }: UserEdit
       other: "",
     },
   })
+  const otherValue = form.watch("other")
 
   useEffect(() => {
     if (!open || !user) return
@@ -339,6 +341,7 @@ export default function UserEditModal({ open, user, onClose, onSaved }: UserEdit
 
         if (recorderToUse) {
           const summaryPayload = {
+            thaiid: nullOrValue(values.thaiid),
             condition: nullOrValue(values.condition),
             other: nullOrValue(values.other),
           }
@@ -478,7 +481,13 @@ export default function UserEditModal({ open, user, onClose, onSaved }: UserEdit
                       ))}
                     </select>
                   </div>
-                  <FormInput label="Other" register={form.register("other")} />
+                  <div className="space-y-1 md:col-span-2">
+                    <Label>Other</Label>
+                    <OtherDiagnosisSelect
+                      value={otherValue}
+                      onChange={(next) => form.setValue("other", next, { shouldDirty: true, shouldValidate: true })}
+                    />
+                  </div>
                   <ReadOnlyRow label="Test Result" value={testResult} />
                 </div>
 
@@ -617,8 +626,12 @@ function nullOrValue(value: string | null | undefined) {
 }
 
 function toConditionFormValue(value: string | null | undefined) {
-  const trimmed = (value ?? "").trim()
-  return trimmed === "" ? "null" : trimmed
+  const raw = (value ?? "").trim().toLowerCase()
+  if (raw === "" || raw === "-" || raw === "null") return "null"
+  if (raw === "pd" || raw.includes("parkinson") || raw.includes("newly diagnosis")) return "pd"
+  if (raw === "pdm" || raw.includes("prodromal") || raw.includes("high risk") || raw.includes("high-risk")) return "pdm"
+  if (raw === "ctrl" || raw.includes("control") || raw.includes("healthy") || raw === "normal") return "ctrl"
+  return "other"
 }
 
 function toNullableNumber(value: unknown): number | null {
