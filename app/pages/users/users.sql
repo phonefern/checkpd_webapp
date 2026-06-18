@@ -140,76 +140,136 @@ create trigger tg_last_update_gcp BEFORE
 update on user_record_summary for EACH row
 execute FUNCTION fn_update_last_update_gcp ();
 
+CREATE OR REPLACE FUNCTION public.fn_normalize_condition(p text)
+RETURNS text
+LANGUAGE sql
+IMMUTABLE
+AS $$
+  SELECT CASE
+    WHEN p IS NULL THEN NULL
+    WHEN lower(btrim(p)) IN ('', '-', 'null', 'ไม่ระบุ') THEN NULL
+    WHEN lower(btrim(p)) = 'pd'
+      OR lower(p) LIKE '%parkinson%'
+      OR lower(p) LIKE '%newly diagnosis%' THEN 'pd'
+    WHEN lower(btrim(p)) = 'pdm'
+      OR lower(p) LIKE '%prodromal%'
+      OR lower(p) LIKE '%high risk%'
+      OR lower(p) LIKE '%high-risk%' THEN 'pdm'
+    WHEN lower(btrim(p)) = 'ctrl'
+      OR lower(p) LIKE '%control%'
+      OR lower(p) LIKE '%healthy%'
+      OR lower(btrim(p)) = 'normal' THEN 'ctrl'
+    WHEN lower(btrim(p)) = 'other'
+      OR lower(p) LIKE '%other diagnosis%' THEN 'other'
+    ELSE 'other'
+  END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.fn_sync_diagnosis(
+  p_thaiid text,
+  p_condition text,
+  p_other text,
+  p_source text DEFAULT NULL
+)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, checkpd, core
+AS $$
+DECLARE
+  v_cond text;
+  v_prev_guard text;
+  v_latest_patient_id integer;
+BEGIN
+  IF p_thaiid IS NULL OR btrim(p_thaiid) = '' THEN
+    RETURN;
+  END IF;
+
+  IF current_setting('app.diag_sync', true) = 'on' THEN
+    RETURN;
+  END IF;
+
+  v_prev_guard := current_setting('app.diag_sync', true);
+  PERFORM set_config('app.diag_sync', 'on', true);
+
+  BEGIN
+    v_cond := public.fn_normalize_condition(p_condition);
+
+    UPDATE public.user_record_summary
+       SET condition = v_cond,
+           other = p_other,
+           updated_at = now()
+     WHERE thaiid = p_thaiid
+       AND (condition IS DISTINCT FROM v_cond OR other IS DISTINCT FROM p_other);
+
+    BEGIN
+      UPDATE checkpd.record_summary
+         SET condition = v_cond,
+             other = p_other,
+             updated_at = now()
+       WHERE thaiid = p_thaiid
+         AND (condition IS DISTINCT FROM v_cond OR other IS DISTINCT FROM p_other);
+    EXCEPTION
+      WHEN undefined_table OR invalid_schema_name THEN
+        RAISE WARNING 'Diagnosis sync skipped: checkpd.record_summary missing.';
+    END;
+
+    UPDATE core.patient_diagnosis_v2 d
+       SET condition = v_cond,
+           other_diagnosis_text = p_other,
+           updated_at = now()
+      FROM core.patients_v2 pt
+     WHERE d.patient_id = pt.id
+       AND pt.thaiid = p_thaiid
+       AND (d.condition IS DISTINCT FROM v_cond OR d.other_diagnosis_text IS DISTINCT FROM p_other);
+
+    IF NOT EXISTS (
+      SELECT 1
+        FROM core.patient_diagnosis_v2 d
+        JOIN core.patients_v2 pt ON pt.id = d.patient_id
+       WHERE pt.thaiid = p_thaiid
+    ) THEN
+      SELECT pt.id
+        INTO v_latest_patient_id
+        FROM core.patients_v2 pt
+       WHERE pt.thaiid = p_thaiid
+       ORDER BY pt.collection_date DESC NULLS LAST, pt.id DESC
+       LIMIT 1;
+
+      IF v_latest_patient_id IS NOT NULL THEN
+        INSERT INTO core.patient_diagnosis_v2 (
+          patient_id,
+          condition,
+          other_diagnosis_text,
+          updated_at
+        )
+        VALUES (
+          v_latest_patient_id,
+          v_cond,
+          p_other,
+          now()
+        )
+        ON CONFLICT (patient_id) DO NOTHING;
+      END IF;
+    END IF;
+
+    PERFORM set_config('app.diag_sync', COALESCE(v_prev_guard, 'off'), true);
+  EXCEPTION
+    WHEN OTHERS THEN
+      PERFORM set_config('app.diag_sync', COALESCE(v_prev_guard, 'off'), true);
+      RAISE;
+  END;
+END;
+$$;
+
 CREATE OR REPLACE FUNCTION public.fn_mirror_condition_safe()
 RETURNS TRIGGER
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public, checkpd
+SET search_path = public, checkpd, core
 AS $$
-DECLARE
-  mirror_updated BOOLEAN := FALSE;
 BEGIN
-  -- Public table is the source of truth. Mirror to checkpd as best-effort.
-  IF NEW.record_id IS NULL THEN
-    RETURN NULL;
-  END IF;
-
-  BEGIN
-    UPDATE checkpd.record_summary c
-       SET condition            = NEW.condition,
-           condition_status     = NEW.condition_status,
-           condition_changed_at = NEW.condition_changed_at,
-           other                = NEW.other,
-           test_result          = NEW.test_result,
-           updated_at           = now()
-     WHERE c.user_id   = NEW.user_id
-       AND c.record_id = NEW.record_id;
-
-    mirror_updated := FOUND;
-  EXCEPTION
-    WHEN undefined_table OR invalid_schema_name THEN
-      RAISE WARNING 'Mirror skipped: checkpd.record_summary missing.';
-      RETURN NULL;
-    WHEN OTHERS THEN
-      RAISE WARNING 'Mirror update skipped: % (user_id=%, record_id=%)', SQLERRM, NEW.user_id, NEW.record_id;
-      RETURN NULL;
-  END;
-
-  IF NOT mirror_updated THEN
-    IF NEW.recorder IS NULL THEN
-      RAISE WARNING 'Mirror skipped: recorder is NULL (user_id=%, record_id=%)', NEW.user_id, NEW.record_id;
-      RETURN NULL;
-    END IF;
-
-    BEGIN
-      INSERT INTO checkpd.record_summary (
-          user_id, recorder, record_id,
-          condition, condition_status, condition_changed_at,
-          other, test_result, updated_at
-      )
-      VALUES (
-          NEW.user_id, NEW.recorder, NEW.record_id,
-          NEW.condition, NEW.condition_status, NEW.condition_changed_at,
-          NEW.other, NEW.test_result, now()
-      )
-      ON CONFLICT (user_id, recorder) DO UPDATE
-         SET record_id            = EXCLUDED.record_id,
-             condition            = EXCLUDED.condition,
-             condition_status     = EXCLUDED.condition_status,
-             condition_changed_at = EXCLUDED.condition_changed_at,
-             other                = EXCLUDED.other,
-             test_result          = EXCLUDED.test_result,
-             updated_at           = now();
-    EXCEPTION
-      WHEN foreign_key_violation THEN
-        RAISE WARNING 'Mirror skipped: checkpd.users missing user_id=%', NEW.user_id;
-      WHEN undefined_table OR invalid_schema_name THEN
-        RAISE WARNING 'Mirror skipped: checkpd.record_summary missing.';
-      WHEN OTHERS THEN
-        RAISE WARNING 'Mirror insert skipped: % (user_id=%, recorder=%, record_id=%)', SQLERRM, NEW.user_id, NEW.recorder, NEW.record_id;
-    END;
-  END IF;
-
+  PERFORM public.fn_sync_diagnosis(NEW.thaiid, NEW.condition, NEW.other, 'public');
   RETURN NULL;
 END;
 $$;
@@ -217,11 +277,25 @@ $$;
 create trigger tg_mirror_condition_safe
 after
 update on user_record_summary for EACH row when (
-  old.condition is distinct from new.condition
-  or old.condition_status is distinct from new.condition_status
-  or old.condition_changed_at is distinct from new.condition_changed_at
-  or old.other is distinct from new.other
-  or old.test_result is distinct from new.test_result
+  (
+    old.condition is distinct from new.condition
+    or old.other is distinct from new.other
+    or old.thaiid is distinct from new.thaiid
+  )
+  and (
+    old.condition is not null
+    or old.other is not null
+    or new.condition is not null
+    or new.other is not null
+  )
+)
+execute FUNCTION fn_mirror_condition_safe ();
+
+create trigger tg_mirror_condition_safe_insert
+after
+insert on user_record_summary for EACH row when (
+  new.condition is not null
+  or new.other is not null
 )
 execute FUNCTION fn_mirror_condition_safe ();
 

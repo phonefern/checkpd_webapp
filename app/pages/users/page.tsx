@@ -12,6 +12,7 @@ import UserEditModal from '@/app/component/users/UserEditModal'
 import UserDetailModal from '@/app/component/users/UserDetailModal'
 import TqdmSpinner from '@/app/component/dashboard/TqdmSpinner'
 import { Button } from '@/components/ui/button'
+import { parseOther } from '@/lib/otherDiagnosis'
 import {
   Dialog,
   DialogContent,
@@ -33,7 +34,6 @@ export default function UsersClientPage() {
   const [searchCondition, setSearchCondition] = useState('')
   const [searchRisk, setSearchRisk] = useState('')
   const [searchOther, setSearchOther] = useState('')
-  const [otherOptions, setOtherOptions] = useState<string[]>([])
   const [searchArea, setSearchArea] = useState('')
   const [areaOptions, setAreaOptions] = useState<string[]>([])
   const [searchSource, setSearchSource] = useState('')
@@ -211,7 +211,9 @@ export default function UsersClientPage() {
       if (searchRisk === 'null') query = query.is('prediction_risk', null)
       else query = query.eq('prediction_risk', searchRisk === 'true')
     }
-    if (searchOther.trim()) query = query.eq('other', searchOther)
+    for (const otherDiagnosis of parseOther(searchOther)) {
+      query = query.ilike('other', `%${otherDiagnosis}%`)
+    }
     if (searchArea.trim()) query = query.eq('area', searchArea)
     if (searchSource.trim()) query = query.eq('source', searchSource)
     if (searchProvince.trim()) query = query.eq('province', searchProvince)
@@ -245,17 +247,6 @@ export default function UsersClientPage() {
   }, [currentPage, searchId, startDate, endDate, searchCondition, searchRisk, searchOther, searchArea, searchSource, searchProvince, sortColumn, sortDirection])
 
   useEffect(() => {
-    const loadOtherOptions = async () => {
-      const { data, error } = await supabase
-        .from('user_record_summary_with_users')
-        .select('other')
-        .order('other', { ascending: true })
-      if (error) return
-      setOtherOptions(
-        Array.from(new Set((data ?? []).map(({ other }) => (typeof other === 'string' ? other.trim() : '')).filter((v) => v.length > 0)))
-      )
-    }
-
     const loadAreaOptions = async () => {
       const areaSet = new Set<string>()
       const pageSize = 1000
@@ -277,7 +268,6 @@ export default function UsersClientPage() {
       setAreaOptions(Array.from(areaSet).sort((a, b) => a.localeCompare(b)))
     }
 
-    loadOtherOptions()
     loadAreaOptions()
   }, [])
 
@@ -298,7 +288,6 @@ export default function UsersClientPage() {
           setSearchRisk={setSearchRisk}
           searchOther={searchOther}
           setSearchOther={setSearchOther}
-          otherOptions={otherOptions}
           searchArea={searchArea}
           setSearchArea={setSearchArea}
           areaOptions={areaOptions}

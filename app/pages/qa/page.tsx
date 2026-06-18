@@ -26,6 +26,7 @@ import {
   hasQaGp2,
   matchesQaConditionFilter,
 } from '@/app/component/qa/types'
+import { parseOther } from '@/lib/otherDiagnosis'
 import {
   PATIENT_VISIT_SELECT,
   buildIdentityCacheKey,
@@ -44,6 +45,7 @@ export default function QaPage() {
   const [search, setSearch] = useState('')
   const [thaiId, setThaiId] = useState('')
   const [condition, setCondition] = useState<QaConditionFilter>('')
+  const [otherDiagnosis, setOtherDiagnosis] = useState<string | null>(null)
   const [gp2, setGp2] = useState('')
   const [hyStage, setHyStage] = useState('')
   const [province, setProvince] = useState('')
@@ -90,7 +92,7 @@ export default function QaPage() {
       // --- Step 1: resolve patient IDs from diagnosis filters (condition / H&Y / GP2) ---
       let diagFilteredIds: number[] | null = null
 
-      if (condition || hyStage || gp2) {
+      if (condition || otherDiagnosis || hyStage || gp2) {
         // condition/GP2 matching is fuzzy, so it must run in memory — but page past
         // Supabase's default 1000-row API cap, otherwise matches beyond the first
         // 1000 diagnosis rows are silently dropped and the filter looks broken.
@@ -118,6 +120,11 @@ export default function QaPage() {
 
         const filteredRows = diagRows.filter((d) => {
           if (condition && !matchesQaConditionFilter(d, condition)) return false
+          if (otherDiagnosis) {
+            const selectedOther = parseOther(otherDiagnosis).map((item) => item.toLowerCase())
+            const rowOther = parseOther(d.other_diagnosis_text).map((item) => item.toLowerCase())
+            if (selectedOther.length > 0 && !selectedOther.every((item) => rowOther.includes(item))) return false
+          }
           if (gp2 && !hasQaGp2(d)) return false
           return true
         })
@@ -322,7 +329,7 @@ export default function QaPage() {
     } finally {
       setLoading(false)
     }
-  }, [session, search, thaiId, condition, gp2, hyStage, province, startDate, endDate, currentPage, sortColumn, sortDirection])
+  }, [session, search, thaiId, condition, otherDiagnosis, gp2, hyStage, province, startDate, endDate, currentPage, sortColumn, sortDirection])
 
   const handleSort = (column: QaSortColumn) => {
     if (sortColumn === column) {
@@ -383,11 +390,15 @@ export default function QaPage() {
     setTotalCount((prev) => prev - 1)
   }
   const handleQuickDiag = useCallback(
-    async (patientId: number, conditionValue: 'pd' | 'ctrl' | 'pdm' | 'other' | '-') => {
+    async (patientId: number, conditionValue: 'pd' | 'ctrl' | 'pdm' | 'other' | '-', otherDiagnosisText?: string | null) => {
       const payload =
         conditionValue === '-'
           ? { patient_id: patientId, condition: '-', other_diagnosis_text: null }
-          : { patient_id: patientId, condition: conditionValue }
+          : {
+              patient_id: patientId,
+              condition: conditionValue,
+              ...(conditionValue === 'other' ? { other_diagnosis_text: otherDiagnosisText?.trim() || null } : {}),
+            }
 
       const { error: diagErr } = await supabase
         .schema('core')
@@ -547,6 +558,8 @@ export default function QaPage() {
         setThaiId={setThaiId}
         condition={condition}
         setCondition={setCondition}
+        otherDiagnosis={otherDiagnosis}
+        setOtherDiagnosis={setOtherDiagnosis}
         gp2={gp2}
         setGp2={setGp2}
         hyStage={hyStage}

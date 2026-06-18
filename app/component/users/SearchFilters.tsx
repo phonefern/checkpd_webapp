@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { AlertTriangle, CalendarIcon, Download, RefreshCw, RotateCcw, X } from "lucide-react"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
+import { OtherDiagnosisSelect } from "@/app/component/diagnosis/OtherDiagnosisSelect"
 
 interface SearchFiltersProps {
   searchId: string
@@ -19,7 +20,6 @@ interface SearchFiltersProps {
   setSearchRisk: (value: string) => void
   searchOther: string
   setSearchOther: (value: string) => void
-  otherOptions: string[]
   searchArea: string
   setSearchArea: (value: string) => void
   areaOptions: string[]
@@ -57,7 +57,6 @@ export default function SearchFilters({
   setSearchRisk,
   searchOther,
   setSearchOther,
-  otherOptions,
   searchArea,
   setSearchArea,
   areaOptions,
@@ -203,14 +202,11 @@ export default function SearchFilters({
           {/* Other */}
           <div>
             <label className="mb-1.5 block text-xs font-medium text-foreground">Other</label>
-            <select
+            <OtherDiagnosisSelect
               value={searchOther}
-              onChange={(e) => { setSearchOther(e.target.value); setCurrentPage(1) }}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer"
-            >
-              <option value="">All</option>
-              {otherOptions.map((o) => <option key={o} value={o}>{o}</option>)}
-            </select>
+              onChange={(next) => { setSearchOther(next ?? ""); setCurrentPage(1) }}
+              mode="filter"
+            />
           </div>
 
           {/* Area */}

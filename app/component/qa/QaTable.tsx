@@ -67,7 +67,7 @@ interface QaTableProps {
   role: AppRole | null
   onAssess: (patient: QaPatient) => void
   onEdit: (patient: QaPatient) => void
-  onQuickDiag: (patientId: number, condition: 'pd' | 'ctrl' | 'pdm' | 'other' | '-') => Promise<void>
+  onQuickDiag: (patientId: number, condition: 'pd' | 'ctrl' | 'pdm' | 'other' | '-', otherDiagnosisText?: string | null) => Promise<void>
   onDelete: (patientId: number, name: string) => void
   onDetail: (row: QaRow) => void
   onAddVisit: (patient: QaPatient) => void

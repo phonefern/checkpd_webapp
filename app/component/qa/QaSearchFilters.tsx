@@ -8,6 +8,7 @@ import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
 import { provinceOptions } from '@/app/types/user'
 import { QA_HY_OPTIONS, type QaConditionFilter } from './types'
+import { OtherDiagnosisSelect } from '@/app/component/diagnosis/OtherDiagnosisSelect'
 
 const CONDITION_FILTER_OPTIONS = [
   { value: '', label: 'All Conditions' },
@@ -29,6 +30,8 @@ interface QaSearchFiltersProps {
   setThaiId: (v: string) => void
   condition: QaConditionFilter
   setCondition: (v: QaConditionFilter) => void
+  otherDiagnosis: string | null
+  setOtherDiagnosis: (v: string | null) => void
   gp2: string
   setGp2: (v: string) => void
   hyStage: string
@@ -53,6 +56,8 @@ export default function QaSearchFilters({
   setThaiId,
   condition,
   setCondition,
+  otherDiagnosis,
+  setOtherDiagnosis,
   gp2,
   setGp2,
   hyStage,
@@ -76,6 +81,7 @@ export default function QaSearchFilters({
     setSearch('')
     setThaiId('')
     setCondition('')
+    setOtherDiagnosis(null)
     setGp2('')
     setHyStage('')
     setProvince('')
@@ -84,11 +90,11 @@ export default function QaSearchFilters({
     setCurrentPage(1)
   }
 
-  const hasActiveFilter = search || thaiId || condition || gp2 || hyStage || province || startDate || endDate
+  const hasActiveFilter = search || thaiId || condition || otherDiagnosis || gp2 || hyStage || province || startDate || endDate
 
   return (
     <div className="mb-6 p-6 bg-card border border-border rounded-lg shadow-sm">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-9 gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-12">
         {/* Search */}
         <div className="xl:col-span-2">
           <label className="block text-sm font-medium text-foreground mb-2">Search Patient</label>
@@ -126,6 +132,18 @@ export default function QaSearchFilters({
               <option key={o.value} value={o.value}>{o.label}</option>
             ))}
           </select>
+        </div>
+
+        <div className="md:col-span-2 xl:col-span-2">
+          <label className="block text-sm font-medium text-foreground mb-2">Other Diagnosis</label>
+          <OtherDiagnosisSelect
+            value={otherDiagnosis}
+            onChange={(next) => {
+              setOtherDiagnosis(next)
+              setCurrentPage(1)
+            }}
+            mode="filter"
+          />
         </div>
 
         <div>
