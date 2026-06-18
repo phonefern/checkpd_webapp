@@ -1,0 +1,110 @@
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\firebase\firebase_supabase_web_app\my-supabase-app-deploy\.next\server\app\pages\users\page\app-build-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\firebase\\firebase_supabase_web_app\\my-supabase-app-deploy\\.next\\server\\app\\pages\\users\\page\\app-build-manifest.json'
+}
+ ⨯ Error: Cannot find module '../chunks/ssr/[turbopack]_runtime.js'
+Require stack:
+- D:\firebase\firebase_supabase_web_app\my-supabase-app-deploy\.next\server\pages\_document.js
+- D:\firebase\firebase_supabase_web_app\my-supabase-app-deploy\node_modules\next\dist\server\require.js
+- D:\firebase\firebase_supabase_web_app\my-supabase-app-deploy\node_modules\next\dist\server\load-components.js
+- D:\firebase\firebase_supabase_web_app\my-supabase-app-deploy\node_modules\next\dist\build\utils.js
+- D:\firebase\firebase_supabase_web_app\my-supabase-app-deploy\node_modules\next\dist\build\swc\options.js
+- D:\firebase\firebase_supabase_web_app\my-supabase-app-deploy\node_modules\next\dist\build\swc\index.js
+- D:\firebase\firebase_supabase_web_app\my-supabase-app-deploy\node_modules\next\dist\build\next-config-ts\transpile-config.js
+- D:\firebase\firebase_supabase_web_app\my-supabase-app-deploy\node_modules\next\dist\server\config.js
+- D:\firebase\firebase_supabase_web_app\my-supabase-app-deploy\node_modules\next\dist\server\next.js
+- D:\firebase\firebase_supabase_web_app\my-supabase-app-deploy\node_modules\next\dist\server\lib\start-server.js
+    at Object.<anonymous> (D:\firebase\firebase_supabase_web_app\my-supabase-app-deploy\.next\server\pages\_document.js:1:7) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [Array]
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\firebase\firebase_supabase_web_app\my-supabase-app-deploy\.next\server\app\pages\users\page\app-build-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\firebase\\firebase_supabase_web_app\\my-supabase-app-deploy\\.next\\server\\app\\pages\\users\\page\\app-build-manifest.json'
+}
+ ⨯ Error: Cannot find module '../chunks/ssr/[turbopack]_runtime.js'
+Require stack:
+- D:\firebase\firebase_supabase_web_app\my-supabase-app-deploy\.next\server\pages\_document.js
+- D:\firebase\firebase_supabase_web_app\my-supabase-app-deploy\node_modules\next\dist\server\require.js
+- D:\firebase\firebase_supabase_web_app\my-supabase-app-deploy\node_modules\next\dist\server\load-components.js
+- D:\firebase\firebase_supabase_web_app\my-supabase-app-deploy\node_modules\next\dist\build\utils.js
+- D:\firebase\firebase_supabase_web_app\my-supabase-app-deploy\node_modules\next\dist\build\swc\options.js
+- D:\firebase\firebase_supabase_web_app\my-supabase-app-deploy\node_modules\next\dist\build\swc\index.js
+- D:\firebase\firebase_supabase_web_app\my-supabase-app-deploy\node_modules\next\dist\build\next-config-ts\transpile-config.js
+- D:\firebase\firebase_supabase_web_app\my-supabase-app-deploy\node_modules\next\dist\server\config.js
+- D:\firebase\firebase_supabase_web_app\my-supabase-app-deploy\node_modules\next\dist\server\next.js
+- D:\firebase\firebase_supabase_web_app\my-supabase-app-deploy\node_modules\next\dist\server\lib\start-server.js
+    at Object.<anonymous> (D:\firebase\firebase_supabase_web_app\my-supabase-app-deploy\.next\server\pages\_document.js:1:7) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [Array]
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\firebase\firebase_supabase_web_app\my-supabase-app-deploy\.next\server\app\pages\users\page\app-build-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\firebase\\firebase_supabase_web_app\\my-supabase-app-deploy\\.next\\server\\app\\pages\\users\\page\\app-build-manifest.json'
+}
+ ⨯ Error: Cannot find module '../chunks/ssr/[turbopack]_runtime.js'
+Require stack:
+- D:\firebase\firebase_supabase_web_app\my-supabase-app-deploy\.next\server\pages\_document.js
+- D:\firebase\firebase_supabase_web_app\my-supabase-app-deploy\node_modules\next\dist\server\require.js
+- D:\firebase\firebase_supabase_web_app\my-supabase-app-deploy\node_modules\next\dist\server\load-components.js
+- D:\firebase\firebase_supabase_web_app\my-supabase-app-deploy\node_modules\next\dist\build\utils.js
+- D:\firebase\firebase_supabase_web_app\my-supabase-app-deploy\node_modules\next\dist\build\swc\options.js
+- D:\firebase\firebase_supabase_web_app\my-supabase-app-deploy\node_modules\next\dist\build\swc\index.js
+- D:\firebase\firebase_supabase_web_app\my-supabase-app-deploy\node_modules\next\dist\build\next-config-ts\transpile-config.js
+- D:\firebase\firebase_supabase_web_app\my-supabase-app-deploy\node_modules\next\dist\server\config.js
+- D:\firebase\firebase_supabase_web_app\my-supabase-app-deploy\node_modules\next\dist\server\next.js
+- D:\firebase\firebase_supabase_web_app\my-supabase-app-deploy\node_modules\next\dist\server\lib\start-server.js
+    at Object.<anonymous> (D:\firebase\firebase_supabase_web_app\my-supabase-app-deploy\.next\server\pages\_document.js:1:7) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [Array]
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\firebase\firebase_supabase_web_app\my-supabase-app-deploy\.next\server\app\pages\users\page\app-build-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\firebase\\firebase_supabase_web_app\\my-supabase-app-deploy\\.next\\server\\app\\pages\\users\\page\\app-build-manifest.json'
+}
+ ⨯ Error: Cannot find module '../chunks/ssr/[turbopack]_runtime.js'
+Require stack:
+- D:\firebase\firebase_supabase_web_app\my-supabase-app-deploy\.next\server\pages\_document.js
+- D:\firebase\firebase_supabase_web_app\my-supabase-app-deploy\node_modules\next\dist\server\require.js
+- D:\firebase\firebase_supabase_web_app\my-supabase-app-deploy\node_modules\next\dist\server\load-components.js
+- D:\firebase\firebase_supabase_web_app\my-supabase-app-deploy\node_modules\next\dist\build\utils.js
+- D:\firebase\firebase_supabase_web_app\my-supabase-app-deploy\node_modules\next\dist\build\swc\options.js
+- D:\firebase\firebase_supabase_web_app\my-supabase-app-deploy\node_modules\next\dist\build\swc\index.js
+- D:\firebase\firebase_supabase_web_app\my-supabase-app-deploy\node_modules\next\dist\build\next-config-ts\transpile-config.js
+- D:\firebase\firebase_supabase_web_app\my-supabase-app-deploy\node_modules\next\dist\server\config.js
+- D:\firebase\firebase_supabase_web_app\my-supabase-app-deploy\node_modules\next\dist\server\next.js
+- D:\firebase\firebase_supabase_web_app\my-supabase-app-deploy\node_modules\next\dist\server\lib\start-server.js
+    at Object.<anonymous> (D:\firebase\firebase_supabase_web_app\my-supabase-app-deploy\.next\server\pages\_document.js:1:7) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [Array]
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\firebase\firebase_supabase_web_app\my-supabase-app-deploy\.next\server\app\pages\users\page\app-build-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\firebase\\firebase_supabase_web_app\\my-supabase-app-deploy\\.next\\server\\app\\pages\\users\\page\\app-build-manifest.json'
+}
+ ⨯ Error: Cannot find module '../chunks/ssr/[turbopack]_runtime.js'
+Require stack:
+- D:\firebase\firebase_supabase_web_app\my-supabase-app-deploy\.next\server\pages\_document.js
+- D:\firebase\firebase_supabase_web_app\my-supabase-app-deploy\node_modules\next\dist\server\require.js
+- D:\firebase\firebase_supabase_web_app\my-supabase-app-deploy\node_modules\next\dist\server\load-components.js
+- D:\firebase\firebase_supabase_web_app\my-supabase-app-deploy\node_modules\next\dist\build\utils.js
+- D:\firebase\firebase_supabase_web_app\my-supabase-app-deploy\node_modules\next\dist\build\swc\options.js
+- D:\firebase\firebase_supabase_web_app\my-supabase-app-deploy\node_modules\next\dist\build\swc\index.js
+- D:\firebase\firebase_supabase_web_app\my-supabase-app-deploy\node_modules\next\dist\build\next-config-ts\transpile-config.js
+- D:\firebase\firebase_supabase_web_app\my-supabase-app-deploy\node_modules\next\dist\server\config.js
+- D:\firebase\firebase_supabase_web_app\my-supabase-app-deploy\node_modules\next\dist\server\next.js
+- D:\firebase\firebase_supabase_web_app\my-supabase-app-deploy\node_modules\next\dist\server\lib\start-server.js
+    at Object.<anonymous> (D:\firebase\firebase_supabase_web_app\my-supabase-app-deploy\.next\server\pages\_document.js:1:7) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [Array]
+}

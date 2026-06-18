@@ -242,20 +242,27 @@ EXECUTE FUNCTION core.tg_sync_diagnosis_to_public();
 Reuse the category→diagnosis shape already in
 [other_diagnosis_dropdown.json](../app/component/questions/other_diagnosis_dropdown.json).
 
+Taxonomy source: [other_diagnosis_dropdown.json](../app/component/questions/other_diagnosis_dropdown.json)
+— **12 disease groups + a "General / สถานะทั่วไป" group** (reviewed by the clinician). Schema stays
+`{ category, diagnosis: string[] }`; the diagnosis string is both the display label and the stored value.
+
 ```
 Other diagnosis
 ┌───────────────────────────────────────────────┐
 │ [Cervical dystonia ✕] [Constipation ✕]  …chips │   ← selected (joined "; " on save)
 │ ── เลือกเพิ่ม (กลุ่ม) ─────────────────────────── │
 │  Tremor & Movement ▸  Sleep ▸  Cognitive ▸  …   │   ← grouped picker (Command/Combobox)
-│ ── อื่นๆ (พิมพ์เอง) ───────────────────────────── │
-│  [_______________________________] + เพิ่ม       │   ← custom free-text → appended as a chip
+│ ┌ when "Spinocerebellar ataxia (SCA)" picked ─┐ │
+│ │  Type: [ 1–50 ▼ ]  (dependent; hidden else) │ │   ← SCA type sub-selector (rule below)
+│ └─────────────────────────────────────────────┘ │
+│ ── อื่นๆ / Others (please specify) ───────────── │
+│  [_______________________________] + เพิ่ม       │   ← always-present custom free-text → chip
 └───────────────────────────────────────────────┘
 ```
 
 - New shared component `app/component/diagnosis/OtherDiagnosisSelect.tsx` — props
   `{ value: string | null; onChange: (next: string | null) => void }`. Internally parses the `"; "`
-  string into chips, renders the grouped picker + custom input, serializes back on change.
+  string into chips, renders the grouped picker + the always-present custom input, serializes back on change.
 - New helper `lib/otherDiagnosis.ts`: `parseOther(text): string[]`, `serializeOther(items): string | null`,
   and `isCustom(item, taxonomy): boolean` (a chip not in the dropdown renders in a "custom" tone).
 - `UserEditModal.tsx` — replace `<FormInput label="Other" .../>` ([:481](../app/component/users/UserEditModal.tsx#L481))
@@ -264,14 +271,34 @@ Other diagnosis
 - Legacy free text loads as one or more custom chips (split on `;`), so nothing is lost and the doctor can
   swap individual chips for canonical options on the next save (lazy migration).
 
+### Clinician-confirmed UI rules (V1)
+
+1. **SCA dependent type selector.** When `"Spinocerebellar ataxia (SCA)"` is selected, reveal a dependent
+   `Type` dropdown of integers **1–50**; hide/disable it for every other selection. The chip serializes
+   as `"Spinocerebellar ataxia (SCA) type <n>"` (e.g. `"Spinocerebellar ataxia (SCA) type 7"`). On parse,
+   a chip matching that prefix re-populates the type selector. **Do not** route the type into the free-text
+   box — keep it structured so it is analysable later. Until a type is chosen, store the bare SCA label.
+2. **"Others (please specify)" = the custom free-text input.** It is always visible at the bottom; a typed
+   value is appended as a custom chip. No separate fake `"Others"` option in the JSON — the input *is* the
+   "others" affordance. This is the deliberate fallback for diagnoses not in the 12 groups
+   (e.g. clinician-dropped items like Hyposmia / Migraine).
+3. **"Normal / No significant findings".** Selectable from the `General / สถานะทั่วไป` group so an empty
+   `other` ("not filled") is never ambiguous with an explicit "normal" finding.
+4. **Synonym labels (`/`).** Kept as single combined options as the clinician grouped them. The `"; "`
+   serializer is safe with `/` and `,` inside a label (split on `;` only). *(Future polish: show the
+   synonym tail as an `(i)` tooltip instead of inline — out of scope for V1.)*
+5. **Label = value (V1).** English term + Thai gloss live together in the one stored string, per clinician
+   sign-off. *(Future: split DB into `code` / `label_en` / `description_th` for analytics — out of scope.)*
+
 ## Files to create / modify
 
 | File | Change |
 |---|---|
 | [app/pages/users/users.sql](../app/pages/users/users.sql) | Add `fn_normalize_condition`; add central `fn_sync_diagnosis`; rewrite `fn_mirror_condition_safe` body to call it (keep `tg_mirror_condition_safe` trigger + its `WHEN` clause). |
 | [app/pages/qa/core_schema.sql](../app/pages/qa/core_schema.sql) | Add `core.tg_sync_diagnosis_to_public()` + `tg_sync_diagnosis_to_public` trigger on `core.patient_diagnosis_v2`. Document the cross-schema sync here too. |
-| `lib/otherDiagnosis.ts` *(new)* | `parseOther` / `serializeOther` / `isCustom` pure helpers. |
-| `app/component/diagnosis/OtherDiagnosisSelect.tsx` *(new)* | Shared multi-select + custom free-text, reads `other_diagnosis_dropdown.json`. |
+| `lib/otherDiagnosis.ts` *(new)* | `parseOther` / `serializeOther` / `isCustom` pure helpers + SCA helpers (`isSca(item)`, `parseScaType(item)`, `serializeSca(n)` for the `"… type <n>"` convention). |
+| `app/component/diagnosis/OtherDiagnosisSelect.tsx` *(new)* | Shared multi-select + always-present custom free-text + dependent SCA type (1–50) selector; reads `other_diagnosis_dropdown.json` (12 groups + General). |
+| [app/component/questions/other_diagnosis_dropdown.json](../app/component/questions/other_diagnosis_dropdown.json) | *(done)* Clinician-reviewed taxonomy: 12 disease groups + `General / สถานะทั่วไป` (Normal). SCA stored as a single clean label (type handled by the component). |
 | [app/component/users/UserEditModal.tsx](../app/component/users/UserEditModal.tsx) | Swap the `other` text input for `OtherDiagnosisSelect`. No change to the `condition` `<select>`. |
 | [app/component/qa/QaCreateModal.tsx](../app/component/qa/QaCreateModal.tsx) | Swap the `other_diagnosis_text` input for `OtherDiagnosisSelect`. |
 | [app/component/qa/CheckpdDataSection.tsx](../app/component/qa/CheckpdDataSection.tsx) | Demote the manual "ยืนยันใช้ CheckPD เป็น Main Condition" button to a read-only compare panel (auto-sync makes the write redundant), or remove it. Keep `mapCheckpdConditionToCore` only if still referenced. |
@@ -323,6 +350,12 @@ No new npm dependencies (shadcn `Command`/`Popover` already in the project for t
 - [ ] `other` multi-select: pick 2 options + 1 custom → DB stores `"A; B; custom text"`; reopen → 3 chips,
       custom rendered as custom.
 - [ ] Legacy free-text `other` (e.g. `"DM, HT, DLP, OSA"`) loads as a single custom chip, unmangled.
+- [ ] Selecting "Spinocerebellar ataxia (SCA)" reveals the Type 1–50 selector; choosing 7 stores
+      `"Spinocerebellar ataxia (SCA) type 7"`; reopen → SCA chip + Type=7 restored; type selector hidden
+      for non-SCA selections.
+- [ ] "Normal / No significant findings" is selectable and stored distinctly from an empty `other`.
+- [ ] Typing in the "Others (please specify)" box appends a custom chip; no separate `Others` option exists
+      in the JSON.
 - [ ] `pksm` no longer appears in the `UserEditModal` condition dropdown; a legacy `pksm` row normalizes
       to `other` on its next sync.
 - [ ] PLAN-016/017 CSV export still emits the `other` string correctly.
