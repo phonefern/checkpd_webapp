@@ -1,14 +1,17 @@
 'use client'
 
+import { useState } from 'react'
 import { Calendar } from '@/components/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Button } from '@/components/ui/button'
-import { CalendarIcon } from 'lucide-react'
+import { CalendarIcon, ScanLine } from 'lucide-react'
 import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
 import { provinceOptions } from '@/app/types/user'
 import { QA_HY_OPTIONS, type QaConditionFilter } from './types'
 import { OtherDiagnosisSelect } from '@/app/component/diagnosis/OtherDiagnosisSelect'
+import QaQrScanner from './QaQrScanner'
+import { parseQaFocus } from './visitIdentity'
 
 const CONDITION_FILTER_OPTIONS = [
   { value: '', label: 'All Conditions' },
@@ -47,6 +50,7 @@ interface QaSearchFiltersProps {
   currentPage: number
   itemsPerPage: number
   onRefresh: () => void
+  onScanFocus: (focus: { id?: string; uid?: string }) => void
 }
 
 export default function QaSearchFilters({
@@ -73,7 +77,9 @@ export default function QaSearchFilters({
   currentPage,
   itemsPerPage,
   onRefresh,
+  onScanFocus,
 }: QaSearchFiltersProps) {
+  const [scannerOpen, setScannerOpen] = useState(false)
   const startDateObj = startDate ? new Date(startDate) : undefined
   const endDateObj = endDate ? new Date(endDate) : undefined
 
@@ -98,13 +104,25 @@ export default function QaSearchFilters({
         {/* Search */}
         <div className="xl:col-span-2">
           <label className="block text-sm font-medium text-foreground mb-2">Search Patient</label>
-          <input
-            type="text"
-            placeholder="Name, HN, or ID"
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setCurrentPage(1) }}
-            className="w-full border border-gray-300 p-2 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          />
+          <div className="flex gap-2">
+            <input
+              type="text"
+              placeholder="Name, HN, or ID"
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setCurrentPage(1) }}
+              className="w-full border border-gray-300 p-2 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setScannerOpen(true)}
+              title="สแกน QR ผู้ป่วย"
+              aria-label="สแกน QR ผู้ป่วย"
+              className="shrink-0 cursor-pointer"
+            >
+              <ScanLine className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
 
         {/* Thai ID */}
@@ -264,6 +282,17 @@ export default function QaSearchFilters({
           </button>
         </div>
       </div>
+
+      <QaQrScanner
+        open={scannerOpen}
+        onClose={() => setScannerOpen(false)}
+        onDecode={(text) => {
+          const focus = parseQaFocus(text)
+          if (!focus) return false
+          onScanFocus(focus)
+          return true
+        }}
+      />
     </div>
   )
 }
