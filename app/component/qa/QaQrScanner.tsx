@@ -23,11 +23,20 @@ interface QaQrScannerProps {
 }
 
 const REGION_ID = 'qa-qr-reader-region'
-const SCAN_CONFIG = { fps: 10, qrbox: { width: 240, height: 240 } }
+// qrbox sized relative to the video so it never exceeds the stream dimensions
+// (an oversized qrbox makes html5-qrcode throw).
+const SCAN_CONFIG = {
+  fps: 10,
+  qrbox: (viewW: number, viewH: number) => {
+    const size = Math.floor(Math.min(viewW, viewH) * 0.7)
+    return { width: size, height: size }
+  },
+}
 
 export default function QaQrScanner({ open, onClose, onDecode }: QaQrScannerProps) {
   const scannerRef = useRef<Html5Qrcode | null>(null)
   const decodedRef = useRef(false)
+  const busyRef = useRef(false)
   const [error, setError] = useState<string | null>(null)
   const [errDetail, setErrDetail] = useState<string | null>(null)
   const [starting, setStarting] = useState(false)
@@ -68,26 +77,30 @@ export default function QaQrScanner({ open, onClose, onDecode }: QaQrScannerProp
     const noop = () => {}
 
     const start = async () => {
+      // guard against a second concurrent start() (the cause of the
+      // "already under transition" error)
+      if (busyRef.current) return
+      busyRef.current = true
       try {
         // Wait one frame so the dialog's region element is laid out.
         await new Promise((r) => requestAnimationFrame(() => r(null)))
         if (cancelled) return
 
+        // getCameras() asks for permission AND lists devices in one step, so we
+        // can call start() exactly once with a concrete camera id.
+        const cams = await Html5Qrcode.getCameras()
+        if (cancelled) return
+        if (!cams || cams.length === 0) {
+          setError('camera')
+          setErrDetail('No camera devices found')
+          return
+        }
+        const back = cams.find((c) => /back|rear|environment/i.test(c.label)) ?? cams[cams.length - 1]
+
         const scanner = new Html5Qrcode(REGION_ID, { verbose: false })
         scannerRef.current = scanner
 
-        try {
-          // Prefer the rear camera, but as a *preference* (ideal) so desktops
-          // with only a front webcam don't throw OverconstrainedError.
-          await scanner.start({ facingMode: { ideal: 'environment' } }, SCAN_CONFIG, handleScan, noop)
-        } catch (primaryErr) {
-          if (cancelled) return
-          // Fallback: enumerate cameras and start an explicit device.
-          const cams = await Html5Qrcode.getCameras()
-          if (!cams || cams.length === 0) throw primaryErr
-          const back = cams.find((c) => /back|rear|environment/i.test(c.label)) ?? cams[cams.length - 1]
-          await scanner.start(back.id, SCAN_CONFIG, handleScan, noop)
-        }
+        await scanner.start(back.id, SCAN_CONFIG, handleScan, noop)
 
         if (cancelled) await stopScanner()
       } catch (err) {
@@ -96,6 +109,7 @@ export default function QaQrScanner({ open, onClose, onDecode }: QaQrScannerProp
         setError('camera')
         setErrDetail(`${e?.name ?? 'Error'}: ${e?.message ?? String(err)}`)
       } finally {
+        busyRef.current = false
         if (!cancelled) setStarting(false)
       }
     }
