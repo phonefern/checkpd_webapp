@@ -575,6 +575,7 @@ export default function QaPage() {
         currentPage={currentPage}
         itemsPerPage={PAGE_SIZE}
         onRefresh={fetchData}
+        onScanFocus={(focus) => openFocusedAssessment(focus)}
       />
 
       {error && (

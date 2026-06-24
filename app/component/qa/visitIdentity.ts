@@ -6,6 +6,37 @@ export const PATIENT_VISIT_SELECT =
 
 export const cleanIdentityValue = (value: string | null | undefined) => (value ?? '').trim()
 
+/**
+ * Parse a scanned/typed QA focus token into an id/uid the QA page can open.
+ * Mirrors the search-box patterns from PLAN-021. Accepts:
+ *   1. a full deep-link URL  (<origin>/pages/qa?focus_uid=... or ?focus_id=...)
+ *   2. a bare patient_uid UUID
+ *   3. a bare numeric visit id
+ * Returns null for anything that is not a recognisable patient reference.
+ */
+export function parseQaFocus(text: string | null | undefined): { id?: string; uid?: string } | null {
+  const raw = (text ?? '').trim()
+  if (!raw) return null
+
+  // 1) Full deep-link URL: extract focus_uid / focus_id regardless of origin.
+  try {
+    const url = new URL(raw)
+    const uid = url.searchParams.get('focus_uid')?.trim()
+    const id = url.searchParams.get('focus_id')?.trim()
+    if (uid) return { uid }
+    if (id) return { id }
+  } catch {
+    // not a URL — fall through to bare-token checks
+  }
+
+  // 2) Bare UUID → patient_uid
+  if (/^[0-9a-f-]{32,36}$/i.test(raw)) return { uid: raw }
+  // 3) Bare digits → visit id
+  if (/^\d+$/.test(raw)) return { id: raw }
+
+  return null
+}
+
 export function buildIdentityCacheKey(patient: QaPatient): string {
   const thaiid = cleanIdentityValue(patient.thaiid)
   if (thaiid) return `thaiid:${thaiid}`
