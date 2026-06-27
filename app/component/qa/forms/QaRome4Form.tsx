@@ -93,7 +93,7 @@ export default function QaRome4Form({ open, patientId, onClose, onSaved }: Props
           ตอบใช่: {score} / 6 ข้อ &nbsp;—&nbsp; <span className={`font-normal ${score >= 2 ? 'text-red-600' : 'text-green-600'}`}>{interpretation}</span>
         </div>
         {error && <p className="text-sm text-red-600 mt-2">{error}</p>}
-        <DialogFooter className="mt-4">
+        <DialogFooter className="sticky bottom-0 bg-white border-t -mx-4 sm:-mx-6 px-4 sm:px-6 py-3 mt-6">
           <Button variant="outline" onClick={onClose} disabled={saving}>ยกเลิก</Button>
           <Button onClick={handleSave} disabled={saving} className="bg-blue-600 hover:bg-blue-700 text-white">
             {saving ? 'กำลังบันทึก...' : 'บันทึก'}
