@@ -1,6 +1,28 @@
 import './globals.css'
+import type { Metadata, Viewport } from 'next'
 import localFont from 'next/font/local'
 import { SessionProvider } from './providers/SessionProvider'
+
+export const metadata: Metadata = {
+  title: 'CheckPD Admin',
+  description: 'ระบบจัดการผู้ป่วยพาร์กินสัน ศูนย์ความเป็นเลิศด้านพาร์กินสัน โรงพยาบาลจุฬาลงกรณ์',
+  manifest: '/manifest.json',
+  icons: {
+    apple: '/icons/apple-touch-icon.png',
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'CheckPD',
+  },
+}
+
+export const viewport: Viewport = {
+  themeColor: '#4339C6',
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+}
 
 const sarabun = localFont({
   src: [

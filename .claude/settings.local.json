@@ -10,7 +10,8 @@
       "Bash(npx next:*)",
       "Bash(node -e ' *)",
       "Bash(mkdir -p \"d:\\\\DEV_WEB\\\\checkpd\\\\checkpd_webapp\\\\docs\")",
-      "Bash(npx eslint *)"
+      "Bash(npx eslint *)",
+      "PowerShell(New-Item -ItemType Directory -Force \"d:\\\\DEV_WEB\\\\checkpd\\\\checkpd_webapp\\\\public\\\\icons\")"
     ],
     "additionalDirectories": [
       "d:\\DEV_WEB\\checkpd\\checkpd_webapp\\docs"

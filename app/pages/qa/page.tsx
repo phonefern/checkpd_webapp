@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import QaSearchFilters from '@/app/component/qa/QaSearchFilters'
 import QaTable, { type QaSortColumn, type QaSortDirection } from '@/app/component/qa/QaTable'
+import QaPhoneCardList from '@/app/component/qa/QaPhoneCardList'
 import QaCreateModal from '@/app/component/qa/QaCreateModal'
 import QaAssessmentModal from '@/app/component/qa/QaAssessmentModal'
 import QaPatientSummaryModal from '@/app/component/qa/QaPatientSummaryModal'
@@ -590,19 +591,30 @@ export default function QaPage() {
         </div>
       ) : (
         <>
-          <QaTable
-            rows={rows}
-            role={role}
-            onAssess={setAssessingPatient}
-            onEdit={handleEdit}
-            onQuickDiag={handleQuickDiag}
-            onDelete={handleDelete}
-            onDetail={setSummaryRow}
-            onAddVisit={handleAddVisit}
-            sortColumn={sortColumn}
-            sortDirection={sortDirection}
-            onSort={handleSort}
-          />
+          {/* Desktop table */}
+          <div className="hidden md:block">
+            <QaTable
+              rows={rows}
+              role={role}
+              onAssess={setAssessingPatient}
+              onEdit={handleEdit}
+              onQuickDiag={handleQuickDiag}
+              onDelete={handleDelete}
+              onDetail={setSummaryRow}
+              onAddVisit={handleAddVisit}
+              sortColumn={sortColumn}
+              sortDirection={sortDirection}
+              onSort={handleSort}
+            />
+          </div>
+          {/* Mobile card list */}
+          <div className="md:hidden">
+            <QaPhoneCardList
+              rows={rows}
+              onAssess={setAssessingPatient}
+              onDetail={setSummaryRow}
+            />
+          </div>
           <TablePagination
             currentPage={currentPage}
             totalPages={totalPages}

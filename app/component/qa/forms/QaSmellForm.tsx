@@ -221,7 +221,7 @@ export default function QaSmellForm({ open, patientId, onClose, onSaved }: Props
           คะแนน {score} / 16 · รู้จัก {recognizeCount} / 16 · ได้กลิ่น {perceiveCount} / 16 &nbsp;—&nbsp; <span className="font-normal">{interpretation}</span>
         </div>
         {error && <p className="text-sm text-red-600 mt-2">{error}</p>}
-        <DialogFooter className="mt-4">
+        <DialogFooter className="sticky bottom-0 bg-white border-t -mx-4 sm:-mx-6 px-4 sm:px-6 py-3 mt-6">
           <Button variant="outline" onClick={onClose} disabled={saving}>ยกเลิก</Button>
           <Button onClick={handleSave} disabled={saving} className="bg-blue-600 hover:bg-blue-700 text-white">
             {saving ? 'กำลังบันทึก...' : 'บันทึก'}

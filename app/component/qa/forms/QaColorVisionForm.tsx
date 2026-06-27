@@ -346,7 +346,7 @@ export default function QaColorVisionForm({ open, patientId, onClose, onSaved }:
           </div>
         </div>
         {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
-        <DialogFooter className="mt-4">
+        <DialogFooter className="sticky bottom-0 bg-white border-t -mx-4 sm:-mx-6 px-4 sm:px-6 py-3 mt-6">
           <Button variant="outline" onClick={onClose} disabled={saving}>ยกเลิก</Button>
           <Button onClick={handleSave} disabled={saving || loading} className="bg-slate-900 text-white hover:bg-slate-800">
             {saving ? 'กำลังบันทึก...' : 'บันทึก'}
