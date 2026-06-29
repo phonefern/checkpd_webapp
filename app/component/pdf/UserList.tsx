@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
     Table,
     TableBody,
@@ -12,8 +13,10 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Search, User, ClipboardCheck, X } from "lucide-react";
+import { ChevronDown, ClipboardCheck, Loader2, Search, SlidersHorizontal, User, X } from "lucide-react";
 import { UserRow, provinceOptions, extractProvince } from "@/app/pages/pdf/types";
+import type { QaCreatedIdentity } from "@/app/component/qa/QaCreateModal";
+import { PdfUserCardList } from "@/app/component/pdf/PdfUserCardList";
 
 interface UserListProps {
     users: UserRow[];
@@ -30,6 +33,7 @@ interface UserListProps {
     onDateToChange: (v: string) => void;
     onUserSelect: (user: UserRow) => void;
     onQaClick: (user: UserRow) => void;
+    qaIdentityByUser: Record<string, QaCreatedIdentity>;
     currentUsers: UserRow[];
     paginationInfo: {
         currentPage: number;
@@ -57,9 +61,11 @@ export function UserList({
     onDateToChange,
     onUserSelect,
     onQaClick,
+    qaIdentityByUser,
     currentUsers,
     paginationInfo,
 }: UserListProps) {
+    const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
     const getSourceBadge = (source?: string) => {
         if (source === "temps") {
             return <Badge variant="secondary" className="font-normal">Staff</Badge>;
@@ -68,6 +74,7 @@ export function UserList({
     };
 
     const hasActiveFilter = !!(provinceFilter || dateFrom || dateTo);
+    const activeFilterCount = [provinceFilter, dateFrom, dateTo].filter(Boolean).length;
 
     const setPreset = (preset: "today" | "week" | "month" | "year") => {
         const now = new Date();
@@ -94,6 +101,75 @@ export function UserList({
         onDateFromChange("");
         onDateToChange("");
     };
+
+    const filterControls = (mobile: boolean) => (
+        <>
+            <div className={`grid grid-cols-1 gap-2 ${mobile ? "" : "sm:grid-cols-3"}`}>
+                <select
+                    aria-label="กรองตามจังหวัด"
+                    value={provinceFilter}
+                    onChange={(e) => onProvinceChange(e.target.value === "null" ? "" : e.target.value)}
+                    className={`w-full rounded-md border border-gray-300 bg-background px-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 ${
+                        mobile ? "min-h-[48px] text-base" : "py-2 text-sm"
+                    }`}
+                >
+                    <option value="">ทุกจังหวัด</option>
+                    {provinceOptions
+                        .filter((o) => o.value !== "null")
+                        .map((o) => (
+                            <option key={o.value} value={o.value}>{o.label}</option>
+                        ))}
+                </select>
+
+                <input
+                    aria-label="จากวันที่"
+                    type="date"
+                    value={dateFrom}
+                    onChange={(e) => onDateFromChange(e.target.value)}
+                    className={`w-full rounded-md border border-gray-300 bg-background px-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 ${
+                        mobile ? "min-h-[48px] text-base" : "py-2 text-sm"
+                    }`}
+                />
+
+                <input
+                    aria-label="ถึงวันที่"
+                    type="date"
+                    value={dateTo}
+                    onChange={(e) => onDateToChange(e.target.value)}
+                    className={`w-full rounded-md border border-gray-300 bg-background px-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 ${
+                        mobile ? "min-h-[48px] text-base" : "py-2 text-sm"
+                    }`}
+                />
+            </div>
+
+            <div className="flex flex-wrap items-center gap-1">
+                <span className="mr-1 text-xs text-muted-foreground">ช่วงเวลา:</span>
+                {(["today", "week", "month", "year"] as const).map((p) => (
+                    <Button
+                        key={p}
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className={mobile ? "min-h-[48px] flex-1 px-2 text-xs active:bg-muted" : "h-7 px-2 text-xs"}
+                        onClick={() => setPreset(p)}
+                    >
+                        {p === "today" ? "วันนี้" : p === "week" ? "7 วัน" : p === "month" ? "เดือนนี้" : "ปีนี้"}
+                    </Button>
+                ))}
+                {!mobile && hasActiveFilter && (
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="ml-1 h-7 px-2 text-xs text-red-500 hover:text-red-600"
+                        onClick={clearFilters}
+                    >
+                        <X className="mr-1 h-3 w-3" />ล้างตัวกรอง
+                    </Button>
+                )}
+            </div>
+        </>
+    );
 
     return (
         <Card className={className}>
@@ -123,59 +199,45 @@ export function UserList({
                         placeholder="ค้นหาด้วยชื่อ, นามสกุล, หรือเลขบัตรประชาชน..."
                         value={searchQuery}
                         onChange={(e) => onSearchChange(e.target.value)}
-                        className="pl-10"
+                        className="h-12 pl-10 text-base lg:h-9 lg:text-sm"
                     />
                 </div>
 
-                {/* Filters */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                    {/* Province */}
-                    <select
-                        value={provinceFilter}
-                        onChange={(e) => onProvinceChange(e.target.value === "null" ? "" : e.target.value)}
-                        className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-background"
-                    >
-                        <option value="">ทุกจังหวัด</option>
-                        {provinceOptions
-                            .filter((o) => o.value !== "null")
-                            .map((o) => (
-                                <option key={o.value} value={o.value}>{o.label}</option>
-                            ))}
-                    </select>
-
-                    {/* Date from */}
-                    <input
-                        type="date"
-                        value={dateFrom}
-                        onChange={(e) => onDateFromChange(e.target.value)}
-                        className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-background"
-                        placeholder="จากวันที่"
-                    />
-
-                    {/* Date to */}
-                    <input
-                        type="date"
-                        value={dateTo}
-                        onChange={(e) => onDateToChange(e.target.value)}
-                        className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-background"
-                        placeholder="ถึงวันที่"
-                    />
+                {/* Desktop filters */}
+                <div className="hidden space-y-3 lg:block">
+                    {filterControls(false)}
                 </div>
 
-                {/* Presets + clear */}
-                <div className="flex flex-wrap gap-1 items-center">
-                    <span className="text-xs text-muted-foreground mr-1">ช่วงเวลา:</span>
-                    {(["today", "week", "month", "year"] as const).map((p) => (
-                        <Button key={p} variant="outline" size="sm" className="h-7 px-2 text-xs"
-                            onClick={() => setPreset(p)}>
-                            {p === "today" ? "วันนี้" : p === "week" ? "7 วัน" : p === "month" ? "เดือนนี้" : "ปีนี้"}
+                {/* Mobile filters */}
+                <div className="rounded-lg border lg:hidden">
+                    <div className="flex items-center gap-2 p-1.5">
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            aria-expanded={mobileFiltersOpen}
+                            aria-controls="pdf-mobile-filters"
+                            onClick={() => setMobileFiltersOpen((open) => !open)}
+                            className="min-h-[48px] flex-1 justify-start active:bg-muted"
+                        >
+                            <SlidersHorizontal className="mr-2 h-4 w-4" />
+                            ตัวกรอง{activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
+                            <ChevronDown className={`ml-auto h-4 w-4 transition-transform ${mobileFiltersOpen ? "rotate-180" : ""}`} />
                         </Button>
-                    ))}
-                    {hasActiveFilter && (
-                        <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-red-500 hover:text-red-600 ml-1"
-                            onClick={clearFilters}>
-                            <X className="h-3 w-3 mr-1" />ล้างตัวกรอง
-                        </Button>
+                        {hasActiveFilter && (
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                onClick={clearFilters}
+                                className="min-h-[48px] px-3 text-red-600 active:bg-red-50"
+                            >
+                                <X className="mr-1 h-4 w-4" />ล้าง
+                            </Button>
+                        )}
+                    </div>
+                    {mobileFiltersOpen && (
+                        <div id="pdf-mobile-filters" className="space-y-3 border-t p-3">
+                            {filterControls(true)}
+                        </div>
                     )}
                 </div>
 
@@ -198,7 +260,8 @@ export function UserList({
                         </p>
                     </div>
                 ) : (
-                    <div className="rounded-md border overflow-x-auto">
+                    <>
+                    <div className="hidden rounded-md border overflow-x-auto lg:block">
                         <Table>
                             <TableHeader>
                                 <TableRow>
@@ -273,6 +336,16 @@ export function UserList({
                             </TableBody>
                         </Table>
                     </div>
+                    <div className="lg:hidden">
+                        <PdfUserCardList
+                            users={currentUsers}
+                            selectedUserId={selectedUserId}
+                            qaIdentityByUser={qaIdentityByUser}
+                            onUserSelect={onUserSelect}
+                            onQaClick={onQaClick}
+                        />
+                    </div>
+                    </>
                 )}
             </CardContent>
         </Card>

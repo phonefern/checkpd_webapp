@@ -37,13 +37,26 @@ function extractSensorSeries(recordData: any) {
   return rows
     .map((row: any) => {
       const d = row.data;
-      if (!Array.isArray(d) || d.length < 6) return null;
+      if (!Array.isArray(d)) return null;
+
+      // Two recording formats exist (see `recording.recordingFormat`):
+      //   6-axis ["ax","ay","az","gx","gy","gz"] -> accel signal at indices 3-5 (validated path)
+      //   3-axis ["ax","ay","az"]                -> accelerometer only at indices 0-2
+      let x: number, y: number, z: number;
+      if (d.length >= 6) {
+        x = Number(d[3]); y = Number(d[4]); z = Number(d[5]);
+      } else if (d.length >= 3) {
+        x = Number(d[0]); y = Number(d[1]); z = Number(d[2]);
+      } else {
+        return null;
+      }
+      if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) return null;
 
       return {
         ts: row.ts,           // seconds timestamp (NOT ms)
-        gx: Number(d[3]),
-        gy: Number(d[4]),
-        gz: Number(d[5]),
+        gx: x,
+        gy: y,
+        gz: z,
       };
     })
     .filter(Boolean);
