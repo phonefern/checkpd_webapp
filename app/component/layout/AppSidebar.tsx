@@ -5,6 +5,7 @@ import {
   BarChart3,
   Bell,
   Building2,
+  CalendarDays,
   ChevronLeft,
   ChevronRight,
   Database,
@@ -53,6 +54,7 @@ const workspaceItems: SidebarItem[] = [
   { label: "Diagnosis Management", icon: ShieldCheck, path: "/pages/users", feature: "users" },
   // { label: "Questionnaire Management V1", icon: FileText, path: "/pages/papers", feature: "papers" },
     { label: "Screening Assessments", icon: Download, path: "/pages/qa", feature: "qa" },
+  { label: "Event Management", icon: CalendarDays, path: "/pages/event", feature: "event" },
   { label: "Usage Analytics", icon: Clock, path: "/pages/tracking", feature: "tracking" },
   { label: "CheckPD Report Export (PDF)", icon: FileDown, path: "/pages/pdf", feature: "pdf" },
   {
