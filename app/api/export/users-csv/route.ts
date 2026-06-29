@@ -216,6 +216,13 @@ async function buildCsv(pairs: Pair[], scope: ExportScope): Promise<CsvBuildResu
 
   const pubUsersMap = indexBy(pubUsersData, "id")
   const cpUsersMap = indexBy(cpUsersData, "id")
+
+  // Event name lookup (small table) so checkpd.users.event_id resolves to a name.
+  const { data: eventRows } = await supabaseAdmin
+    .schema("checkpd")
+    .from("events")
+    .select("id,name_en,name_th")
+  const eventMap = indexBy(eventRows ?? [], "id")
   const { byRecord: pubSummaryByRecord, byUser: pubSummaryByUser } = indexSummaryRows(pubSummaryData, "user_id")
 
   let cpSummaryByRecord: RowMap = {}
@@ -297,6 +304,8 @@ async function buildCsv(pairs: Pair[], scope: ExportScope): Promise<CsvBuildResu
 
     const thaiid = str(viewRow.thaiid) || str(cpu.thai_id) || str(pub.thaiid)
     const thaiidNorm = normalizeThaiId(thaiid)
+    const eventId = str(cpu.event_id)
+    const ev = eventId ? eventMap[eventId] ?? {} : {}
     const patientId = coreData.patientMap[thaiid] ?? (thaiidNorm ? coreData.patientMap[thaiidNorm] : undefined)
     const noCore = patientId == null
 
@@ -336,6 +345,9 @@ async function buildCsv(pairs: Pair[], scope: ExportScope): Promise<CsvBuildResu
       normalizeYesNo(cpu.insecticide),
       normalizeYesNo(cpu.narcotic),
       normalizeYesNo(cpu.severe_head_injury),
+      eventId,
+      str(ev.name_en),
+      str(ev.name_th),
     ]
 
     if (includeAdmin) {
@@ -444,6 +456,9 @@ function buildHeaders(flags: { includeCore: boolean; includeScreening: boolean; 
     "insecticide",
     "narcotic",
     "severe_head_injury",
+    "event_id",
+    "event_name_en",
+    "event_name_th",
   ]
 
   if (flags.includeAdmin) {
@@ -786,6 +801,7 @@ Yes / No / blank
 Data sources
 ------------
 - Demographics: checkpd.users
+- Event name (event_name_en / event_name_th): checkpd.events joined on event_id
 - Timestamp and prediction_risk: public.user_record_summary_with_users
 - Clinical scores: core.patients_v2 and score tables
 - Screening questionnaire: checkpd.records + checkpd.questionnaire
