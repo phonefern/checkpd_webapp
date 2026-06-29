@@ -11,6 +11,7 @@ import { ExportSection } from "@/app/component/pdf/ExportSection";
 import { PaginationControls } from "@/app/component/pdf/PaginationControls";
 import { UserRow, RecordRow, extractProvince } from "./types";
 import { Card, CardContent } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import QaCreateModal from "@/app/component/qa/QaCreateModal";
 import type { QaCreatedIdentity } from "@/app/component/qa/QaCreateModal";
 import { QaPatient, QaDiagnosisRow } from "@/app/component/qa/types";
@@ -40,6 +41,7 @@ export default function ExportTestPage() {
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedUser, setSelectedUser] = useState<UserRow | null>(null);
+  const [mobileRecordsOpen, setMobileRecordsOpen] = useState(false);
   const [records, setRecords] = useState<RecordRow[]>([]);
   const [provinceFilter, setProvinceFilter] = useState("");
   const [dateFrom, setDateFrom] = useState("");
@@ -222,6 +224,16 @@ export default function ExportTestPage() {
     };
   }, [selectedUser, qaIdentityByUser]);
 
+  useEffect(() => {
+    const desktopQuery = window.matchMedia("(min-width: 1024px)");
+    const closeMobileDialogOnDesktop = (event: MediaQueryListEvent) => {
+      if (event.matches) setMobileRecordsOpen(false);
+    };
+
+    desktopQuery.addEventListener("change", closeMobileDialogOnDesktop);
+    return () => desktopQuery.removeEventListener("change", closeMobileDialogOnDesktop);
+  }, []);
+
   // ===== Filtering and Pagination =====
   const filteredUsers = users.filter((u) => {
     const q = searchQuery.toLowerCase().trim();
@@ -322,6 +334,9 @@ export default function ExportTestPage() {
     setSelectedUser(user);
     setUserDocId(user.userDocId);
     setRecordId("");
+    if (window.matchMedia("(max-width: 1023px)").matches) {
+      setMobileRecordsOpen(true);
+    }
   };
 
   // ===== QA Modal =====
@@ -402,7 +417,7 @@ export default function ExportTestPage() {
             'radial-gradient(circle at center, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.9) 40%, rgba(240,244,255,0.85) 100%)',
         }}
       >
-        <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
           {/* QA Modal */}
           <QaCreateModal
             open={qaOpen}
@@ -431,7 +446,7 @@ export default function ExportTestPage() {
             loading={loading}
             searchQuery={searchQuery}
             selectedUserId={selectedUser?.userDocId || ""}
-            className={selectedUser ? "xl:col-span-8" : "xl:col-span-12"}
+            className={selectedUser ? "lg:col-span-8" : "lg:col-span-12"}
             provinceFilter={provinceFilter}
             dateFrom={dateFrom}
             dateTo={dateTo}
@@ -441,6 +456,7 @@ export default function ExportTestPage() {
             onDateToChange={(v) => { setDateTo(v); setCurrentPage(1); }}
             onUserSelect={handleUserSelect}
             onQaClick={handleQaClick}
+            qaIdentityByUser={qaIdentityByUser}
             currentUsers={currentUsers}
             paginationInfo={{
               currentPage,
@@ -452,7 +468,7 @@ export default function ExportTestPage() {
           />
 
           {/* Right: Records Panel */}
-          <div className="xl:col-span-4 empty:hidden">
+          <div className="hidden empty:hidden lg:col-span-4 lg:block">
             <RecordsPanel
               selectedUser={selectedUser}
               records={records}
@@ -471,6 +487,31 @@ export default function ExportTestPage() {
           </div>
         </div>
 
+        <Dialog open={mobileRecordsOpen} onOpenChange={setMobileRecordsOpen}>
+          <DialogContent
+            showCloseButton={false}
+            className="left-0 top-0 block h-[100dvh] w-screen max-w-none translate-x-0 translate-y-0 overflow-hidden rounded-none border-0 p-0 sm:max-w-none lg:hidden"
+          >
+            <DialogTitle className="sr-only">รายการตรวจและเปิดรายงาน PDF</DialogTitle>
+            <DialogDescription className="sr-only">
+              เลือกรายการตรวจ ลงทะเบียน QA และเปิดรายงาน PDF ของผู้ใช้ที่เลือก
+            </DialogDescription>
+            <RecordsPanel
+              variant="dialog"
+              selectedUser={selectedUser}
+              records={records}
+              selectedRecordId={recordId}
+              loading={false}
+              onClose={() => setMobileRecordsOpen(false)}
+              onRecordSelect={setRecordId}
+              onExport={handleExportSingle}
+              isExporting={loadingSingle}
+              qaIdentity={selectedUser ? qaIdentityByUser[selectedUser.userDocId] : undefined}
+              onQaRegister={() => selectedUser && handleQaClick(selectedUser)}
+            />
+          </DialogContent>
+        </Dialog>
+
         {/* Pagination Controls */}
         {totalPages > 1 && (
           <Card>
@@ -488,18 +529,20 @@ export default function ExportTestPage() {
         )}
 
         {/* Export Section */}
-        <ExportSection
-          userDocId={userDocId}
-          recordId={recordId}
-          csvFile={csvFile}
-          loadingSingle={loadingSingle}
-          loadingBatch={loadingBatch}
-          onUserDocIdChange={setUserDocId}
-          onRecordIdChange={setRecordId}
-          onCsvFileChange={setCsvFile}
-          onSingleExport={handleExportSingle}
-          onBatchExport={handleExportBatch}
-        />
+        <div className="hidden lg:block">
+          <ExportSection
+            userDocId={userDocId}
+            recordId={recordId}
+            csvFile={csvFile}
+            loadingSingle={loadingSingle}
+            loadingBatch={loadingBatch}
+            onUserDocIdChange={setUserDocId}
+            onRecordIdChange={setRecordId}
+            onCsvFileChange={setCsvFile}
+            onSingleExport={handleExportSingle}
+            onBatchExport={handleExportBatch}
+          />
+        </div>
       </div>
     </div>
     </SidebarLayout>
