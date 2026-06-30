@@ -5,6 +5,7 @@ import JSZip from 'jszip'
 import SearchFilters from '@/app/component/storage/SearchFilters'
 import SummarySection from '@/app/component/storage/SummarySection'
 import PatientTable from '@/app/component/storage/PatientTable'
+import StorageDownloadOverlay from '@/app/component/storage/StorageDownloadOverlay'
 import { TEST_OPTIONS, TestType } from '@/app/component/storage/types'
 
 /* ================= Types ================= */
@@ -321,7 +322,7 @@ export default function StorageClient() {
   /* ================= Render ================= */
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+    <div className="w-full space-y-6">
       <SearchFilters
         search={search}
         setSearch={setSearch}
@@ -377,6 +378,8 @@ export default function StorageClient() {
         onPageChange={setPage}
         onPageSizeChange={setPageSize}
       />
+
+      <StorageDownloadOverlay open={downloading} progress={downloadProgress} />
     </div>
   )
 }

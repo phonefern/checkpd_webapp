@@ -2,7 +2,12 @@
 import { NextRequest } from 'next/server'
 import { supabaseServer } from '@/lib/supabase-server'
 import { buildPatientQuery } from '@/app/component/storage/buildPatientQuery'
-import { TestType } from '@/app/component/storage/types'
+import {
+  getStorageRecordPrefixes,
+  storageRecordKey,
+} from '@/lib/storageRecordPrefixes'
+
+const DATABASE_PAGE_SIZE = 1000
 
 export async function GET(req: NextRequest) {
   try {
@@ -32,34 +37,52 @@ export async function GET(req: NextRequest) {
     const endDate = searchParams.get('endDate') || null
     const lastMigrated = searchParams.get('lastMigrated') || null
 
-    /* ================= Build query ================= */
-    const query = buildPatientQuery(supabaseServer, {
-      search,
-      condition,
-      area,
-      testStatus,
-      risk,
-      startDate,
-      endDate,
-      lastMigrated,
-      page,
-      pageSize,
-    })
+    /* ================= Fetch all filtered DB rows ================= */
+    const databaseRows: any[] = []
+    let databasePage = 1
 
-    /* ================= Execute ================= */
-    const { data, error, count } = await query
+    while (true) {
+      const { data, error } = await buildPatientQuery(supabaseServer, {
+        search,
+        condition,
+        area,
+        testStatus,
+        risk,
+        startDate,
+        endDate,
+        lastMigrated,
+        page: databasePage,
+        pageSize: DATABASE_PAGE_SIZE,
+      })
 
-    if (error) {
-      console.error('LIST USERS ERROR:', error)
-      return Response.json(
-        { error: error.message },
-        { status: 500 }
-      )
+      if (error) {
+        console.error('LIST USERS ERROR:', error)
+        return Response.json(
+          { error: error.message },
+          { status: 500 }
+        )
+      }
+
+      databaseRows.push(...(data ?? []))
+
+      if (!data || data.length < DATABASE_PAGE_SIZE) break
+      databasePage += 1
     }
 
+    /* ================= Keep only rows backed by S3 objects ================= */
+    const storagePrefixes = await getStorageRecordPrefixes()
+    const storedRows = databaseRows.filter(row =>
+      row.id &&
+      row.record_id &&
+      storagePrefixes.has(storageRecordKey(row.id, row.record_id))
+    )
+
+    const from = (page - 1) * pageSize
+    const to = from + pageSize
+
     return Response.json({
-      data: data ?? [],
-      count: count ?? 0,
+      data: storedRows.slice(from, to),
+      count: storedRows.length,
     })
   } catch (err: any) {
     console.error('LIST USERS FATAL ERROR:', err)
