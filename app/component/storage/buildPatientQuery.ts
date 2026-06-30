@@ -1,6 +1,5 @@
 // app/component/storage/buildPatientQuery.ts
 import { SupabaseClient } from '@supabase/supabase-js'
-import { TEST_FILE_KEYWORDS } from './testConfig'
 import { TestType } from './types'
 
 export type FilterParams = {
@@ -23,7 +22,8 @@ export const buildPatientQuery = (
   filters: FilterParams
 ) => {
   let query = supabase
-    .from('user_record_with_users_and_storage')
+    .schema('checkpd')
+    .from('user_record_storage_list')
     .select(`id,
       record_id,
       firstname,
@@ -39,8 +39,8 @@ export const buildPatientQuery = (
       last_update,
       area,
       last_migrate,
-      storage_base_path`,
-      { count: 'exact' })
+      effective_date`)
+    .not('condition', 'is', null)
 
   /* ================= Search =================
      รองรับ:
@@ -98,17 +98,6 @@ export const buildPatientQuery = (
     }
   }
 
-  /* ================= Tests ================= */
-  if (filters.selectedTest?.length) {
-    const ors: string[] = []
-    filters.selectedTest.forEach(t =>
-      TEST_FILE_KEYWORDS[t].forEach(k =>
-        ors.push(`storage_base_path.ilike.%${k}%`)
-      )
-    )
-    query = query.or(ors.join(','))
-  }
-
   /* ================= Recorded Date ================= */
   if (filters.startDate) {
     query = query.gte('effective_date', filters.startDate)
@@ -130,7 +119,13 @@ export const buildPatientQuery = (
 
 
   /* ---------- ORDER ---------- */
-  query = query.order('last_migrate', { ascending: false })
+  // เรียงตาม "Recorded" ล่าสุดขึ้นก่อน — ตรงกับคอลัมน์ที่แสดง (last_update ?? timestamp)
+  // last_update เป็นหลัก, timestamp เป็น fallback; ค่า null ไปท้ายสุด
+  // id/record_id เป็น tiebreaker ให้ pagination เสถียร
+  query = query.order('last_update', { ascending: false, nullsFirst: false })
+    .order('timestamp', { ascending: false, nullsFirst: false })
+    .order('id', { ascending: true })
+    .order('record_id', { ascending: true })
 
   /* ---------- PAGINATION ---------- */
   if (filters.page && filters.pageSize) {

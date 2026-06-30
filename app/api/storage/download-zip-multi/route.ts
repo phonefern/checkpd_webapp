@@ -73,8 +73,10 @@ export async function GET(req: Request) {
     // ===== CASE 1: Select all (all pages) =====
     if (select_all) {
       let query = supabaseServer
-        .from("user_record_with_users_and_storage")
+        .schema("checkpd")
+        .from("user_record_storage_list")
         .select("id, record_id, condition")
+        .not("condition", "is", null)
 
       if (condition !== "all") {
         query = query.eq("condition", condition)
@@ -117,8 +119,10 @@ export async function GET(req: Request) {
       const userIds = items.map(i => i.user_id)
 
       const res = await supabaseServer
-        .from("user_record_with_users_and_storage")
+        .schema("checkpd")
+        .from("user_record_storage_list")
         .select("id, record_id, condition")
+        .not("condition", "is", null)
         .in("id", userIds)
 
       if (res.error) {

@@ -6,8 +6,9 @@ export default function StoragePage() {
   return (
     <SidebarLayout activePath="/pages/storage" mainClassName="bg-slate-50">
       <div className="min-h-screen">
-        <div className="border-b border-gray-200 bg-white">
-          <div className="mx-auto max-w-7xl space-y-2 px-6 py-8">
+        <div className="relative overflow-hidden border-b border-gray-200 bg-white">
+          <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-purple-700 via-purple-500 to-purple-700" />
+          <div className="w-full space-y-2 px-6 py-8">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Raw Data Access</p>
             <h1 className="text-4xl font-bold text-gray-900">
               File Storage Management
@@ -21,7 +22,7 @@ export default function StoragePage() {
           </div>
         </div>
 
-        <div className="w-full px-6 py-6 lg:px-16 xl:px-32">
+        <div className="w-full px-6 py-6">
           <StorageClient />
         </div>
 
