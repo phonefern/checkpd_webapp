@@ -318,6 +318,7 @@ async function buildCsv(pairs: Pair[], scope: ExportScope): Promise<CsvBuildResu
     const tmse = noCore ? {} : coreData.tmseMap[patientId] ?? {}
     const rbd = noCore ? {} : coreData.rbdMap[patientId] ?? {}
     const rome4 = noCore ? {} : coreData.rome4Map[patientId] ?? {}
+    const vision = noCore ? {} : coreData.visionMap[patientId] ?? {}
 
     const row: string[] = [
       userId,
@@ -406,7 +407,15 @@ async function buildCsv(pairs: Pair[], scope: ExportScope): Promise<CsvBuildResu
         str(smell.total_score),
         str(tmse.total_score),
         str(rbd.total_score),
-        str(rome4.total_score)
+        str(rome4.total_score),
+        str(vision.color_paper_re_test_axis),
+        str(vision.color_paper_re_test_crossings),
+        str(vision.color_paper_re_retest_axis),
+        str(vision.color_paper_re_retest_crossings),
+        str(vision.color_paper_le_test_axis),
+        str(vision.color_paper_le_test_crossings),
+        str(vision.color_paper_le_retest_axis),
+        str(vision.color_paper_le_retest_crossings)
       )
       if (includeDetail) {
         for (let i = 1; i <= 13; i++) {
@@ -516,7 +525,15 @@ function buildHeaders(flags: { includeCore: boolean; includeScreening: boolean; 
       "smell_total",
       "tmse_total",
       "rbd_total",
-      "rome4_total"
+      "rome4_total",
+      "d15_re_test_result",
+      "d15_re_test_crossings",
+      "d15_re_retest_result",
+      "d15_re_retest_crossings",
+      "d15_le_test_result",
+      "d15_le_test_crossings",
+      "d15_le_retest_result",
+      "d15_le_retest_crossings"
     )
     if (flags.includeDetail) {
       for (let i = 1; i <= 13; i++) {
@@ -573,7 +590,7 @@ async function fetchCoreData(params: {
   console.info("[export/users-csv] unique patient_ids for score lookup:", patientIds.length)
   if (patientIds.length === 0) return coreData
 
-  const [diagnosisRows, mocaRows, hamdRows, mdsRows, epworthRows, smellRows, tmseRows, rbdRows, rome4Rows] =
+  const [diagnosisRows, mocaRows, hamdRows, mdsRows, epworthRows, smellRows, tmseRows, rbdRows, rome4Rows, visionRows] =
     await Promise.all([
       fetchInChunks<Record<string, unknown>>(patientIds, (chunkIds, from, to) =>
         supabaseAdmin
@@ -660,6 +677,20 @@ async function fetchCoreData(params: {
           .in("patient_id", chunkIds as number[])
           .range(from, to)
       ),
+      fetchInChunks<Record<string, unknown>>(patientIds, (chunkIds, from, to) =>
+        supabaseAdmin
+          .schema("core")
+          .from("vision_tests_v2")
+          .select(
+            "patient_id," +
+              "color_paper_re_test_axis,color_paper_re_test_crossings," +
+              "color_paper_re_retest_axis,color_paper_re_retest_crossings," +
+              "color_paper_le_test_axis,color_paper_le_test_crossings," +
+              "color_paper_le_retest_axis,color_paper_le_retest_crossings"
+          )
+          .in("patient_id", chunkIds as number[])
+          .range(from, to)
+      ),
     ])
 
   coreData.diagnosisMap = indexBy(diagnosisRows, "patient_id") as ScoreMap
@@ -671,6 +702,7 @@ async function fetchCoreData(params: {
   coreData.tmseMap = indexBy(tmseRows, "patient_id") as ScoreMap
   coreData.rbdMap = indexBy(rbdRows, "patient_id") as ScoreMap
   coreData.rome4Map = indexBy(rome4Rows, "patient_id") as ScoreMap
+  coreData.visionMap = indexBy(visionRows, "patient_id") as ScoreMap
 
   return coreData
 }
@@ -707,6 +739,7 @@ function emptyCoreData() {
     tmseMap: {} as ScoreMap,
     rbdMap: {} as ScoreMap,
     rome4Map: {} as ScoreMap,
+    visionMap: {} as ScoreMap,
   }
 }
 
@@ -762,7 +795,7 @@ async function buildZip(args: {
 function buildReadme(scope: ExportScope, includesQuestionnaire: boolean) {
   const scopeDescriptions: Record<ExportScope, string> = {
     demo: "Demo only - demographics and risk-factor fields only.",
-    demo_test: "Demo + Test - demographics plus in-clinic clinical scores.",
+    demo_test: "Demo + Test - demographics plus in-clinic clinical scores (incl. D-15 color vision d15_* columns).",
     demo_test_screening: "Demo + Test + Screening - adds mobile app screening, q01-q20, and prediction.",
     full: "Full - all export columns, including admin condition/other metadata.",
     full_detail: "Full + Detail - all full columns plus RBD item breakdown (rbd1-rbd13 score/frequency) and Smell encoding (s1-s16: 1=correct, 0=wrong).",
@@ -797,6 +830,13 @@ blank = ไม่ระบุ / unknown / malformed value
 
 Other Yes/No columns from core.patient_diagnosis_v2 keep the existing format:
 Yes / No / blank
+
+D-15 color vision (d15_* columns, from core.vision_tests_v2)
+------------------------------------------------------------
+Four sessions: re_test / re_retest (right eye), le_test / le_retest (left eye).
+- d15_<session>_result: normal / protan / deutan / tritan (normal = pass, i.e. <= 1 major crossing)
+- d15_<session>_crossings: number of major crossing lines on the D-15 diagram (severity; 0 = perfect)
+blank = session not administered
 
 Data sources
 ------------
