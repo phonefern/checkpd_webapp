@@ -8,6 +8,38 @@ export type DashboardFilters = {
   risk: RiskFilter
 }
 
+export type DashboardStatsPayload = {
+  risk_counts: {
+    risk: number
+    normal: number
+    pending: number
+    noTest: number
+  }
+  test_result_counts: {
+    complete: number
+    partial: number
+    unattempt: number
+  }
+  condition_counts: {
+    pd: number
+    pdm: number
+    ctrl: number
+    other: number
+  }
+  gender_counts: {
+    male: number
+    female: number
+    other: number
+  }
+  age_buckets: Array<{ label: string; count: number }>
+  province_top: Array<{ name: string; count: number }>
+  province_options: string[]
+  area_options: string[]
+  download_count: number
+  total_users: number
+  generated_at: string
+}
+
 export type CheckpdRiskRow = {
   user_id: string
   prediction_risk: boolean | null

@@ -17,33 +17,13 @@ import DashboardFilters from "@/app/component/dashboard/DashboardFilters"
 import ProvinceBarChart from "@/app/component/dashboard/ProvinceBarChart"
 import TestResultPieChart from "@/app/component/dashboard/TestResultPieChart"
 import TqdmSpinner from "@/app/component/dashboard/TqdmSpinner"
-import { DEFAULT_FILTERS, type DashboardFilters as DashboardFiltersType } from "@/app/component/dashboard/types"
+import {
+  DEFAULT_FILTERS,
+  type DashboardFilters as DashboardFiltersType,
+  type DashboardStatsPayload,
+} from "@/app/component/dashboard/types"
 import { useSession } from "@/app/providers/SessionProvider"
 import { useAccessProfile } from "@/app/hooks/useAccessProfile"
-
-type ViewRow = {
-  id: string
-  record_id: string | null
-  firstname: string | null
-  lastname: string | null
-  age: number | null
-  gender: string | null
-  province: string | null
-  area: string | null
-  condition: string | null
-  test_result: string | null
-  last_update: string | null
-}
-
-type RiskRow = {
-  user_id: string
-  latest_status: string | null
-  kind: string | null
-  province: string | null
-  parent_timestamp: string | null
-}
-
-const FETCH_BATCH = 1000
 
 const RISK_PIE_COLORS = {
   risk:    "#e11d48",
@@ -52,105 +32,23 @@ const RISK_PIE_COLORS = {
   noTest:  "#f59e0b",
 }
 
-function mapTestResultToThai(value: string | null | undefined): "ทำแบบทดสอบ" | "ทำแบบทดสอบบางส่วน" | "ไม่ได้ทำแบบทดสอบ" {
-  const v = (value ?? "").trim().toLowerCase()
-  if (v === "incomplete" || v.includes("incomplete") || v.includes("partial") || v.includes("บางส่วน")) {
-    return "ทำแบบทดสอบบางส่วน"
+async function fetchDashboardStats(filters: DashboardFiltersType): Promise<DashboardStatsPayload> {
+  const params = new URLSearchParams()
+  if (filters.startDate) params.set("start", filters.startDate)
+  if (filters.endDate) params.set("end", filters.endDate)
+  if (filters.province) params.set("province", filters.province)
+  if (filters.area) params.set("area", filters.area)
+  if (filters.risk) params.set("risk", filters.risk)
+
+  const query = params.toString()
+  const response = await fetch(`/api/dashboard/stats${query ? `?${query}` : ""}`, {
+    credentials: "same-origin",
+  })
+  const body = await response.json().catch(() => null)
+  if (!response.ok) {
+    throw new Error(body?.error ?? "Dashboard stats request failed")
   }
-  if (v === "unattempt" || v.includes("unattempt") || v.includes("ไม่ได้ทำ")) {
-    return "ไม่ได้ทำแบบทดสอบ"
-  }
-  if (v === "complete" || v.includes("complete") || v.includes("ทำแบบทดสอบครับ") || v.includes("ทำแบบทดสอบ")) {
-    return "ทำแบบทดสอบ"
-  }
-  return "ไม่ได้ทำแบบทดสอบ"
-}
-
-async function fetchViewRows(filters: DashboardFiltersType): Promise<ViewRow[]> {
-  const all: ViewRow[] = []
-  let from = 0
-  while (true) {
-    let q = supabase
-      .from("user_record_summary_with_users")
-      .select("id,record_id,firstname,lastname,age,gender,province,area,condition,test_result,last_update")
-      .order("last_update", { ascending: false, nullsFirst: false })
-      .range(from, from + FETCH_BATCH - 1)
-
-    if (filters.startDate) q = q.gte("last_update", filters.startDate)
-    if (filters.endDate) q = q.lte("last_update", `${filters.endDate}T23:59:59`)
-    if (filters.province) q = q.eq("province", filters.province)
-    if (filters.area) q = q.eq("area", filters.area)
-
-    const res = await q
-    if (res.error) throw res.error
-    const rows = (res.data ?? []) as ViewRow[]
-    all.push(...rows)
-    if (rows.length < FETCH_BATCH) break
-    from += FETCH_BATCH
-  }
-  return all
-}
-
-async function fetchDownloadCount(filters: DashboardFiltersType, isGuest: boolean): Promise<number> {
-  if (isGuest) {
-    const { data, error } = await supabase.rpc("dashboard_guest_download_count", {
-      p_start: filters.startDate ?? null,
-      p_end: filters.endDate ? `${filters.endDate}T23:59:59` : null,
-      p_province: filters.province ?? null,
-      p_area: filters.area ?? null,
-    })
-    if (error) throw error
-    return Number(data ?? 0)
-  }
-
-  const hasDateRange = Boolean(filters.startDate) || Boolean(filters.endDate)
-
-  let q = supabase
-    .schema("checkpd")
-    .from("users")
-    .select("id", { count: "exact", head: true })
-
-  if (hasDateRange) {
-    if (filters.startDate) q = q.gte("firebase_created_at", filters.startDate)
-    if (filters.endDate) q = q.lte("firebase_created_at", `${filters.endDate}T23:59:59`)
-    if (filters.province) q = q.eq("province", filters.province)
-    if (filters.area) q = q.eq("area", filters.area)
-  }
-
-  const { count, error } = await q
-  if (error) throw error
-  return count ?? 0
-}
-
-function matchRiskStatus(latest: string | null | undefined, risk: DashboardFiltersType["risk"]): boolean {
-  if (risk === "all") return true
-  const st = (latest ?? "").toLowerCase()
-  if (risk === "risk") return st === "risk"
-  if (risk === "no_risk") return st === "normal" || st === "no_risk"
-  if (risk === "unknown") return st === "pending" || st === "incomplete"
-  return false
-}
-
-async function fetchRiskRows(filters: DashboardFiltersType): Promise<RiskRow[]> {
-  const all: RiskRow[] = []
-  let from = 0
-  while (true) {
-    let q = supabase
-      .schema("public")
-      .from("checkpd_user_risk")
-      .select("user_id,latest_status,kind,province,parent_timestamp")
-      .range(from, from + FETCH_BATCH - 1)
-    if (filters.province) q = q.eq("province", filters.province)
-    if (filters.startDate) q = q.gte("parent_timestamp", filters.startDate)
-    if (filters.endDate) q = q.lte("parent_timestamp", `${filters.endDate}T23:59:59`)
-    const res = await q
-    if (res.error) throw res.error
-    const rows = (res.data ?? []) as RiskRow[]
-    all.push(...rows)
-    if (rows.length < FETCH_BATCH) break
-    from += FETCH_BATCH
-  }
-  return all
+  return body as DashboardStatsPayload
 }
 
 type RiskKpi = {
@@ -200,106 +98,20 @@ export default function DashboardStatsPage() {
       setLoading(true)
       setError(null)
       try {
-        const [viewRows, riskRows, downloadTotal] = await Promise.all([
-          fetchViewRows(filters),
-          fetchRiskRows(filters),
-          fetchDownloadCount(filters, isGuest),
-        ])
-
-        const byId = new Map<string, ViewRow>()
-        for (const row of viewRows) if (!byId.has(row.id)) byId.set(row.id, row)
-        const users = Array.from(byId.values())
-
-        const provinceSet = new Set<string>()
-        const areaSet = new Set<string>()
-        for (const u of users) {
-          if ((u.province ?? "").trim()) provinceSet.add((u.province ?? "").trim())
-          if (!filters.province || (u.province ?? "").trim() === (filters.province ?? "").trim()) {
-            if ((u.area ?? "").trim()) areaSet.add((u.area ?? "").trim())
-          }
-        }
-
-        const filteredUsers = users
-
-        const idSet = new Set(filteredUsers.map((u) => u.id))
-        const matchedRisk = riskRows.filter((r) => idSet.has(r.user_id))
-
-        const hasDateRange = Boolean(filters.startDate) || Boolean(filters.endDate)
-        let adjustedDownloadCount = downloadTotal
-        if (hasDateRange && filters.risk !== "all") {
-          const userIdsMatchingRisk = new Set(
-            matchedRisk.filter((r) => matchRiskStatus(r.latest_status, filters.risk)).map((r) => r.user_id)
-          )
-          const filteredUsersInRisk = filteredUsers.filter((u) => userIdsMatchingRisk.has(u.id))
-          adjustedDownloadCount = Math.min(downloadTotal, filteredUsersInRisk.length)
-        }
-
-        const riskByUserId = new Map<string, string>()
-        for (const r of matchedRisk) {
-          if (!riskByUserId.has(r.user_id)) {
-            riskByUserId.set(r.user_id, (r.latest_status ?? "").toLowerCase())
-          }
-        }
-        const rCount = { risk: 0, normal: 0, pending: 0, noTest: 0 }
-        for (const u of filteredUsers) {
-          const st = riskByUserId.get(u.id) ?? ""
-          if (st === "risk") rCount.risk += 1
-          else if (st === "normal" || st === "no_risk") rCount.normal += 1
-          else if (st === "pending" || st === "incomplete") rCount.pending += 1
-          else rCount.noTest += 1
-        }
-
-        const tCount = { complete: 0, partial: 0, unattempt: 0 }
-        const cCount = { pd: 0, pdm: 0, ctrl: 0, other: 0 }
-        const gCount = { male: 0, female: 0, other: 0 }
-        const ageMap: Record<string, number> = { "0-20": 0, "21-40": 0, "41-60": 0, "61-80": 0, "81+": 0, "ไม่ระบุ": 0 }
-        const pMap = new Map<string, number>()
-
-        for (const u of filteredUsers) {
-          const tr = mapTestResultToThai(u.test_result)
-          if (tr === "ทำแบบทดสอบ") tCount.complete += 1
-          else if (tr === "ทำแบบทดสอบบางส่วน") tCount.partial += 1
-          else tCount.unattempt += 1
-
-          const c = (u.condition ?? "").trim().toLowerCase()
-          if (c === "pd") cCount.pd += 1
-          else if (c === "pdm" || c.includes("prodromal")) cCount.pdm += 1
-          else if (c === "ctrl" || c === "control") cCount.ctrl += 1
-          else if (c === "other") cCount.other += 1
-
-          const g = (u.gender ?? "").trim().toLowerCase()
-          if (g === "male") gCount.male += 1
-          else if (g === "female") gCount.female += 1
-          else gCount.other += 1
-
-          const age = u.age
-          if (age == null) ageMap["ไม่ระบุ"] += 1
-          else if (age <= 20) ageMap["0-20"] += 1
-          else if (age <= 40) ageMap["21-40"] += 1
-          else if (age <= 60) ageMap["41-60"] += 1
-          else if (age <= 80) ageMap["61-80"] += 1
-          else ageMap["81+"] += 1
-
-          const province = (u.province ?? "").trim() || "ไม่ระบุจังหวัด"
-          pMap.set(province, (pMap.get(province) ?? 0) + 1)
-        }
-
-        const pData = Array.from(pMap.entries())
-          .map(([name, count]) => ({ name, count }))
-          .sort((a, b) => b.count - a.count)
-          .slice(0, 15)
+        const stats = await fetchDashboardStats(filters)
 
         if (cancelled) return
-        setProvinceOptions(Array.from(provinceSet).sort())
-        setAreaOptions(Array.from(areaSet).sort())
-        setDownloadCount(adjustedDownloadCount)
-        setRiskCounts(rCount)
-        setTestResultCounts(tCount)
-        setConditionCounts(cCount)
-        setGenderCounts(gCount)
-        setAgeBuckets(Object.entries(ageMap).map(([label, count]) => ({ label, count })))
-        setProvinceData(pData)
-        setLastUpdated(new Date())
+        setProvinceOptions(stats.province_options)
+        setAreaOptions(stats.area_options)
+        setDownloadCount(stats.download_count)
+        setRiskCounts(stats.risk_counts)
+        setTestResultCounts(stats.test_result_counts)
+        setConditionCounts(stats.condition_counts)
+        setGenderCounts(stats.gender_counts)
+        setAgeBuckets(stats.age_buckets)
+        setProvinceData(stats.province_top)
+        const generatedAt = new Date(stats.generated_at)
+        setLastUpdated(Number.isNaN(generatedAt.getTime()) ? new Date() : generatedAt)
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : String(e))
       } finally {
@@ -310,7 +122,7 @@ export default function DashboardStatsPage() {
     return () => {
       cancelled = true
     }
-  }, [filters, isGuest])
+  }, [filters])
 
   const totalScreened = riskCounts.risk + riskCounts.normal + riskCounts.pending + riskCounts.noTest
 
