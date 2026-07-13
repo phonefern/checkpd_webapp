@@ -282,9 +282,13 @@ export default function DashboardStatsPage() {
                   <p className="font-bold leading-none tabular-nums tracking-tight text-sky-800 text-[clamp(3rem,11vw,8rem)]">
                     {downloadCount.toLocaleString()}
                   </p>
-                  <p className="text-base font-medium text-slate-500 sm:text-lg">ราย</p>
+                  <p className="text-base font-medium text-slate-500 sm:text-lg">รายการ</p>
                 </div>
               </div>
+              <p className="mt-4 text-xs text-slate-400">
+                หมายเหตุ: ตัวเลขทุกส่วนในหน้านี้นับตามจำนวนรายการบันทึกการคัดกรอง (ผู้ใช้ 1 คนที่ทดสอบหลายครั้งจะถูกนับทุกรายการ)
+                และเปลี่ยนตามตัวกรองด้านบน — เป็นเกณฑ์การนับเดียวกับรายงาน Looker Studio
+              </p>
             </section>
 
             <div className="grid gap-4 lg:grid-cols-2">

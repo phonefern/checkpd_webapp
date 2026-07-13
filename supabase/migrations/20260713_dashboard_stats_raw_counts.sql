@@ -1,16 +1,21 @@
-﻿-- PLAN-027: Aggregate dashboard stats in Postgres. Source of truth for public.dashboard_stats.
--- Counting policy (revised 2026-07-13): RAW ROW COUNT over user_record_summary_with_users
--- (matches Looker Studio COUNT(id)); download_count = same filtered row count as the charts.
+-- PLAN-027 revision (2026-07-13): switch the dashboard counting policy from
+-- distinct-users to RAW ROW COUNT over public.user_record_summary_with_users,
+-- matching the Looker Studio report which uses COUNT(id) (row count) on the
+-- same view. Decision by the project owner: all headline numbers on the
+-- dashboard must be identical to each other and to Looker; a user with N
+-- records now counts N times in every widget.
+--
+-- Consequences vs the 20260710 version:
+--   * base CTE: DISTINCT ON (v.id) removed — every view row counts.
+--   * download_count: no longer read from checkpd.users (registrations);
+--     it now equals the same filtered row count as the charts, so the big
+--     download card always agrees with the pie totals. The risk filter
+--     (p_risk <> 'all') narrows it to rows in the matching risk bucket,
+--     preserving the old "risk filter adjusts the download number" behaviour.
+--   * total_users renamed in meaning only: it is now total ROWS (kept the
+--     same JSON key so the client payload shape is unchanged).
+-- p_end is inclusive: filters ending on 2026-07-10 include every row before 2026-07-11.
 
-CREATE INDEX IF NOT EXISTS idx_checkpd_user_risk_user_parent_timestamp
-  ON public.checkpd_user_risk (user_id, parent_timestamp DESC);
-
-CREATE INDEX IF NOT EXISTS idx_checkpd_user_risk_province_parent_timestamp
-  ON public.checkpd_user_risk (province, parent_timestamp DESC);
-
--- Legacy (20260710): supported the old checkpd.users download count; kept for other readers.
-CREATE INDEX IF NOT EXISTS idx_checkpd_users_created_province_area
-  ON checkpd.users (firebase_created_at, province, area);
 CREATE OR REPLACE FUNCTION public.dashboard_stats(
   p_start    date DEFAULT NULL,
   p_end      date DEFAULT NULL,

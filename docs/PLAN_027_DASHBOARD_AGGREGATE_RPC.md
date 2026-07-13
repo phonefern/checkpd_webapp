@@ -31,6 +31,17 @@ page needs as a single JSON payload (~2 KB). The client makes **1 request instea
 row-level data (let alone PII) ever leaves the database. A thin cached API route in front of the RPC
 absorbs nationwide traffic so N concurrent viewers cost 1 DB query per cache window.
 
+**Two additional requirements folded in (2026-07-13):**
+1. The **download-count KPI must follow the filters** — today it ignores province/area unless a date
+   range is also set ("ขอยอดดาวโหลดสะสมทั้งหมดไหลตาม filter ด้วย"). This is a deliberate behaviour
+   change, specified in parity rule #4.
+2. **Count reconciliation** — the page's totals disagree with each other (download card 95,707 vs
+   chart totals 95,646) and with the **Looker Studio dashboard** built on
+   `user_record_summary_with_users`. Where the numbers *can* be made to agree they must be; where
+   they legitimately cannot (different sources count different things), the UI must **explain the
+   difference to the viewer** instead of leaving it as an apparent bug. See the
+   "Count reconciliation" section.
+
 ## Related plans
 
 - [[PLAN-012]] — defined the dashboard surface (KPIs, pies, filters). UI is **unchanged** by this plan.
@@ -54,6 +65,9 @@ absorbs nationwide traffic so N concurrent viewers cost 1 DB query per cache win
    revalidate) keyed by the filter combination, so nationwide concurrent viewers share one DB hit.
 4. **PII removal**: after this plan, no dashboard network response contains `firstname`, `lastname`,
    or any per-user row.
+5. **Download count follows filters** — province/area/date always applied (parity rule #4, revised).
+6. **Count reconciliation**: align the dashboard's internal totals where possible; add a
+   source-explanation footnote/tooltip in the UI for the residual, legitimate gaps vs Looker Studio.
 
 ### Out of scope
 - **Materialized view / pg_cron refresh** — not needed at 80k rows; a live `GROUP BY` with indexes is
@@ -174,17 +188,80 @@ page switches over:
    บางส่วน* first → partial; then *unattempt/ไม่ได้ทำ* → unattempt; then *complete/ทำแบบทดสอบ* →
    complete; default → unattempt. Case-insensitive, substring matches (`ILIKE '%...%'`), same
    precedence order.
-4. **Download count**: same logic as `fetchDownloadCount` — count `checkpd.users`; apply
-   `firebase_created_at` range + province + area filters **only when a date range is set**, else the
-   grand total. Fold in the current "adjusted" behaviour: when a date range is set AND
-   `p_risk <> 'all'`, cap the count at the number of base users whose risk bucket matches `p_risk`
-   (`risk`→risk, `no_risk`→normal, `unknown`→pending).
+4. **Download count — REVISED semantics (deliberate behaviour change, requested 2026-07-13)**:
+   count `checkpd.users` with **all filters always applied** — `province`, `area`, and the date range
+   against `firebase_created_at` (registration date) whenever each is set. The old
+   "ignore province/area unless a date range exists" behaviour is dropped. When `p_risk <> 'all'`,
+   cap the count at the number of `base` users whose risk bucket matches `p_risk`
+   (`risk`→risk, `no_risk`→normal, `unknown`→pending) — this part is unchanged.
+   Note in the SQL comment: the date filter uses *registration date*, while every other widget
+   filters on *last_update* (record activity date) — this is inherent to what "downloads" means and
+   is one of the documented reconciliation gaps below.
 5. **Filter options**: `province_options` = distinct non-blank provinces from the **date-filtered but
    NOT province-filtered** set (this fixes the latent bug where selecting a province collapses the
    dropdown to one entry); `area_options` = distinct non-blank areas within the selected province
    (or all areas when no province selected). Both sorted.
 6. **Age buckets**: NULL → 'ไม่ระบุ'; else ≤20, ≤40, ≤60, ≤80, 81+. Blank/whitespace province →
    'ไม่ระบุจังหวัด' in `province_top`.
+
+## ⚠️ Revision 2026-07-13 — counting policy superseded (already implemented)
+
+After Codex shipped this plan, the project owner changed the counting policy: the doctors want the
+**bigger, mutually-consistent numbers**, so the dashboard now counts **raw view rows** (Looker
+Studio's `COUNT(id)`), *not* distinct users. Implemented directly (not via Codex) in
+[`supabase/migrations/20260713_dashboard_stats_raw_counts.sql`](../supabase/migrations/20260713_dashboard_stats_raw_counts.sql):
+
+- `base` CTE: `DISTINCT ON (v.id)` **removed** — parity rule #1's dedupe no longer applies.
+- `download_count`: no longer reads `checkpd.users`; it equals the same filtered row count as the
+  charts (risk filter narrows it to the matching bucket). Parity rule #4 (both versions) is obsolete.
+- The download card + a counting-method note ("นับตามจำนวนรายการบันทึก … เกณฑ์เดียวกับ Looker Studio")
+  shipped in `page.tsx`; the `firstname/lastname`-free payload is unchanged.
+- The reconciliation section below is retained for history; its "distinct users is the right
+  statistic" recommendation was **overruled** by the project owner.
+
+## Count reconciliation (dashboard vs Looker Studio)
+
+Observed on production (2026-07-13, no filters): download card **95,707** · chart totals **95,646** ·
+Looker Studio (reads `user_record_summary_with_users` directly) shows a third number. These are
+**three different counting rules over two different sources**, not a data bug:
+
+| Number | Source | Counting rule |
+|--------|--------|---------------|
+| Download card | `checkpd.users` | 1 row = 1 registered app account (may have zero screening records) |
+| Dashboard charts | `user_record_summary_with_users` | distinct `id` (users), deduped — a user with 3 records counts once |
+| Looker Studio | `user_record_summary_with_users` | raw view rows — a user with 3 records counts **3 times** (unless the Looker report happens to use COUNT_DISTINCT) |
+
+### What Codex must do
+
+1. **Preflight — quantify each gap** (add results as a comment in the migration file):
+   ```sql
+   SELECT count(*)              FROM checkpd.users;                          -- downloads
+   SELECT count(*)              FROM public.user_record_summary_with_users;  -- Looker's likely number
+   SELECT count(DISTINCT id)    FROM public.user_record_summary_with_users;  -- dashboard charts
+   -- registered but never screened (the download-vs-charts gap):
+   SELECT count(*) FROM checkpd.users u
+   WHERE NOT EXISTS (SELECT 1 FROM public.user_record_summary_with_users v WHERE v.id = u.id);
+   ```
+2. **Align what is alignable.** The RPC's `total_users` and every chart total already use
+   `count(DISTINCT id)` — that stays the dashboard-wide definition of "จำนวนผู้ใช้". Do **not** change
+   the dashboard to raw-row counting to match Looker; distinct-users is the correct statistic for a
+   screening dashboard. (Recommendation to relay to the user separately: fix the Looker report to use
+   `COUNT_DISTINCT(id)` — then Looker matches the dashboard charts exactly. That fix is outside this
+   repo.)
+3. **Explain the residual gap in the UI.** The download card counts registrations; the charts count
+   users with screening data — they can never be forced equal. Add a permanent footnote under the
+   download KPI, e.g.:
+   > "นับจากบัญชีผู้ใช้ที่ลงทะเบียนในแอปทั้งหมด (รวมผู้ที่ยังไม่มีบันทึกการคัดกรอง)
+   > ยอดนี้จึงสูงกว่ายอดผู้รับการคัดกรองในกราฟด้านล่าง"
+   and an ℹ️ tooltip on each chart's "ทั้งหมด" total:
+   > "นับผู้ใช้ไม่ซ้ำคน (1 คนที่ทดสอบหลายครั้งนับ 1) — อาจต่างจากรายงานอื่นที่นับจำนวนครั้งการทดสอบ"
+   Final Thai wording at Codex's discretion; the two facts that must be conveyed are (a) downloads ≥
+   screened users because registration ≠ screening, and (b) the dashboard counts distinct people, not
+   test records.
+4. **Expose the gap number.** Have the RPC also return `registered_no_record`
+   (downloads − users-with-records within the current filters) so the footnote can show the actual
+   figure, e.g. "…ซึ่งมีผู้ลงทะเบียนที่ยังไม่มีบันทึก 61 ราย" — a concrete number pre-empts the
+   "ตัวเลขไม่ตรงกัน" support question this plan exists to answer.
 
 ## Fetch strategy (client + cache route)
 
@@ -212,9 +289,11 @@ later (see [`lib/rateLimit.ts`](../lib/rateLimit.ts) if abuse appears).
   `fetchDownloadCount`, `matchRiskStatus`, `mapTestResultToThai`, and the entire aggregation block in
   the `useEffect` (lines ~203-301).
 - Replace with one `fetch('/api/dashboard/stats?...')` and direct `setState` from the JSON payload.
-- Keep: all state shapes, all JSX, `DashboardFilters`, `TqdmSpinner`, guest banner — the UI must be
-  pixel-identical. `dashboard_guest_download_count` usage disappears (the unified RPC covers both
-  guest and staff; the old RPC stays in the DB, deprecated, dropped in a later cleanup).
+- Keep: all state shapes, all JSX, `DashboardFilters`, `TqdmSpinner`, guest banner — the UI stays
+  visually identical **except** the two reconciliation additions (download-card footnote + chart-total
+  ℹ️ tooltip, see "Count reconciliation" §3). `dashboard_guest_download_count` usage disappears (the
+  unified RPC covers both guest and staff; the old RPC stays in the DB, deprecated, dropped in a
+  later cleanup).
 
 ## Files to create / modify
 
@@ -228,9 +307,11 @@ later (see [`lib/rateLimit.ts`](../lib/rateLimit.ts) if abuse appears).
 
 ## Edge cases & rules
 
-1. **Numbers must not change.** Before merging, run old and new implementations side by side on
-   production data with no filters and with each filter type; every widget must match. Any
-   discrepancy is a parity-rule bug, not an acceptable "improvement."
+1. **Numbers must not change** — *except the download count under filters*, whose new semantics are
+   specified in parity rule #4. Before merging, run old and new implementations side by side on
+   production data with no filters and with each filter type; every other widget must match exactly,
+   and the download count must match when no filters are set. Any other discrepancy is a parity-rule
+   bug, not an acceptable "improvement."
 2. **Empty result set** (e.g. filter combination with no users) → all counts zero, empty arrays —
    never `null` fields; the page renders zeros without crashing.
 3. **`p_end` is inclusive** — the current client appends `T23:59:59`; the RPC uses `< p_end + 1 day`
@@ -267,6 +348,13 @@ later (see [`lib/rateLimit.ts`](../lib/rateLimit.ts) if abuse appears).
 - [ ] Second page load within 5 minutes serves from cache (verify via server logs / response timing).
 - [ ] Filter changes re-fetch and re-render correctly; Reset returns to defaults.
 - [ ] Province dropdown still lists all provinces after selecting one (parity rule #5 fix).
+- [ ] Download count changes when selecting a province/area **without** a date range (new rule #4);
+      with no filters it equals the old page's number.
+- [ ] `download_count − total_users = registered_no_record` holds in the RPC payload (no filters).
+- [ ] Footnote renders under the download KPI; ℹ️ tooltip on chart totals; wording states
+      registration-vs-screening and distinct-user counting.
+- [ ] Preflight reconciliation counts recorded as a comment in the migration file, and the
+      `count(DISTINCT id)` figure matches the dashboard chart total.
 - [ ] `npm run build` passes; no unused-import warnings from the deleted helpers.
 
 ## Out-of-scope follow-ups (seed for next PLAN numbers)
