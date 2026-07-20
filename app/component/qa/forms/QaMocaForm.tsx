@@ -114,19 +114,38 @@ function PracticeCard({ instruction }: { instruction: string }) {
   )
 }
 
+function normalizeDigitInput(raw: string): string {
+  const thaiToArabic: Record<string, string> = {
+    '๐': '0', '๑': '1', '๒': '2', '๓': '3', '๔': '4',
+    '๕': '5', '๖': '6', '๗': '7', '๘': '8', '๙': '9',
+  }
+  const normalized = raw.replace(/[๐-๙]/g, (ch) => thaiToArabic[ch] ?? ch)
+  return normalized.replace(/\D/g, '')
+}
+
 // ── Main Form ───────────────────────────────────────────────────────────────
 export default function QaMocaForm({ open, patientId, onClose, onSaved }: Props) {
   const [form, setForm] = useState<FormState>(EMPTY)
-  const [totalScore, setTotalScore] = useState(0)
+  // String state mirrors TMSE's working pattern — avoids `type="number"` browser quirks
+  // where intermediate invalid input returns "" via e.target.value.
+  const [totalScoreInput, setTotalScoreInput] = useState('0')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!open) return
+    // Reset SYNCHRONOUSLY before the async fetch so a user who starts typing
+    // before the network resolves does not get clobbered by the resolution.
+    setForm(EMPTY)
+    setTotalScoreInput('0')
+    setError(null)
+
+    let cancelled = false
     supabase.schema('core').from('moca_v2')
       .select('visuospatial_executive,naming,attention_digits,attention_vigilance,attention_serial7,language_repeat,language_fluency,abstraction,delayed_recall,orientation,total_score')
       .eq('patient_id', patientId).maybeSingle()
       .then(({ data }) => {
+        if (cancelled) return
         if (data) {
           const d = data as unknown as Record<string, number | null>
           const nextForm: FormState = {
@@ -143,25 +162,31 @@ export default function QaMocaForm({ open, patientId, onClose, onSaved }: Props)
           }
           const calculated = Object.values(nextForm).reduce((a, b) => a + b, 0)
           setForm(nextForm)
-          setTotalScore(d.total_score ?? calculated)
-        } else {
-          setForm(EMPTY)
-          setTotalScore(0)
+          setTotalScoreInput(String(d.total_score ?? calculated))
         }
-        setError(null)
+        // No else — already reset synchronously above.
       })
+    return () => { cancelled = true }
   }, [open, patientId])
 
   const calculatedScore = Object.values(form).reduce((a, b) => a + b, 0)
-  const normalizedTotalScore = Number.isFinite(totalScore)
-    ? Math.max(0, Math.min(30, totalScore))
+  const parsedTotalScore = totalScoreInput === '' ? NaN : Number(totalScoreInput)
+  const normalizedTotalScore = Number.isFinite(parsedTotalScore)
+    ? Math.max(0, Math.min(30, Math.trunc(parsedTotalScore)))
     : 0
   const set = (key: keyof FormState, val: number) => setForm((p) => ({ ...p, [key]: val }))
 
   const handleSave = async () => {
     setSaving(true); setError(null)
+    if (!Number.isFinite(parsedTotalScore)) {
+      setSaving(false)
+      setError('กรุณากรอก total_score ก่อนบันทึก')
+      return
+    }
+    const totalScoreForSave = Math.max(0, Math.min(30, Math.trunc(parsedTotalScore)))
+
     const { error: err } = await supabase.schema('core').from('moca_v2').upsert(
-      { patient_id: patientId, ...form, total_score: normalizedTotalScore },
+      { patient_id: patientId, ...form, total_score: totalScoreForSave },
       { onConflict: 'patient_id' }
     )
     setSaving(false)
@@ -191,15 +216,24 @@ export default function QaMocaForm({ open, patientId, onClose, onSaved }: Props)
             <div className="flex items-center gap-2">
               <input
                 id="moca-total-score"
-                type="number"
-                min={0}
-                max={30}
-                value={totalScore}
-                onChange={(e) => setTotalScore(Number(e.target.value))}
+                type="text"
+                inputMode="numeric"
+                value={totalScoreInput}
+                onChange={(e) => {
+                  const digitsOnly = e.target.value.replace(/\D/g, '')
+                  if (digitsOnly === '') {
+                    setTotalScoreInput('')
+                    return
+                  }
+                  setTotalScoreInput(String(Number(digitsOnly)))
+                }}
                 className="w-24 rounded border px-2 py-1 text-sm"
               />
-              <Button type="button" variant="outline" onClick={() => setTotalScore(calculatedScore)} className="h-8 px-2 text-xs">
+              <Button type="button" variant="outline" onClick={() => setTotalScoreInput(String(calculatedScore))} className="h-8 px-2 text-xs">
                 Use calc
+              </Button>
+              <Button type="button" onClick={handleSave} disabled={saving} className="h-8 px-3 text-xs bg-blue-600 hover:bg-blue-700 text-white">
+                {saving ? 'กำลังบันทึก...' : 'บันทึก'}
               </Button>
             </div>
           </div>
@@ -391,21 +425,10 @@ export default function QaMocaForm({ open, patientId, onClose, onSaved }: Props)
 
         </div>
 
-        {/* Total score footer */}
-        <div className={`mt-4 rounded-xl p-4 flex items-center justify-between border bg-white ${normalizedTotalScore >= 26 ? 'border-green-200' : 'border-red-200'}`}>
-          <div>
-            <p className="text-xs text-slate-500">คะแนนรวม MoCA</p>
-            <p className={`text-2xl font-extrabold ${normalizedTotalScore >= 26 ? 'text-green-800' : 'text-red-800'}`}>{normalizedTotalScore} / 30</p>
-          </div>
-          <p className={`text-sm font-medium ${normalizedTotalScore >= 26 ? 'text-green-700' : 'text-red-700'}`}>
-            {normalizedTotalScore >= 26 ? 'ปกติ (≥ 26)' : 'มีความเสี่ยง / ความบกพร่องทางสติปัญญา (< 26)'}
-          </p>
-        </div>
-
         {error && <p className="text-sm text-red-600 mt-2">{error}</p>}
-        <DialogFooter className="mt-4">
+        <DialogFooter className="sticky bottom-0 bg-white border-t -mx-4 sm:-mx-6 px-4 sm:px-6 py-3 mt-6">
           <Button variant="outline" onClick={onClose} disabled={saving}>ยกเลิก</Button>
-          <Button onClick={handleSave} disabled={saving} className="bg-blue-600 hover:bg-blue-700 text-white">
+          <Button type="button" onClick={handleSave} disabled={saving} className="bg-blue-600 hover:bg-blue-700 text-white">
             {saving ? 'กำลังบันทึก...' : 'บันทึก'}
           </Button>
         </DialogFooter>

@@ -4,17 +4,18 @@
     "diagnosis": [
       "Essential tremor",
       "Postural tremor",
-      "Intention tremor",
+      "Intention or Kinetic tremor",
+      "Essential tremor plus",
       "Task-specific tremor",
       "Enhanced physiologic tremor",
-      "Essential tremor plus",
+      "Isometric tremor",
       "Dystonic tremor",
-      "Dystonic head tremor",
-      "Head tremor",
-      "No-no head tremor",
+      "Dystonic head tremor / No-no head tremor",
+      "Head tremor (non ET or non dystonic tremor)",
       "Cervical dystonia",
       "Segmental dystonia",
       "Generalized dystonia",
+      "Functional tremor / movement disorder",
       "Tremor (unspecified)"
     ]
   },
@@ -22,44 +23,56 @@
     "category": "Parkinsonism & Related",
     "diagnosis": [
       "Parkinsonism",
-      "Drug-induced parkinsonism",
-      "Mild parkinsonism (possible drug-induced)",
-      "Suspected drug-induced parkinsonism",
+      "Mild parkinsonism / parkinsonian",
+      "Drug-induced parkinsonism / possible or suspected drug-induced parkinsonism",
       "Hypokinesia",
-      "Hyposmia",
-      "Pseudo-parkinsonism",
-      "R/O PSP"
+      "Progressive supranuclear palsy (PSP)",
+      "Corticobasal degeneration / corticobasal syndrome (CBD / CBS)",
+      "Multiple system atrophy - Parkinsonian type (MSA-P)",
+      "Multiple system atrophy - Cerebellar type (MSA-C)",
+      "Dementia with Lewy bodies (DLB)",
+      "Wilson's disease (WD)",
+      "Huntington's disease (HD)"
     ]
   },
   {
     "category": "Ataxia & Cerebellar Disorders",
     "diagnosis": [
-      "Spinocerebellar ataxia",
-      "Spinocerebellar ataxia type 2",
-      "Spinocerebellar ataxia, DDX x SCA"
+      "Spinocerebellar ataxia (SCA)"
+    ]
+  },
+  {
+    "category": "Other Movement Disorders",
+    "diagnosis": [
+      "Myoclonus",
+      "Eyelid twitching / Benign eyelid twitching",
+      "Hemifacial spasm / Clonic hemifacial spasm",
+      "Tics",
+      "Tourette's syndrome",
+      "Spastic paraparesis"
     ]
   },
   {
     "category": "Sleep Disorders",
     "diagnosis": [
-      "Obstructive sleep apnea",
-      "R/O OSA",
-      "IRBD",
-      "RBD vocalization / acting out",
+      "Obstructive sleep apnea (OSA)",
+      "REM sleep behavior disorder (RBD / iRBD) นอนละเมอ",
+      "Suspected vocalization / acting out of dream นอนละเมอ",
       "Excessive daytime sleepiness (EDS)",
-      "Frequent dreamy",
+      "Frequent dreaming / dream ฝันบ่อย",
       "Sudden onset of sleep",
-      "Insomnia"
+      "Insomnia",
+      "Periodic limb movement during sleep (PLMS / PLM / PLMD)",
+      "Restless Legs Syndrome (RLS) โรคขาอยู่ไม่สุข"
     ]
   },
   {
     "category": "Cognitive Impairment & Dementia",
     "diagnosis": [
-      "Mild cognitive impairment (MCI)",
-      "Impaired cognitive",
-      "Dementia",
-      "Alzheimer's disease",
-      "Cognitive impairment"
+      "Mild cognitive impairment (MCI) / Impaired cognitive",
+      "Alzheimer's disease (AD)",
+      "Fronto-temporal dementia (FTD)",
+      "Cognitive impairment or Dementia (non-specific)"
     ]
   },
   {
@@ -69,6 +82,7 @@
       "Mild depression",
       "Major depression",
       "Anxiety",
+      "Schizophrenia (โรคจิตเภท)",
       "Psychiatric history",
       "Underlying alcoholism"
     ]
@@ -76,14 +90,11 @@
   {
     "category": "Stroke & Vascular Disorders",
     "diagnosis": [
-      "Ischemic stroke",
-      "Old ischemic stroke",
-      "Post-hemorrhagic stroke",
-      "Lt hemiparesis / hemiparisis",
-      "Rv old lacunar infarct",
+      "Ischemic stroke / Old ischemic stroke / old lacunar infarct",
+      "Hemorrhagic stroke / Post-hemorrhagic stroke",
+      "Hemiparesis",
       "Stroke (unspecified)",
-      "Post-stroke with spastic Rt side",
-      "Dyslipidemia, old stroke"
+      "Post-stroke with spasticity"
     ]
   },
   {
@@ -92,41 +103,46 @@
       "Diabetic neuropathy",
       "Peripheral neuropathy",
       "Muscle strain",
-      "R eyelid twitching / facial spasm",
-      "Clonic hemifacial spasm"
+      "Muscle pain"
     ]
   },
   {
     "category": "Orthopedic & Spine Disorders",
     "diagnosis": [
-      "LS spondylosis",
-      "Lumbar spondylosis",
-      "OA knees",
+      "Lumbar spondylosis / LS spondylosis (กระดูกทับเส้น)",
+      "Cervical spondylosis / C-spondylosis (กระดูกคอเสื่อม)",
+      "OA knees (ปวดเข่า เข่าเสื่อม)",
       "OA hands",
-      "Frozen shoulder",
-      "กระดูกทับเส้น"
+      "Frozen shoulder (ไหล่ติด)",
+      "Gout (เกาต์ ปวดข้อ)",
+      "Rheumatoid (รูมาตอยด์)"
     ]
   },
   {
     "category": "GI, GU & Autonomic",
     "diagnosis": [
       "Constipation",
-      "Frequent dribbling",
+      "Gastroparesis (ท้องอืด อาหารไม่ย่อย)",
+      "GERD (กรดไหลย้อน)",
       "Nocturia",
-      "Dyslipidemia",
-      "Poorly controlled diabetes",
-      "Hypertension"
+      "Urinary incontinence",
+      "Urinary frequency",
+      "Urinary retention"
     ]
   },
   {
-    "category": "Miscellaneous",
+    "category": "Other Medical Problems",
     "diagnosis": [
-      "Migraine",
-      "Allergic rhinitis",
-      "Breast cancer",
-      "R/O Huntington disease",
-      "แพทย์ไม่ระบุโรค",
-      "Control / Normal"
+      "Dyslipidemia (DLP)",
+      "Diabetes mellitus (DM / T2DM)",
+      "Hypertension (HT)",
+      "Peri / post menopausal syndrome"
+    ]
+  },
+  {
+    "category": "General / สถานะทั่วไป",
+    "diagnosis": [
+      "Normal / No significant findings (ไม่มีอาการผิดปกติ)"
     ]
   }
 ]

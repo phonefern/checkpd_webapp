@@ -1,0 +1,31 @@
+{
+  "name": "CheckPD Admin",
+  "short_name": "CheckPD",
+  "description": "ระบบจัดการผู้ป่วยพาร์กินสัน ศูนย์ความเป็นเลิศด้านพาร์กินสัน โรงพยาบาลจุฬาลงกรณ์",
+  "start_url": "/pages/users",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#4339C6",
+  "orientation": "portrait-primary",
+  "lang": "th",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

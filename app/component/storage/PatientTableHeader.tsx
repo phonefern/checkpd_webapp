@@ -1,4 +1,7 @@
+'use client'
+
 import { Filter, X } from 'lucide-react'
+import { AnimatePresence, motion } from 'framer-motion'
 
 interface Props {
   filteredCount: number
@@ -13,63 +16,68 @@ export default function PatientTableHeader({
   totalCount,
   activeFilters,
   onRemoveFilter,
-  onClearAllFilters
+  onClearAllFilters,
 }: Props) {
   return (
-    <div className="mb-4 space-y-1">
-
-      {/* Line 1 */}
-      <h2 className="text-lg font-semibold">
-        รายการผู้ป่วย
-      </h2>
-
-      {/* Line 2 */}
-      <p className="text-b text-gray-600">
-        {filteredCount} จากทั้งหมด {totalCount} คน
-      </p>
-
-      {/* Line 3 */}
-      <div className="flex items-start gap-2 text-b">
-        <Filter size={16} className="text-purple-700 mt-0.5" />
-        <span className="text-gray-700">Filter :</span>
-
-        {/* Badges */}
-        <div className="flex flex-wrap gap-2">
-          {activeFilters.length === 0 ? (
-            <span className="text-gray-400">None</span>
-          ) : (
-            activeFilters.map((f) => (
-              <button
-                key={f}
-                onClick={() => onRemoveFilter(f)}
-                className="
-                  flex items-center gap-1
-                  px-2 py-0.5
-                  rounded-full
-                  bg-purple-100
-                  border border-purple-700
-                  text-purple-800
-                  text-b
-                "
-              >
-                {f}
-                <X size={12} />
-              </button>
-            ))
-          )}
-        </div>
-
-        {/* Clear all */}
-        {activeFilters.length > 0 && (
-          <button
-            onClick={onClearAllFilters}
-            className="ml-2 text-b text-white rounded-full bg-purple-900 px-2 py-0.5 hover:text-purple-200"
-          >
-            CLEAR ALL
-          </button>
-        )}
+    <div className="space-y-2">
+      {/* Title */}
+      <div className="flex items-baseline gap-2">
+        <h2 className="text-lg font-semibold text-gray-900">รายการผู้ป่วย</h2>
+        <span className="text-sm text-gray-500">
+          {filteredCount.toLocaleString()} จากทั้งหมด {totalCount.toLocaleString()} คน
+        </span>
       </div>
 
+      {/* Active filters */}
+      <div className="flex flex-wrap items-center gap-2 text-sm">
+        <span className="flex items-center gap-1.5 text-gray-600">
+          <Filter size={15} className="text-purple-700" />
+          Filter:
+        </span>
+
+        <div className="flex flex-wrap gap-1.5">
+          <AnimatePresence initial={false} mode="popLayout">
+            {activeFilters.length === 0 ? (
+              <motion.span
+                key="none"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="text-gray-400"
+              >
+                None
+              </motion.span>
+            ) : (
+              activeFilters.map((f) => (
+                <motion.button
+                  key={f}
+                  layout
+                  initial={{ opacity: 0, scale: 0.85 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.85 }}
+                  transition={{ duration: 0.15 }}
+                  onClick={() => onRemoveFilter(f)}
+                  className="flex items-center gap-1 rounded-full border border-purple-200 bg-purple-50 px-2.5 py-0.5 text-xs font-medium text-purple-800 transition-colors hover:bg-purple-100"
+                >
+                  {f}
+                  <X size={12} />
+                </motion.button>
+              ))
+            )}
+          </AnimatePresence>
+        </div>
+
+        {activeFilters.length > 0 && (
+          <motion.button
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            onClick={onClearAllFilters}
+            className="rounded-full bg-purple-900 px-2.5 py-0.5 text-xs font-medium text-white transition-colors hover:bg-purple-800"
+          >
+            CLEAR ALL
+          </motion.button>
+        )}
+      </div>
     </div>
   )
 }

@@ -25,12 +25,19 @@ export async function GET(
     const { userDocId } = await context.params;
     const { searchParams } = new URL(req.url);
     const recordId = searchParams.get('record_id');
+    const qaIdParam = searchParams.get('qa_id');
+    const qaUid = searchParams.get('qa_uid')?.trim() || null;
+    const qaId = qaIdParam && /^[0-9]+$/.test(qaIdParam) ? Number(qaIdParam) : null;
 
     if (!recordId) {
       return NextResponse.json({ error: 'กรุณาระบุ record_id' }, { status: 400 });
     }
 
-    const pdfBuffer = await generatePdfReportBuffer(userDocId, recordId, req.nextUrl.origin);
+    const pdfBuffer = await generatePdfReportBuffer(userDocId, recordId, req.nextUrl.origin, {
+      qaId,
+      qaUid,
+      enableQaLookup: true,
+    });
 
     return new Response(new Uint8Array(pdfBuffer), {
       status: 200,

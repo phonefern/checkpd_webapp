@@ -3,7 +3,8 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import QaSearchFilters from '@/app/component/qa/QaSearchFilters'
-import QaTable from '@/app/component/qa/QaTable'
+import QaTable, { type QaSortColumn, type QaSortDirection } from '@/app/component/qa/QaTable'
+import QaPhoneCardList from '@/app/component/qa/QaPhoneCardList'
 import QaCreateModal from '@/app/component/qa/QaCreateModal'
 import QaAssessmentModal from '@/app/component/qa/QaAssessmentModal'
 import QaPatientSummaryModal from '@/app/component/qa/QaPatientSummaryModal'
@@ -26,6 +27,7 @@ import {
   hasQaGp2,
   matchesQaConditionFilter,
 } from '@/app/component/qa/types'
+import { parseOther } from '@/lib/otherDiagnosis'
 import {
   PATIENT_VISIT_SELECT,
   buildIdentityCacheKey,
@@ -44,6 +46,7 @@ export default function QaPage() {
   const [search, setSearch] = useState('')
   const [thaiId, setThaiId] = useState('')
   const [condition, setCondition] = useState<QaConditionFilter>('')
+  const [otherDiagnosis, setOtherDiagnosis] = useState<string | null>(null)
   const [gp2, setGp2] = useState('')
   const [hyStage, setHyStage] = useState('')
   const [province, setProvince] = useState('')
@@ -54,10 +57,15 @@ export default function QaPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
 
+  // Sort state (server-side, mirrors the Users page pattern)
+  const [sortColumn, setSortColumn] = useState<QaSortColumn>('collection_date')
+  const [sortDirection, setSortDirection] = useState<QaSortDirection>('desc')
+
   // Data state
   const [rows, setRows] = useState<QaRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [focusHandled, setFocusHandled] = useState(false)
 
   // Create / Edit modal state
   const [createOpen, setCreateOpen] = useState(false)
@@ -82,22 +90,42 @@ export default function QaPage() {
     setError(null)
 
     try {
-      // --- Step 1: resolve patient IDs from diagnosis filters (condition / H&Y) ---
+      // --- Step 1: resolve patient IDs from diagnosis filters (condition / H&Y / GP2) ---
       let diagFilteredIds: number[] | null = null
 
-      if (condition || hyStage || gp2) {
-        let diagQuery = supabase
-          .schema('core')
-          .from('patient_diagnosis_v2')
-          .select(DIAG_SELECT)
+      if (condition || otherDiagnosis || hyStage || gp2) {
+        // condition/GP2 matching is fuzzy, so it must run in memory — but page past
+        // Supabase's default 1000-row API cap, otherwise matches beyond the first
+        // 1000 diagnosis rows are silently dropped and the filter looks broken.
+        const DIAG_FILTER_SELECT = 'patient_id,condition,other_diagnosis_text,blood_test_note'
+        const CHUNK = 1000
+        const diagRows: QaDiagnosisRow[] = []
 
-        if (hyStage) diagQuery = diagQuery.eq('hy_stage', hyStage)
+        for (let offset = 0; ; offset += CHUNK) {
+          let diagQuery = supabase
+            .schema('core')
+            .from('patient_diagnosis_v2')
+            .select(DIAG_FILTER_SELECT)
+            .order('patient_id', { ascending: true })
+            .range(offset, offset + CHUNK - 1)
 
-        const { data: diagData, error: diagErr } = await diagQuery
-        if (diagErr) throw new Error(`patient_diagnosis_v2: ${diagErr.message}`)
-        const diagRows = (diagData ?? []) as QaDiagnosisRow[]
+          if (hyStage) diagQuery = diagQuery.eq('hy_stage', hyStage)
+
+          const { data: diagData, error: diagErr } = await diagQuery
+          if (diagErr) throw new Error(`patient_diagnosis_v2: ${diagErr.message}`)
+
+          const batch = (diagData ?? []) as QaDiagnosisRow[]
+          diagRows.push(...batch)
+          if (batch.length < CHUNK) break
+        }
+
         const filteredRows = diagRows.filter((d) => {
           if (condition && !matchesQaConditionFilter(d, condition)) return false
+          if (otherDiagnosis) {
+            const selectedOther = parseOther(otherDiagnosis).map((item) => item.toLowerCase())
+            const rowOther = parseOther(d.other_diagnosis_text).map((item) => item.toLowerCase())
+            if (selectedOther.length > 0 && !selectedOther.every((item) => rowOther.includes(item))) return false
+          }
           if (gp2 && !hasQaGp2(d)) return false
           return true
         })
@@ -105,15 +133,37 @@ export default function QaPage() {
       }
 
       // --- Step 2: query patient_visits_v2 with all patient-level filters ---
+      const ascending = sortDirection === 'asc'
       let patientQuery = supabase
         .from('patient_visits_v2')
         .select(PATIENT_VISIT_SELECT, { count: 'exact' })
-        .order('collection_date', { ascending: false, nullsFirst: false })
-        .range(from, to)
+        .order(sortColumn, { ascending, nullsFirst: false })
+
+      // When sorting by collection_date keep the original time-based tiebreakers so
+      // same-day visits stay in submission order; otherwise just stabilise by id.
+      if (sortColumn === 'collection_date') {
+        patientQuery = patientQuery
+          .order('submission_timestamp', { ascending, nullsFirst: false })
+          .order('created_at', { ascending, nullsFirst: false })
+      }
+      if (sortColumn !== 'id') {
+        patientQuery = patientQuery.order('id', { ascending: false })
+      }
+      patientQuery = patientQuery.range(from, to)
 
       if (search.trim()) {
-        const q = `%${search.trim()}%`
-        patientQuery = patientQuery.or(`first_name.ilike.${q},last_name.ilike.${q},hn_number.ilike.${q}`)
+        const raw = search.trim()
+        const q = `%${raw}%`
+        const orParts = [
+          `first_name.ilike.${q}`,
+          `last_name.ilike.${q}`,
+          `hn_number.ilike.${q}`,
+        ]
+
+        if (/^\d+$/.test(raw)) orParts.push(`id.eq.${raw}`)
+        if (/^[0-9a-f-]{32,36}$/i.test(raw)) orParts.push(`patient_uid.eq.${raw}`)
+
+        patientQuery = patientQuery.or(orParts.join(','))
       }
       if (thaiId.trim()) patientQuery = patientQuery.ilike('thaiid', `%${thaiId.trim()}%`)
       if (province)  patientQuery = patientQuery.eq('province', province)
@@ -210,20 +260,24 @@ export default function QaPage() {
       }
 
       // --- Step 3: fetch related data for this page's patients ---
-      const [diagRes, mocaRes, hamdRes, mdsRes, epwRes, smellRes, tmseRes, rbdRes, rome4Res] =
+      const [diagRes, mocaRes, hamdRes, mdsRes, epwRes, smellRes, tmseRes, rbdRes, rome4Res, foodRes, visionRes] =
         await Promise.all([
           supabase.schema('core').from('patient_diagnosis_v2').select(DIAG_SELECT).in('patient_id', patientIds),
           supabase.schema('core').from('moca_v2').select('patient_id,total_score').in('patient_id', patientIds),
           supabase.schema('core').from('hamd_v2').select('patient_id,total_score,severity_level').in('patient_id', patientIds),
           supabase.schema('core').from('mds_updrs_v2').select('patient_id,total_score').in('patient_id', patientIds),
           supabase.schema('core').from('epworth_v2').select('patient_id,total_score').in('patient_id', patientIds),
-          supabase.schema('core').from('smell_test_v2').select('patient_id,total_score').in('patient_id', patientIds),
+          supabase.schema('core').from('smell_test_v2').select('patient_id,total_score,recognize_count,perceive_count').in('patient_id', patientIds),
           supabase.schema('core').from('tmse_v2').select('patient_id,total_score').in('patient_id', patientIds),
           supabase.schema('core').from('rbd_questionnaire_v2').select('patient_id,total_score').in('patient_id', patientIds),
           supabase.schema('core').from('rome4_v2').select('patient_id,total_score').in('patient_id', patientIds),
+          supabase.schema('core').from('food_questionnaire_v2').select('patient_id,total_score').in('patient_id', patientIds),
+          supabase.schema('core').from('vision_tests_v2')
+            .select('patient_id,color_paper_re_test,color_paper_re_retest,color_paper_le_test,color_paper_le_retest,color_paper_re_test_order,color_paper_re_retest_order,color_paper_le_test_order,color_paper_le_retest_order')
+            .in('patient_id', patientIds),
         ])
 
-      const errors = [diagRes, mocaRes, hamdRes, mdsRes, epwRes, smellRes, tmseRes, rbdRes, rome4Res]
+      const errors = [diagRes, mocaRes, hamdRes, mdsRes, epwRes, smellRes, tmseRes, rbdRes, rome4Res, foodRes, visionRes]
         .map((r, i) => r.error ? `table[${i}]: ${r.error.message}` : null)
         .filter(Boolean)
       if (errors.length > 0) throw new Error(errors.join(', '))
@@ -237,27 +291,56 @@ export default function QaPage() {
       const tmseMap   = Object.fromEntries((tmseRes.data   ?? []).map((d: QaScoreRow)    => [d.patient_id, d]))
       const rbdMap    = Object.fromEntries((rbdRes.data    ?? []).map((d: QaScoreRow)    => [d.patient_id, d]))
       const rome4Map  = Object.fromEntries((rome4Res.data  ?? []).map((d: QaScoreRow)    => [d.patient_id, d]))
+      const foodMap   = Object.fromEntries((foodRes.data   ?? []).map((d: QaScoreRow)    => [d.patient_id, d]))
+      type VisionRow = {
+        patient_id: number
+        color_paper_re_test_order?: unknown[] | null
+        color_paper_le_test_order?: unknown[] | null
+        color_paper_re_test?: string | null
+        color_paper_le_test?: string | null
+      }
+      const visionMap = Object.fromEntries((visionRes.data ?? []).map((d: VisionRow) => [d.patient_id, d]))
 
-      setRows(normalizedPatients.map((p) => ({
-        patient: p,
-        diag:  diagMap[p.id] as QaDiagnosisRow | undefined,
-        conditionLabel: formatQaConditionLabel(diagMap[p.id] as QaDiagnosisRow | undefined),
-        has_checkpd: !!p.thaiid?.trim() && checkpdThaiIdSet.has(p.thaiid.trim()),
-        moca:  mocaMap[p.id] as QaScoreRow | undefined,
-        hamd:  hamdMap[p.id] as QaHamdRow | undefined,
-        mds:   mdsMap[p.id] as QaScoreRow | undefined,
-        epw:   epwMap[p.id] as QaScoreRow | undefined,
-        smell: smellMap[p.id] as QaScoreRow | undefined,
-        tmse:  tmseMap[p.id] as QaScoreRow | undefined,
-        rbd:   rbdMap[p.id] as QaScoreRow | undefined,
-        rome4: rome4Map[p.id] as QaScoreRow | undefined,
-      })))
+      setRows(normalizedPatients.map((p) => {
+        const vis = visionMap[p.id] as VisionRow | undefined
+        return {
+          patient: p,
+          diag:  diagMap[p.id] as QaDiagnosisRow | undefined,
+          conditionLabel: formatQaConditionLabel(diagMap[p.id] as QaDiagnosisRow | undefined),
+          has_checkpd: !!p.thaiid?.trim() && checkpdThaiIdSet.has(p.thaiid.trim()),
+          moca:  mocaMap[p.id] as QaScoreRow | undefined,
+          hamd:  hamdMap[p.id] as QaHamdRow | undefined,
+          mds:   mdsMap[p.id] as QaScoreRow | undefined,
+          epw:   epwMap[p.id] as QaScoreRow | undefined,
+          smell: smellMap[p.id] as QaScoreRow | undefined,
+          tmse:  tmseMap[p.id] as QaScoreRow | undefined,
+          rbd:   rbdMap[p.id] as QaScoreRow | undefined,
+          rome4: rome4Map[p.id] as QaScoreRow | undefined,
+          food:  foodMap[p.id] as QaScoreRow | undefined,
+          colorvision: vis
+            ? {
+                done: Boolean(vis.color_paper_re_test_order || vis.color_paper_le_test_order),
+                summary: vis.color_paper_re_test ?? vis.color_paper_le_test ?? null,
+              }
+            : undefined,
+        }
+      }))
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
       setLoading(false)
     }
-  }, [session, search, thaiId, condition, gp2, hyStage, province, startDate, endDate, currentPage])
+  }, [session, search, thaiId, condition, otherDiagnosis, gp2, hyStage, province, startDate, endDate, currentPage, sortColumn, sortDirection])
+
+  const handleSort = (column: QaSortColumn) => {
+    if (sortColumn === column) {
+      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSortColumn(column)
+      setSortDirection('desc')
+    }
+    setCurrentPage(1)
+  }
 
   const handleEdit = (patient: QaPatient) => {
     const row = rows.find((r) => r.patient.id === patient.id)
@@ -308,11 +391,15 @@ export default function QaPage() {
     setTotalCount((prev) => prev - 1)
   }
   const handleQuickDiag = useCallback(
-    async (patientId: number, conditionValue: 'pd' | 'ctrl' | 'pdm' | 'other' | '-') => {
+    async (patientId: number, conditionValue: 'pd' | 'ctrl' | 'pdm' | 'other' | '-', otherDiagnosisText?: string | null) => {
       const payload =
         conditionValue === '-'
           ? { patient_id: patientId, condition: '-', other_diagnosis_text: null }
-          : { patient_id: patientId, condition: conditionValue }
+          : {
+              patient_id: patientId,
+              condition: conditionValue,
+              ...(conditionValue === 'other' ? { other_diagnosis_text: otherDiagnosisText?.trim() || null } : {}),
+            }
 
       const { error: diagErr } = await supabase
         .schema('core')
@@ -338,6 +425,52 @@ export default function QaPage() {
     [fetchData, rows, session?.user?.email]
   )
 
+  const openFocusedAssessment = useCallback(
+    async (focus: { id?: string | null; uid?: string | null }) => {
+      if (!session) return
+
+      const focusId = focus.id?.trim()
+      const focusUid = focus.uid?.trim()
+      if (!focusId && !focusUid) return
+
+      try {
+        let patientQuery = supabase
+          .from('patient_visits_v2')
+          .select(PATIENT_VISIT_SELECT)
+          .limit(1)
+
+        if (focusId && /^\d+$/.test(focusId)) {
+          patientQuery = patientQuery.eq('id', Number(focusId))
+        } else if (focusUid) {
+          patientQuery = patientQuery
+            .eq('patient_uid', focusUid)
+            .order('submission_timestamp', { ascending: false, nullsFirst: false })
+            .order('created_at', { ascending: false, nullsFirst: false })
+            .order('id', { ascending: false })
+        } else {
+          setError('Invalid QA focus link')
+          return
+        }
+
+        const { data: patientData, error: patientErr } = await patientQuery.maybeSingle()
+        if (patientErr) throw new Error(`patient_visits_v2: ${patientErr.message}`)
+        if (!patientData) {
+          setError('QA patient from link was not found')
+          return
+        }
+
+        const patient = patientData as QaPatient
+        setSearch(String(patient.id))
+        setCurrentPage(1)
+        setSummaryRow(null)
+        setAssessingPatient(patient)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err))
+      }
+    },
+    [session]
+  )
+
   const handleModalClose = () => {
     setCreateOpen(false)
     setEditPatient(null)
@@ -349,6 +482,18 @@ export default function QaPage() {
     if (sessionLoading || !session) return
     fetchData()
   }, [fetchData, sessionLoading, session])
+
+  useEffect(() => {
+    if (sessionLoading || !session || focusHandled) return
+
+    const params = new URLSearchParams(window.location.search)
+    const focusUid = params.get('focus_uid')
+    const focusId = params.get('focus_id')
+    if (!focusUid && !focusId) return
+
+    setFocusHandled(true)
+    openFocusedAssessment({ id: focusId, uid: focusUid })
+  }, [focusHandled, openFocusedAssessment, session, sessionLoading])
 
   return (
     <SidebarLayout activePath="/pages/qa" mainClassName="bg-gray-50">
@@ -414,6 +559,8 @@ export default function QaPage() {
         setThaiId={setThaiId}
         condition={condition}
         setCondition={setCondition}
+        otherDiagnosis={otherDiagnosis}
+        setOtherDiagnosis={setOtherDiagnosis}
         gp2={gp2}
         setGp2={setGp2}
         hyStage={hyStage}
@@ -429,6 +576,7 @@ export default function QaPage() {
         currentPage={currentPage}
         itemsPerPage={PAGE_SIZE}
         onRefresh={fetchData}
+        onScanFocus={(focus) => openFocusedAssessment(focus)}
       />
 
       {error && (
@@ -443,16 +591,30 @@ export default function QaPage() {
         </div>
       ) : (
         <>
-          <QaTable
-            rows={rows}
-            role={role}
-            onAssess={setAssessingPatient}
-            onEdit={handleEdit}
-            onQuickDiag={handleQuickDiag}
-            onDelete={handleDelete}
-            onDetail={setSummaryRow}
-            onAddVisit={handleAddVisit}
-          />
+          {/* Desktop table */}
+          <div className="hidden md:block">
+            <QaTable
+              rows={rows}
+              role={role}
+              onAssess={setAssessingPatient}
+              onEdit={handleEdit}
+              onQuickDiag={handleQuickDiag}
+              onDelete={handleDelete}
+              onDetail={setSummaryRow}
+              onAddVisit={handleAddVisit}
+              sortColumn={sortColumn}
+              sortDirection={sortDirection}
+              onSort={handleSort}
+            />
+          </div>
+          {/* Mobile card list */}
+          <div className="md:hidden">
+            <QaPhoneCardList
+              rows={rows}
+              onAssess={setAssessingPatient}
+              onDetail={setSummaryRow}
+            />
+          </div>
           <TablePagination
             currentPage={currentPage}
             totalPages={totalPages}

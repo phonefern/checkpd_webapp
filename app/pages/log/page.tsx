@@ -14,20 +14,22 @@ const ACTION_COLORS: Record<ActivityAction, string> = {
   UPDATE: 'bg-yellow-100 text-yellow-800',
   DELETE: 'bg-red-100 text-red-800',
   VIEW:   'bg-purple-100 text-purple-800',
+  EXPORT: 'bg-slate-100 text-slate-800',
 }
 
 const PAGE_COLORS: Record<ActivityPage, string> = {
   auth:  'bg-slate-100 text-slate-700',
   users: 'bg-indigo-100 text-indigo-700',
   qa:    'bg-teal-100 text-teal-700',
+  export: 'bg-emerald-100 text-emerald-700',
 }
 
 function formatTime(iso: string) {
   return new Date(iso).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'medium' })
 }
 
-const ALL_ACTIONS: (ActivityAction | 'ALL')[] = ['ALL', 'LOGIN', 'LOGOUT', 'CREATE', 'UPDATE', 'DELETE', 'VIEW']
-const ALL_PAGES: (ActivityPage | 'ALL')[] = ['ALL', 'auth', 'users', 'qa']
+const ALL_ACTIONS: (ActivityAction | 'ALL')[] = ['ALL', 'LOGIN', 'LOGOUT', 'CREATE', 'UPDATE', 'DELETE', 'VIEW', 'EXPORT']
+const ALL_PAGES: (ActivityPage | 'ALL')[] = ['ALL', 'auth', 'users', 'qa', 'export']
 
 export default function LogPage() {
   const [logs, setLogs] = useState<ActivityEntry[]>([])

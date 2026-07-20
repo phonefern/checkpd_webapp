@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 const PUBLIC_PATHS = new Set(["/pages/login"]);
-const GUEST_ALLOWED_PATHS = new Set(["/pages/index"]);
+const GUEST_ALLOWED_PATHS = new Set(["/pages/dashboard"]);
 
 function hasSupabaseAuthCookie(request: NextRequest): boolean {
   return request.cookies
@@ -21,7 +21,7 @@ export function middleware(request: NextRequest) {
 
   if (PUBLIC_PATHS.has(pathname)) {
     if (hasSession) {
-      return NextResponse.redirect(new URL("/pages/index", request.url));
+      return NextResponse.redirect(new URL(guest ? "/pages/dashboard" : "/pages/index", request.url));
     }
     return NextResponse.next();
   }
@@ -31,7 +31,7 @@ export function middleware(request: NextRequest) {
   }
 
   if (guest && !GUEST_ALLOWED_PATHS.has(pathname)) {
-    return NextResponse.redirect(new URL("/pages/index", request.url));
+    return NextResponse.redirect(new URL("/pages/dashboard", request.url));
   }
 
   return NextResponse.next();

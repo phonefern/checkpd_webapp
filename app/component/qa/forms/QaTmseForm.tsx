@@ -47,7 +47,7 @@ function ScoreSelect({ value, max, onChange }: { value: number; max: number; onC
 
 export default function QaTmseForm({ open, patientId, onClose, onSaved }: Props) {
   const [form, setForm] = useState<FormState>(EMPTY)
-  const [totalScore, setTotalScore] = useState(0)
+  const [totalScoreInput, setTotalScoreInput] = useState('0')
   const [calculationMode, setCalculationMode] = useState<'total' | 'steps'>('total')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -93,11 +93,11 @@ export default function QaTmseForm({ open, patientId, onClose, onSaved }: Props)
             f.language_read_close_eyes + f.language_draw + f.language_similarity +
             f.recall
           )
-          setTotalScore(d.total_score ?? calculated)
+          setTotalScoreInput(String(d.total_score ?? calculated))
         } else {
           setForm(EMPTY)
           setCalculationMode('total')
-          setTotalScore(0)
+          setTotalScoreInput('0')
         }
         setError(null)
       })
@@ -111,8 +111,9 @@ export default function QaTmseForm({ open, patientId, onClose, onSaved }: Props)
   const calculationStepsTotal = form.calculation_100_7 + form.calculation_93_7 + form.calculation_86_7
   const calculationScore = calculationMode === 'steps' ? calculationStepsTotal : form.calculation
   const calculatedScore = orientationTotal + form.registration + form.attention + calculationScore + languageTotal + form.recall
-  const normalizedTotalScore = Number.isFinite(totalScore)
-    ? Math.max(0, Math.min(30, totalScore))
+  const parsedTotalScore = totalScoreInput === '' ? NaN : Number(totalScoreInput)
+  const normalizedTotalScore = Number.isFinite(parsedTotalScore)
+    ? Math.max(0, Math.min(30, parsedTotalScore))
     : 0
   const interpretation = normalizedTotalScore >= 23 ? 'ปกติ (≥ 23)' : 'มีแนวโน้มภาวะสมองเสื่อม (< 23)'
 
@@ -159,6 +160,43 @@ export default function QaTmseForm({ open, patientId, onClose, onSaved }: Props)
         onEscapeKeyDown={(e) => e.preventDefault()}
         className="max-h-[90vh] w-[95vw] sm:w-[90vw] lg:w-[82vw] sm:!max-w-[90vw] lg:!max-w-4xl overflow-y-auto p-4 sm:p-6">
         <DialogHeader><DialogTitle>TMSE — Thai Mental State Examination</DialogTitle></DialogHeader>
+
+        <div className="mt-2 flex flex-col gap-3 border rounded-xl bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-xs text-muted-foreground">คะแนนรวม</p>
+            <p className="text-3xl font-extrabold text-slate-800">{normalizedTotalScore} <span className="text-base font-normal text-slate-400">/ 30</span></p>
+            <p className="text-xs text-muted-foreground mt-1">Calculated from sections: {calculatedScore}</p>
+          </div>
+          <div className="w-full sm:w-auto">
+            <label htmlFor="tmse-total-score-top" className="block text-xs text-muted-foreground mb-1">total_score</label>
+            <div className="flex items-center gap-2">
+              <input
+                id="tmse-total-score-top"
+                type="text"
+                inputMode="numeric"
+                value={totalScoreInput}
+                onChange={(e) => {
+                  const digitsOnly = e.target.value.replace(/\D/g, '')
+                  if (digitsOnly === '') {
+                    setTotalScoreInput('')
+                    return
+                  }
+                  setTotalScoreInput(String(Number(digitsOnly)))
+                }}
+                className="w-24 rounded border px-2 py-1 text-sm"
+              />
+              <Button type="button" variant="outline" onClick={() => setTotalScoreInput(String(calculatedScore))} className="h-8 px-2 text-xs">
+                Use calc
+              </Button>
+              <Button type="button" onClick={handleSave} disabled={saving} className="h-8 px-3 text-xs bg-blue-600 hover:bg-blue-700 text-white">
+                {saving ? 'กำลังบันทึก...' : 'บันทึก'}
+              </Button>
+            </div>
+          </div>
+          <div className={`px-4 py-2 rounded-xl border text-sm font-semibold ${normalizedTotalScore >= 23 ? 'text-green-700 border-green-200' : 'text-red-700 border-red-200'}`}>
+            {interpretation}
+          </div>
+        </div>
 
         <div className="space-y-4 mt-2">
           {/* Orientation */}
@@ -286,27 +324,10 @@ export default function QaTmseForm({ open, patientId, onClose, onSaved }: Props)
               คะแนนรวม: {normalizedTotalScore} / 30 &nbsp;—&nbsp; <span className="font-normal">{interpretation}</span>
               <p className="text-xs font-normal text-muted-foreground mt-1">Calculated from sections: {calculatedScore}</p>
             </div>
-            <div>
-              <label htmlFor="tmse-total-score" className="block text-xs text-muted-foreground mb-1">total_score</label>
-              <div className="flex items-center gap-2">
-                <input
-                  id="tmse-total-score"
-                  type="number"
-                  min={0}
-                  max={30}
-                  value={totalScore}
-                  onChange={(e) => setTotalScore(Number(e.target.value))}
-                  className="w-24 rounded border px-2 py-1 text-sm"
-                />
-                <Button type="button" variant="outline" onClick={() => setTotalScore(calculatedScore)} className="h-8 px-2 text-xs">
-                  Use calc
-                </Button>
-              </div>
-            </div>
           </div>
         </div>
         {error && <p className="text-sm text-red-600 mt-2">{error}</p>}
-        <DialogFooter className="mt-4">
+        <DialogFooter className="sticky bottom-0 bg-white border-t -mx-4 sm:-mx-6 px-4 sm:px-6 py-3 mt-6">
           <Button variant="outline" onClick={onClose} disabled={saving}>ยกเลิก</Button>
           <Button onClick={handleSave} disabled={saving} className="bg-blue-600 hover:bg-blue-700 text-white">
             {saving ? 'กำลังบันทึก...' : 'บันทึก'}

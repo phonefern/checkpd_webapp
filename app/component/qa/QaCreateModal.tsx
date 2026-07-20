@@ -15,6 +15,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
+import { OtherDiagnosisSelect } from '@/app/component/diagnosis/OtherDiagnosisSelect'
 
 const CONDITION_OPTIONS = [
   { value: '', label: '-- Select condition --' },
@@ -76,6 +77,11 @@ type AssessmentThreshold = {
 type AssessmentCategory = {
   label: string
   tone: string
+}
+
+export type QaCreatedIdentity = {
+  id: number
+  patient_uid: string | null
 }
 
 const EMPTY_ASSESSMENTS: AssessmentScores = {
@@ -261,6 +267,15 @@ function generatePatientUid() {
 
 const normalizeIdentityValue = (value: string | null | undefined) => (value ?? '').trim()
 
+function toConditionFormValue(value: string | null | undefined) {
+  const raw = (value ?? '').trim().toLowerCase()
+  if (!raw || raw === '-' || raw === 'null') return ''
+  if (raw === 'pd' || raw.includes('parkinson') || raw.includes('newly diagnosis')) return 'pd'
+  if (raw === 'pdm' || raw.includes('prodromal') || raw.includes('high risk') || raw.includes('high-risk')) return 'pdm'
+  if (raw === 'ctrl' || raw.includes('control') || raw.includes('healthy') || raw === 'normal') return 'ctrl'
+  return 'other'
+}
+
 async function resolveExistingPatientUid(form: FormState): Promise<string | null> {
   const thaiid = normalizeIdentityValue(form.thaiid)
   const hnNumber = normalizeIdentityValue(form.hn_number)
@@ -362,7 +377,7 @@ function buildDiagPayload(form: FormState) {
 interface Props {
   open: boolean
   onClose: () => void
-  onCreated: () => void
+  onCreated: (created: QaCreatedIdentity) => void
   editPatient?: QaPatient | null
   editDiag?: QaDiagnosisRow | null
   prefillPatient?: QaPatient | null
@@ -373,6 +388,7 @@ interface Props {
 export default function QaCreateModal({ open, onClose, onCreated, editPatient, editDiag, prefillPatient, prefillData, role }: Props) {
   const isEdit = !!editPatient
   const canUseAssessmentAssist = isEdit && (role === 'doctor' || role === 'admin' || role === 'super_admin')
+  const canEditPatientInfo = isEdit && (role === 'admin' || role === 'super_admin')
   const editPatientId = editPatient?.id ?? null
   const canEditDiag = role !== 'medical_staff'
   const [form, setForm] = useState<FormState>(EMPTY)
@@ -410,7 +426,7 @@ export default function QaCreateModal({ open, onClose, onCreated, editPatient, e
         pr_supine: editPatient.pr_supine != null ? String(editPatient.pr_supine) : '',
         bp_upright: editPatient.bp_upright ?? '',
         pr_upright: editPatient.pr_upright != null ? String(editPatient.pr_upright) : '',
-        condition: editDiag?.condition ?? '',
+        condition: toConditionFormValue(editDiag?.condition),
         hy_stage: editDiag?.hy_stage ?? '',
         disease_duration: editDiag?.disease_duration ?? '',
         other_diagnosis_text: editDiag?.other_diagnosis_text ?? '',
@@ -469,6 +485,7 @@ export default function QaCreateModal({ open, onClose, onCreated, editPatient, e
         ...EMPTY,
         patient_uid: generatePatientUid(),
         ...(prefillData ?? {}),
+        condition: toConditionFormValue(prefillData?.condition),
       })
     }
   }, [open, editPatient, editDiag, prefillPatient, prefillData])
@@ -579,6 +596,7 @@ export default function QaCreateModal({ open, onClose, onCreated, editPatient, e
     try {
       const diagPayload = buildDiagPayload(form)
       const hasDiag = Object.values(diagPayload).some((v) => v !== null && v !== false && v !== '')
+      let createdIdentity: QaCreatedIdentity
 
       if (isEdit && editPatient) {
         // --- Edit mode: UPDATE patients_v2, UPSERT patient_diagnosis_v2 ---
@@ -616,6 +634,7 @@ export default function QaCreateModal({ open, onClose, onCreated, editPatient, e
           .upsert({ patient_id: editPatient.id, ...diagPayload }, { onConflict: 'patient_id' })
 
         if (diagErr) throw new Error(`patient_diagnosis_v2: ${diagErr.message}`)
+        createdIdentity = { id: editPatient.id, patient_uid: form.patient_uid || null }
       } else {
         // --- Create mode: INSERT patients_v2, then INSERT patient_diagnosis_v2 ---
         const matchedPatientUid = await resolveExistingPatientUid(form)
@@ -647,7 +666,7 @@ export default function QaCreateModal({ open, onClose, onCreated, editPatient, e
             bp_upright: form.bp_upright.trim() || null,
             pr_upright: form.pr_upright ? Number(form.pr_upright) : null,
           })
-          .select('id')
+          .select('id,patient_uid')
           .single()
 
         if (patErr) throw new Error(`patients_v2: ${patErr.message}`)
@@ -660,10 +679,14 @@ export default function QaCreateModal({ open, onClose, onCreated, editPatient, e
 
           if (diagErr) throw new Error(`patient_diagnosis_v2: ${diagErr.message}`)
         }
+        createdIdentity = {
+          id: patientData.id,
+          patient_uid: patientData.patient_uid ?? patientUidForInsert ?? null,
+        }
       }
 
       setForm(EMPTY)
-      onCreated()
+      onCreated(createdIdentity)
       onClose()
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
@@ -696,14 +719,38 @@ export default function QaCreateModal({ open, onClose, onCreated, editPatient, e
           {canUseAssessmentAssist && (
             <>
               <div className="col-span-2 rounded-xl border border-slate-200 bg-slate-50 p-4">
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-600">
-                  <span className="font-semibold text-slate-900">
-                    {form.first_name || '-'} {form.last_name || '-'}
-                  </span>
-                  <span>HN: {form.hn_number || '-'}</span>
-                  <span>Age: {form.age || '-'}</span>
-                  <span>Collection: {form.collection_date || '-'}</span>
-                </div>
+                {canEditPatientInfo ? (
+                  <>
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">ชื่อ</Label>
+                        <Input value={form.first_name} onChange={(e) => set('first_name', e.target.value)} placeholder="ชื่อจริง" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">นามสกุล</Label>
+                        <Input value={form.last_name} onChange={(e) => set('last_name', e.target.value)} placeholder="นามสกุล" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">อายุ</Label>
+                        <Input type="number" min={0} max={150} value={form.age} onChange={(e) => set('age', e.target.value)} placeholder="ปี" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">วันที่เก็บข้อมูล</Label>
+                        <Input type="date" value={form.collection_date} onChange={(e) => set('collection_date', e.target.value)} />
+                      </div>
+                    </div>
+                    <div className="mt-2 text-xs text-slate-500">HN: {form.hn_number || '-'}</div>
+                  </>
+                ) : (
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-600">
+                    <span className="font-semibold text-slate-900">
+                      {form.first_name || '-'} {form.last_name || '-'}
+                    </span>
+                    <span>HN: {form.hn_number || '-'}</span>
+                    <span>Age: {form.age || '-'}</span>
+                    <span>Collection: {form.collection_date || '-'}</span>
+                  </div>
+                )}
               </div>
 
               <div className="col-span-2 border-t pt-2">
@@ -887,13 +934,10 @@ export default function QaCreateModal({ open, onClose, onCreated, editPatient, e
           </div>
           <div className="col-span-2 space-y-1">
             <Label>Other diagnosis</Label>
-            <textarea
+            <OtherDiagnosisSelect
               value={form.other_diagnosis_text}
-              onChange={(e) => set('other_diagnosis_text', e.target.value)}
-              placeholder="Additional diagnosis details"
+              onChange={(next) => set('other_diagnosis_text', next ?? '')}
               disabled={!canEditDiag}
-              rows={4}
-              className="w-full resize-y rounded-md border border-gray-300 px-3 py-2 text-sm disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-muted-foreground"
             />
           </div>
 

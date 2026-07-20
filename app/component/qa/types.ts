@@ -62,7 +62,12 @@ export type QaDiagnosisRow = {
   fdopa_pet_score: string | null
 }
 
-export type QaScoreRow = { patient_id: number; total_score: number | null }
+export type QaScoreRow = {
+  patient_id: number
+  total_score: number | null
+  recognize_count?: number | null
+  perceive_count?: number | null
+}
 export type QaHamdRow = { patient_id: number; total_score: number | null; severity_level: string | null }
 export type QaConditionFilter = '' | 'pd' | 'pdm' | 'other' | 'ctrl'
 
@@ -91,6 +96,8 @@ export type CheckpdRecordSummary = {
   thaiid: string | null
 }
 
+export type QaColorVisionSummary = { done: boolean; summary: string | null }
+
 export type QaRow = {
   patient: QaPatient
   diag: QaDiagnosisRow | undefined
@@ -104,6 +111,8 @@ export type QaRow = {
   tmse: QaScoreRow | undefined
   rbd: QaScoreRow | undefined
   rome4: QaScoreRow | undefined
+  food: QaScoreRow | undefined
+  colorvision: QaColorVisionSummary | undefined
 }
 
 const normalize = (value: string | null | undefined) => (value ?? '').toLowerCase().trim()
@@ -148,6 +157,81 @@ export function hasQaGp2(diag?: QaDiagnosisRow): boolean {
   return normalize(diag?.blood_test_note).includes('gp2')
 }
 
+// ─── Condition badge colours ───────────────────────────────────────────────
+export type QaConditionColor = 'pd' | 'pdm' | 'ctrl' | 'other' | 'none'
+
+export function getConditionColor(label: string): QaConditionColor {
+  const l = (label ?? '').toUpperCase().trim()
+  if (l === 'PD') return 'pd'
+  if (l === 'PDM') return 'pdm'
+  if (l === 'CTRL') return 'ctrl'
+  if (l === '-' || l === '' || l === '—') return 'none'
+  return 'other'
+}
+
+export const CONDITION_BADGE_CLASS: Record<QaConditionColor, string> = {
+  pd:    'bg-red-100 text-red-700 ring-1 ring-red-300',
+  pdm:   'bg-orange-100 text-orange-700 ring-1 ring-orange-300',
+  ctrl:  'bg-green-100 text-green-700 ring-1 ring-green-300',
+  other: 'bg-slate-100 text-slate-600 ring-1 ring-slate-200',
+  none:  'text-slate-400',
+}
+
+// ─── Score severity (aligned with QaPatientSummaryModal thresholds) ─────────
+export type ScoreSeverity = 'good' | 'warn' | 'bad' | 'none'
+
+export function getScoreSeverity(key: string, score: number | null): ScoreSeverity {
+  if (score === null) return 'none'
+  switch (key) {
+    case 'moca':    return score >= 26 ? 'good' : score >= 18 ? 'warn' : 'bad'
+    case 'tmse':    return score >= 24 ? 'good' : 'bad'
+    case 'hamd':    return score <= 7  ? 'good' : score <= 12 ? 'warn' : 'bad'
+    case 'mds':     return score <= 3  ? 'good' : score <= 6  ? 'warn' : 'bad'
+    case 'epworth': return score <= 6  ? 'good' : score <= 9  ? 'warn' : 'bad'
+    case 'smell':   return score >= 10 ? 'good' : 'bad'
+    case 'rbd':     return score <= 16 ? 'good' : 'bad'
+    case 'rome4':   return score <= 1  ? 'good' : 'bad'
+    default:        return 'none'
+  }
+}
+
+export function getSeverityLabel(key: string, score: number | null): string {
+  if (score === null) return ''
+  switch (key) {
+    case 'moca':    return score >= 26 ? 'ปกติ' : score >= 18 ? 'MCI' : 'บกพร่อง'
+    case 'tmse':    return score >= 24 ? 'ปกติ' : 'บกพร่อง'
+    case 'hamd':    return score <= 7  ? 'ปกติ' : score <= 12 ? 'Mild' : 'Moderate+'
+    case 'mds':     return score <= 3  ? 'ปกติ' : score <= 6  ? 'Borderline' : 'Mild sign'
+    case 'epworth': return score <= 6  ? 'ปกติ' : score <= 9  ? 'Borderline' : 'EDS'
+    case 'smell':   return score >= 10 ? 'ปกติ' : 'Hyposmia'
+    case 'rbd':     return score <= 16 ? 'ปกติ' : 'Susp. RBD'
+    case 'rome4':   return score <= 1  ? 'ปกติ' : 'Constipation'
+    default:        return ''
+  }
+}
+
+export const SEVERITY_DOT_CLASS: Record<ScoreSeverity, string> = {
+  good: 'bg-green-500',
+  warn: 'bg-amber-400',
+  bad:  'bg-red-500',
+  none: 'bg-slate-200',
+}
+
+export const SEVERITY_TEXT_CLASS: Record<ScoreSeverity, string> = {
+  good: 'text-green-700',
+  warn: 'text-amber-600',
+  bad:  'text-red-600',
+  none: 'text-slate-400',
+}
+
+export const SEVERITY_CARD_CLASS: Record<ScoreSeverity, string> = {
+  good: 'border-green-300 bg-green-50/30',
+  warn: 'border-amber-300 bg-amber-50/30',
+  bad:  'border-red-300 bg-red-50/30',
+  none: 'border-slate-200',
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
 export const QA_HY_OPTIONS = [
   { value: '', label: 'All H&Y' },
   { value: '1', label: '1' },

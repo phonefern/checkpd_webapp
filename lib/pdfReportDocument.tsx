@@ -103,6 +103,11 @@ export type PdfReportProps = {
   };
   recordData: Record<string, any>;
   assetBaseUrl?: string | null;
+  qaBridge?: {
+    qaId: number | null;
+    qaUid: string;
+    qrDataUri: string | null;
+  } | null;
 };
 
 function formatThaiDate(dateStr: string) {
@@ -171,6 +176,7 @@ export function PdfReportDocument({
   info,
   recordData,
   assetBaseUrl,
+  qaBridge,
 }: PdfReportProps) {
   const questionnaire = recordData.questionnaire?.data?.split(',') || [];
   const tapCountLeft = recordData.dualtap?.data?.score ?? null;
@@ -199,6 +205,18 @@ export function PdfReportDocument({
     <Document>
       <Page size="A4" style={styles.page}>
         {headerImageSrc ? <Image src={headerImageSrc} style={styles.headerImage} /> : null}
+        {qaBridge ? (
+          <View style={styles.qaBridgeBlock}>
+            {qaBridge.qrDataUri ? <Image src={qaBridge.qrDataUri} style={styles.qaBridgeQr} /> : null}
+            <View style={styles.qaBridgeText}>
+              <Text style={styles.qaBridgeLabel}>Visit No.</Text>
+              <Text style={styles.qaBridgeId}>
+                {qaBridge.qaId != null ? qaBridge.qaId : '-'}
+              </Text>
+              <Text style={styles.qaBridgeCaption}>สแกนเพื่อทำแบบประเมิน</Text>
+            </View>
+          </View>
+        ) : null}
 
         <View style={styles.section}>
           <Text>ชื่อ นามสกุล {info.name}</Text>
@@ -351,6 +369,43 @@ const styles = StyleSheet.create({
   headerImage: {
     width: '100%',
     marginBottom: 8,
+  },
+  qaBridgeBlock: {
+    position: 'absolute',
+    top: 112,
+    right: 24,
+    width: 122,
+    minHeight: 54,
+    padding: 4,
+    borderWidth: 0.5,
+    borderColor: '#D1D5DB',
+    borderRadius: 4,
+    backgroundColor: '#FFFFFF',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  qaBridgeQr: {
+    width: 46,
+    height: 46,
+    marginRight: 4,
+  },
+  qaBridgeText: {
+    flex: 1,
+  },
+  qaBridgeLabel: {
+    fontSize: 6,
+    color: '#6B7280',
+  },
+  qaBridgeId: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#111827',
+    lineHeight: 1,
+  },
+  qaBridgeCaption: {
+    marginTop: 6,
+    fontSize: 6,
+    color: '#374151',
   },
   footerImage: {
     width: '100%',

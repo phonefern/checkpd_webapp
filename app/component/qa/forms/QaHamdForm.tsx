@@ -40,8 +40,8 @@ const QUESTIONS: QuestionDef[] = [
       { value: 0, label: '0 — ไม่มี' },
       { value: 1, label: '1 — จะบอกภาวะความรู้สึกนี้ต่อเมื่อถามเท่านั้น' },
       { value: 2, label: '2 — บอกภาวะความรู้สึกนี้ออกมาเอง' },
-      { value: 3, label: '3 — สื่อภาวะนี้โดยภาษากาย ได้แก่ สีหน้า ท่าทาง น้ำเสียง ท่าทางจะร้องไห้' },
-      { value: 4, label: '4 — ผู้ป่วยบอกชัดเจนทั้งคำพูดและภาษากาย' },
+      { value: 3, label: '3 — สื่อภาวะความรู้สึกนี้โดยภาษากาย ได้แก่ การแสดงสีหน้า ท่าทาง และน้ำเสียง และมักจะร้องไห้' },
+      { value: 4, label: '4 — ผู้ป่วยบอกความรู้สึกนี้อย่างชัดเจน ทั้งการบอกออกมาเองและภาษากาย' },
     ],
   },
   {
@@ -50,8 +50,8 @@ const QUESTIONS: QuestionDef[] = [
       { value: 0, label: '0 — ไม่มี' },
       { value: 1, label: '1 — ติเตียนตนเอง รู้สึกตนเองทำให้ผู้อื่นเสียใจ' },
       { value: 2, label: '2 — ครุ่นคำนึงถึงความผิดพลาดหรือการก่อกรรมทำบาปในอดีต' },
-      { value: 3, label: '3 — มีอาการหลงผิดว่าตนเองมีความผิดบาป / ป่วยเพราะถูกลงโทษ' },
-      { value: 4, label: '4 — ได้ยินเสียงกล่าวโทษ หรือเห็นภาพหลอนที่ข่มขู่' },
+      { value: 3, label: '3 — ความเจ็บป่วยในปัจจุบันเป็นการลงโทษ มีอาการหลงผิดว่าตนผิด' },
+      { value: 4, label: '4 — ได้ยินเสียงกล่าวโทษหรือประณาม และ/หรือเห็นภาพหลอนที่ข่มขู่คุกคาม' },
     ],
   },
   {
@@ -77,7 +77,7 @@ const QUESTIONS: QuestionDef[] = [
     options: [
       { value: 0, label: '0 — ไม่มีปัญหา' },
       { value: 1, label: '1 — กระสับกระส่าย นอนหลับไม่สนิทช่วงกลางคืน' },
-      { value: 2, label: '2 — ตื่นกลางดึก (ยกเว้นเพื่อปัสสาวะ)' },
+      { value: 2, label: '2 — ตื่นกลางดึก หากมีการลุกจากที่นอน ให้คะแนน 2 (ยกเว้นเพื่อปัสสาวะ)' },
     ],
   },
   {
@@ -93,9 +93,9 @@ const QUESTIONS: QuestionDef[] = [
     options: [
       { value: 0, label: '0 — ไม่มีปัญหา' },
       { value: 1, label: '1 — รู้สึกไม่มีสมรรถภาพ เหนื่อยล้า อ่อนแรงในการทำกิจกรรม' },
-      { value: 2, label: '2 — หมดความสนใจในกิจกรรม รู้สึกต้องบังคับตนเองทำงาน' },
-      { value: 3, label: '3 — ใช้เวลาในการทำงานลดลง (ถ้าอยู่รพ. ทำกิจกรรม < 3 ชม./วัน)' },
-      { value: 4, label: '4 — ไม่ได้ทำงานเพราะเจ็บป่วย (อยู่รพ. ไม่ทำกิจกรรมใดเลย)' },
+      { value: 2, label: '2 — หมดความสนใจในกิจกรรมต่างๆ' },
+      { value: 3, label: '3 — เวลาที่ใช้จริงในการทำกิจกรรมลดลง' },
+      { value: 4, label: '4 — หยุดทำงานเพราะการเจ็บป่วยในปัจจุบัน' },
     ],
   },
   {
@@ -349,7 +349,7 @@ export default function QaHamdForm({ open, patientId, onClose, onSaved }: Props)
         </div>
 
         {error && <p className="text-sm text-red-600 mt-2">{error}</p>}
-        <DialogFooter className="mt-4">
+        <DialogFooter className="sticky bottom-0 bg-white border-t -mx-4 sm:-mx-6 px-4 sm:px-6 py-3 mt-6">
           <Button variant="outline" onClick={onClose} disabled={saving}>ยกเลิก</Button>
           <Button onClick={handleSave} disabled={saving} className="bg-blue-600 hover:bg-blue-700 text-white">
             {saving ? 'กำลังบันทึก...' : 'บันทึก'}

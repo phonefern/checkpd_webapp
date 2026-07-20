@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { Button } from '@/components/ui/button'
 import { normalizeQaConditionValue, type CheckpdRecordSummary, type QaConditionFilter } from './types'
 
 interface Props {
@@ -12,12 +11,10 @@ interface Props {
   onSynced?: () => void | Promise<void>
 }
 
-export default function CheckpdDataSection({ patientId, thaiid, coreCondition, onSynced }: Props) {
+export default function CheckpdDataSection({ patientId, thaiid, coreCondition }: Props) {
   const [cpLoading, setCpLoading] = useState(false)
   const [cpRows, setCpRows] = useState<CheckpdRecordSummary[]>([])
   const [cpError, setCpError] = useState<string | null>(null)
-  const [syncing, setSyncing] = useState(false)
-  const [syncError, setSyncError] = useState<string | null>(null)
   const [coreConditionState, setCoreConditionState] = useState<QaConditionFilter>(normalizeQaConditionValue(coreCondition))
 
   useEffect(() => {
@@ -73,50 +70,15 @@ export default function CheckpdDataSection({ patientId, thaiid, coreCondition, o
   const syncSourceRow = latestRow
   const checkpdMainConditionRaw = syncSourceRow?.condition?.trim() ?? ''
   const checkpdMainConditionMapped = useMemo(
-    () => mapCheckpdConditionToCore(checkpdMainConditionRaw),
+    () => normalizeQaConditionValue(checkpdMainConditionRaw),
     [checkpdMainConditionRaw]
   )
-  const canSync =
-    !syncing &&
-    !!checkpdMainConditionMapped &&
-    checkpdMainConditionMapped !== coreConditionState
-
-  const handleSyncToCore = async () => {
-    if (!checkpdMainConditionMapped) return
-    setSyncError(null)
-
-    const accepted = window.confirm(
-      `ยืนยันใช้ CheckPD Main Condition (${checkpdMainConditionMapped.toUpperCase()}) จาก record_id: ${syncSourceRow?.record_id ?? '-'} เป็น Screening Condition ใช่หรือไม่?`
-    )
-    if (!accepted) return
-
-    setSyncing(true)
-    try {
-      const { data: updatedRows, error: updateError } = await supabase
-        .schema('core')
-        .from('patient_diagnosis_v2')
-        .update({ condition: checkpdMainConditionMapped })
-        .eq('patient_id', patientId)
-        .select('patient_id')
-
-      if (updateError) throw new Error(updateError.message)
-
-      if (!updatedRows || updatedRows.length === 0) {
-        const { error: insertError } = await supabase
-          .schema('core')
-          .from('patient_diagnosis_v2')
-          .insert({ patient_id: patientId, condition: checkpdMainConditionMapped })
-        if (insertError) throw new Error(insertError.message)
-      }
-
-      setCoreConditionState(checkpdMainConditionMapped)
-      await onSynced?.()
-    } catch (err) {
-      setSyncError(err instanceof Error ? err.message : String(err))
-    } finally {
-      setSyncing(false)
-    }
-  }
+  const compareStatus =
+    !checkpdMainConditionMapped || !coreConditionState
+      ? '-'
+      : checkpdMainConditionMapped === coreConditionState
+        ? 'Matched'
+        : 'Different'
 
   return (
     <section className="mt-6 rounded-xl bg-teal-50/30 p-4">
@@ -149,21 +111,11 @@ export default function CheckpdDataSection({ patientId, thaiid, coreCondition, o
                 <span className="text-slate-500">Source record_id:</span>{' '}
                 <span className="font-semibold text-slate-900">{syncSourceRow?.record_id || '-'}</span>
               </div>
+              <div>
+                <span className="text-slate-500">Compare Status:</span>{' '}
+                <span className="font-semibold text-slate-900">{compareStatus}</span>
+              </div>
             </div>
-          <div className="mt-3">
-            <Button
-              type="button"
-              size="sm"
-              disabled={!canSync}
-              onClick={handleSyncToCore}
-              className="bg-teal-600 text-white hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {syncing ? 'กำลังยืนยัน...' : 'ยืนยันใช้ CheckPD เป็น Main Condition'}
-            </Button>
-          </div>
-          {syncError && (
-            <div className="mt-2 text-xs text-red-600">อัปเดต Screening Condition ไม่สำเร็จ: {syncError}</div>
-          )}
         </div>
       )}
 
@@ -221,16 +173,6 @@ function DataRow({ label, value }: { label: string; value: string | null | undef
 function formatConditionCode(value: QaConditionFilter): string {
   if (!value) return '-'
   return value.toUpperCase()
-}
-
-function mapCheckpdConditionToCore(value: string): QaConditionFilter {
-  const raw = value.toLowerCase().trim()
-  if (!raw) return ''
-  if (raw === 'pdm' || raw.includes('prodromal') || raw.includes('high risk') || raw.includes('high-risk')) return 'pdm'
-  if (raw === 'pd' || raw.includes('parkinson') || raw.includes('newly diagnosis')) return 'pd'
-  if (raw === 'ctrl' || raw.includes('healthy') || raw.includes('control') || raw === 'normal') return 'ctrl'
-  if (raw === 'other' || raw.includes('other diagnosis')) return 'other'
-  return ''
 }
 
 function formatRisk(value: boolean | null): string {

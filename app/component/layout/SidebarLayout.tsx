@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, type Variants } from "framer-motion";
+import { Menu, X } from "lucide-react";
 
 import AppSidebar from "./AppSidebar";
 import AuthRedirect from "@/components/AuthRedirect";
@@ -16,7 +17,6 @@ import { signOutEverywhere } from "@/lib/auth";
 type Props = {
   children: React.ReactNode;
   activePath: string;
-  /** Extra classes applied to the <main> content area */
   mainClassName?: string;
 };
 
@@ -38,6 +38,7 @@ const pageVariants: Variants = {
 
 export default function SidebarLayout({ children, activePath, mainClassName }: Props) {
   const router = useRouter();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { session, loading: sessionLoading } = useSession();
   const userName = useMemo(() => {
     if (!session?.user) return "Admin ChulaPD";
@@ -53,22 +54,41 @@ export default function SidebarLayout({ children, activePath, mainClassName }: P
     window.location.href = "/pages/login";
   };
 
+  const sidebarProps = {
+    activePath,
+    role: accessProfile.role,
+    user: {
+      name: userName,
+      email: userEmail,
+      roleLabel: accessProfile.role ? APP_ROLE_LABELS[accessProfile.role] : "ผู้ดูแลระบบ",
+    },
+    onNavigate: (path: string) => { router.push(path); setMobileMenuOpen(false); },
+    onLogout: handleLogout,
+  };
+
   if (sessionLoading || accessLoading) {
     return (
       <div className="flex min-h-screen bg-neutral-950">
-        <AppSidebar
-          activePath={activePath}
-          role={accessProfile.role}
-          user={{
-            name: userName,
-            email: userEmail,
-            roleLabel: accessProfile.role ? APP_ROLE_LABELS[accessProfile.role] : "Loading",
-          }}
-          onNavigate={(path) => router.push(path)}
-          onLogout={handleLogout}
-        />
+        {/* Mobile top bar skeleton */}
+        <header
+          className="md:hidden fixed top-0 inset-x-0 z-40 flex items-center h-14 px-4 gap-3"
+          style={{ background: "linear-gradient(90deg, #4339C6 0%, #3C33B5 100%)" }}
+        >
+          <div className="h-5 w-5 rounded bg-white/20 animate-pulse" />
+          <div className="h-4 w-32 rounded bg-white/20 animate-pulse" />
+        </header>
 
-        <main className={`min-w-0 flex-1 overflow-auto ${mainClassName ?? ""}`}>
+        <div className="hidden md:flex">
+          <AppSidebar
+            activePath={activePath}
+            role={accessProfile.role}
+            user={{ name: userName, email: userEmail, roleLabel: "Loading" }}
+            onNavigate={(path) => router.push(path)}
+            onLogout={handleLogout}
+          />
+        </div>
+
+        <main className={`min-w-0 flex-1 overflow-auto pt-14 md:pt-0 ${mainClassName ?? ""}`}>
           <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
             <div className="rounded-[28px] border border-black/5 bg-white/70 p-6 shadow-[0_20px_60px_rgba(10,10,10,0.06)] backdrop-blur sm:p-8">
               <div className="animate-pulse space-y-4">
@@ -93,17 +113,45 @@ export default function SidebarLayout({ children, activePath, mainClassName }: P
 
   return (
     <div className="flex min-h-screen bg-neutral-950">
-      <AppSidebar
-        activePath={activePath}
-        role={accessProfile.role}
-        user={{
-          name: userName,
-          email: userEmail,
-          roleLabel: accessProfile.role ? APP_ROLE_LABELS[accessProfile.role] : "ผู้ดูแลระบบ",
-        }}
-        onNavigate={(path) => router.push(path)}
-        onLogout={handleLogout}
-      />
+      {/* Mobile top bar */}
+      <header
+        className="md:hidden fixed top-0 inset-x-0 z-40 flex items-center h-14 px-4 gap-3"
+        style={{ background: "linear-gradient(90deg, #4339C6 0%, #3C33B5 100%)" }}
+      >
+        <button
+          onClick={() => setMobileMenuOpen(true)}
+          className="flex h-9 w-9 items-center justify-center rounded-lg text-white hover:bg-white/15 active:bg-white/25 transition"
+          aria-label="เปิดเมนู"
+        >
+          <Menu className="h-5 w-5" />
+        </button>
+        <span className="text-white font-medium text-sm tracking-wide">CheckPD Admin</span>
+      </header>
+
+      {/* Mobile drawer overlay */}
+      {mobileMenuOpen && (
+        <div className="fixed inset-0 z-50 md:hidden">
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setMobileMenuOpen(false)}
+          />
+          <div className="absolute left-0 top-0 bottom-0 w-72 shadow-2xl overflow-y-auto">
+            <button
+              onClick={() => setMobileMenuOpen(false)}
+              className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25 transition"
+              aria-label="ปิดเมนู"
+            >
+              <X className="h-4 w-4" />
+            </button>
+            <AppSidebar {...sidebarProps} />
+          </div>
+        </div>
+      )}
+
+      {/* Desktop sidebar — md:flex preserves stretch so aside fills full height */}
+      <div className="hidden md:flex">
+        <AppSidebar {...sidebarProps} />
+      </div>
 
       <motion.main
         key={activePath}
@@ -111,7 +159,7 @@ export default function SidebarLayout({ children, activePath, mainClassName }: P
         initial="initial"
         animate="animate"
         exit="exit"
-        className={`min-w-0 flex-1 overflow-auto ${mainClassName ?? ""}`}
+        className={`min-w-0 flex-1 overflow-auto pt-14 md:pt-0 ${mainClassName ?? ""}`}
       >
         {children}
       </motion.main>

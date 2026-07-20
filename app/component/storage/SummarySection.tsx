@@ -1,7 +1,15 @@
 'use client'
 
-import { FolderDown } from 'lucide-react'
+import { FolderDown, Loader2, Users } from 'lucide-react'
+import { AnimatePresence, motion } from 'framer-motion'
+import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import { SummaryProps } from './types'
+
+const SORT_OPTIONS: { value: 'ID' | 'TEST'; label: string; hint: string }[] = [
+  { value: 'ID', label: 'By ID', hint: 'จัดกลุ่มตามผู้ป่วย' },
+  { value: 'TEST', label: 'By Test', hint: 'จัดกลุ่มตามชนิดการทดสอบ' },
+]
 
 export default function SummarySection({
   selectedCount,
@@ -10,86 +18,118 @@ export default function SummarySection({
   sortBy,
   setSortBy,
   downloading = false,
-  downloadProgress
+  downloadProgress,
 }: SummaryProps) {
+  const hasProgress = Boolean(downloadProgress && downloadProgress.total > 0)
+  const pct = hasProgress
+    ? Math.round((downloadProgress!.current / downloadProgress!.total) * 100)
+    : 0
+  const canDownload = selectedCount > 0 && !downloading
+
   return (
-    <div className="mt-6 flex flex-col lg:flex-row gap-4 items-stretch">
-
-      {/* ===== Left box : Summary ===== */}
-      <div className="flex-1 p-6 bg-white rounded-lg border-2 border-purple-700 flex flex-col justify-center gap-3">
-
-        <div className="text-base text-gray-800">
-          เลือก{' '}
-          <span className="font-semibold">{selectedCount}</span>{' '}
-          จาก{' '}
-          <span className="font-semibold">{filteredCount}</span>{' '}
-          คน
-        </div>
-      </div>
-
-      {/* ===== Sort By ===== */}
-      <div className="flex flex-col gap-2 item-start">
-        <span className="text-l font-medium text-gray-700">
-          Sorted by:
-        </span>
-
-        <div className="flex flex-col gap-2">
-          <button
-            onClick={() => setSortBy('ID')}
-            className={`
-              min-w-[150px] px-3 py-1 rounded border text-sm font-medium
-              ${sortBy === 'ID'
-                ? 'bg-purple-900 text-white border-purple-700'
-                : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'}
-            `}
-          >
-            ID
-          </button>
-
-          <button
-            onClick={() => setSortBy('TEST')}
-            className={`
-              min-w-[150px] px-3 py-1 rounded border text-sm font-medium
-              ${sortBy === 'TEST'
-                ? 'bg-purple-900 text-white border-purple-700'
-                : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'}
-            `}
-          >
-            TEST
-          </button>
-        </div>
-      </div>
-
-      {/* ===== Right box : Download ===== */}
-      <button
-        disabled={selectedCount === 0 || downloading}
-        onClick={onDownload}
-        className="
-          p-4 min-w-[220px]
-          bg-purple-900 rounded-lg border-4 border-purple-900
-          flex flex-col items-center justify-center
-          text-white
-          hover:bg-purple-800 transition
-          disabled:opacity-60 disabled:cursor-not-allowed
-        "
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_auto_auto] lg:items-stretch">
+      {/* ===== Summary ===== */}
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.25 }}
+        className="flex items-center gap-4 rounded-xl border border-purple-200 bg-gradient-to-br from-purple-50 to-white px-6 py-5 shadow-sm"
       >
-        <FolderDown size={36} strokeWidth={1.8} />
-        <span className="text-sm mt-2 font-medium">
-          {downloading
-            ? downloadProgress && downloadProgress.total > 0
-              ? `Downloading ${downloadProgress.current}/${downloadProgress.total}`
-              : 'Preparing download...'
-            : `Download ${selectedCount} Patients`}
+        <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-purple-100 text-purple-700">
+          <Users size={22} />
+        </div>
+        <div className="leading-tight">
+          <div className="flex items-baseline gap-1.5">
+            <AnimatePresence mode="popLayout">
+              <motion.span
+                key={selectedCount}
+                initial={{ opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 6 }}
+                transition={{ duration: 0.18 }}
+                className="text-2xl font-bold tabular-nums text-purple-900"
+              >
+                {selectedCount.toLocaleString()}
+              </motion.span>
+            </AnimatePresence>
+            <span className="text-sm text-gray-500">
+              / {filteredCount.toLocaleString()} คน
+            </span>
+          </div>
+          <p className="text-xs text-gray-500">เลือกเพื่อเตรียมดาวน์โหลด</p>
+        </div>
+      </motion.div>
+
+      {/* ===== Sort segmented control ===== */}
+      <div className="flex flex-col justify-center gap-1.5">
+        <span className="text-xs font-medium uppercase tracking-wide text-gray-500">
+          Sort by
         </span>
-        {downloading && downloadProgress && downloadProgress.total > 0 && (
-          <div className="w-full mt-2 bg-purple-700 rounded-full h-2">
-            <div
-              className="bg-white h-2 rounded-full transition-all duration-300"
-              style={{ width: `${(downloadProgress.current / downloadProgress.total) * 100}%` }}
+        <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-1">
+          {SORT_OPTIONS.map((opt) => {
+            const active = sortBy === opt.value
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                title={opt.hint}
+                onClick={() => setSortBy(opt.value)}
+                className={cn(
+                  'relative rounded-md px-4 py-1.5 text-sm font-medium transition-colors',
+                  active ? 'text-white' : 'text-gray-600 hover:text-gray-900'
+                )}
+              >
+                {active && (
+                  <motion.span
+                    layoutId="storage-sort-pill"
+                    className="absolute inset-0 rounded-md bg-purple-900"
+                    transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                  />
+                )}
+                <span className="relative z-10">{opt.label}</span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* ===== Download ===== */}
+      <Button
+        type="button"
+        disabled={!canDownload}
+        onClick={onDownload}
+        className="relative h-auto min-w-[230px] flex-col gap-2 overflow-hidden rounded-xl bg-purple-900 px-6 py-4 text-white shadow-md hover:bg-purple-800 disabled:opacity-60"
+      >
+        {downloading ? (
+          <Loader2 size={30} className="animate-spin" strokeWidth={1.8} />
+        ) : (
+          <motion.span
+            whileHover={{ y: -2 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 18 }}
+          >
+            <FolderDown size={30} strokeWidth={1.8} />
+          </motion.span>
+        )}
+
+        <span className="text-sm font-medium">
+          {downloading
+            ? hasProgress
+              ? `Downloading ${downloadProgress!.current}/${downloadProgress!.total}`
+              : 'Preparing download…'
+            : `Download ${selectedCount.toLocaleString()} Patients`}
+        </span>
+
+        {downloading && hasProgress && (
+          <div className="absolute inset-x-0 bottom-0 h-1.5 bg-purple-700/60">
+            <motion.div
+              className="h-full bg-white"
+              initial={{ width: 0 }}
+              animate={{ width: `${pct}%` }}
+              transition={{ ease: 'easeOut', duration: 0.3 }}
             />
           </div>
         )}
-      </button>
+      </Button>
     </div>
   )
 }

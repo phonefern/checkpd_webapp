@@ -233,6 +233,40 @@ CREATE TABLE core.smell_test_v2 (
   smell_14_answer TEXT NULL,  -- correct: B (กุหลาบ)
   smell_15_answer TEXT NULL,  -- correct: A (โป๊ยกั๊ก)
   smell_16_answer TEXT NULL,  -- correct: C (ปลา)
+  smell_01_recognize BOOLEAN NULL,
+  smell_02_recognize BOOLEAN NULL,
+  smell_03_recognize BOOLEAN NULL,
+  smell_04_recognize BOOLEAN NULL,
+  smell_05_recognize BOOLEAN NULL,
+  smell_06_recognize BOOLEAN NULL,
+  smell_07_recognize BOOLEAN NULL,
+  smell_08_recognize BOOLEAN NULL,
+  smell_09_recognize BOOLEAN NULL,
+  smell_10_recognize BOOLEAN NULL,
+  smell_11_recognize BOOLEAN NULL,
+  smell_12_recognize BOOLEAN NULL,
+  smell_13_recognize BOOLEAN NULL,
+  smell_14_recognize BOOLEAN NULL,
+  smell_15_recognize BOOLEAN NULL,
+  smell_16_recognize BOOLEAN NULL,
+  smell_01_perceive  BOOLEAN NULL,
+  smell_02_perceive  BOOLEAN NULL,
+  smell_03_perceive  BOOLEAN NULL,
+  smell_04_perceive  BOOLEAN NULL,
+  smell_05_perceive  BOOLEAN NULL,
+  smell_06_perceive  BOOLEAN NULL,
+  smell_07_perceive  BOOLEAN NULL,
+  smell_08_perceive  BOOLEAN NULL,
+  smell_09_perceive  BOOLEAN NULL,
+  smell_10_perceive  BOOLEAN NULL,
+  smell_11_perceive  BOOLEAN NULL,
+  smell_12_perceive  BOOLEAN NULL,
+  smell_13_perceive  BOOLEAN NULL,
+  smell_14_perceive  BOOLEAN NULL,
+  smell_15_perceive  BOOLEAN NULL,
+  smell_16_perceive  BOOLEAN NULL,
+  recognize_count INTEGER NULL,
+  perceive_count  INTEGER NULL,
 
   total_score     INTEGER NULL,
   created_at      TIMESTAMPTZ DEFAULT TIMEZONE('utc', NOW()),
@@ -437,12 +471,28 @@ CREATE TABLE core.vision_tests_v2 (
   -- Color discrimination — Paper
   color_paper_re_test             TEXT NULL,     -- result text (pass/fail/tritan/etc.)
   color_paper_re_test_abnormal    INTEGER NULL,  -- 0=normal, 1=abnormal
+  color_paper_re_test_order       SMALLINT[] NULL, -- D-15 cap order, caps 1..15 without reference cap
+  color_paper_re_test_crossings   SMALLINT NULL,
+  color_paper_re_test_axis        TEXT NULL,     -- normal/protan/deutan/tritan
+  color_paper_re_test_tes         REAL NULL,     -- reserved for future quantitative scoring
   color_paper_re_retest           TEXT NULL,
   color_paper_re_retest_abnormal  INTEGER NULL,
+  color_paper_re_retest_order     SMALLINT[] NULL,
+  color_paper_re_retest_crossings SMALLINT NULL,
+  color_paper_re_retest_axis      TEXT NULL,
+  color_paper_re_retest_tes       REAL NULL,
   color_paper_le_test             TEXT NULL,
   color_paper_le_test_abnormal    INTEGER NULL,
+  color_paper_le_test_order       SMALLINT[] NULL,
+  color_paper_le_test_crossings   SMALLINT NULL,
+  color_paper_le_test_axis        TEXT NULL,
+  color_paper_le_test_tes         REAL NULL,
   color_paper_le_retest           TEXT NULL,
   color_paper_le_retest_abnormal  INTEGER NULL,
+  color_paper_le_retest_order     SMALLINT[] NULL,
+  color_paper_le_retest_crossings SMALLINT NULL,
+  color_paper_le_retest_axis      TEXT NULL,
+  color_paper_le_retest_tes       REAL NULL,
 
   -- Color discrimination — Application
   color_app_re_test               TEXT NULL,
@@ -514,6 +564,59 @@ CREATE INDEX idx_rbd_patient_id           ON core.rbd_questionnaire_v2     (pati
 CREATE INDEX idx_epworth_patient_id       ON core.epworth_v2               (patient_id);
 CREATE INDEX idx_vision_patient_id        ON core.vision_tests_v2          (patient_id);
 CREATE INDEX idx_food_patient_id          ON core.food_questionnaire_v2    (patient_id);
+
+
+-- ============================================================
+-- CROSS-SCHEMA DIAGNOSIS SYNC
+-- core.patient_diagnosis_v2 condition/other_diagnosis_text
+-- syncs patient-wide to public.user_record_summary and checkpd.record_summary
+-- through public.fn_sync_diagnosis, matched by patients_v2.thaiid.
+-- ============================================================
+CREATE OR REPLACE FUNCTION core.tg_sync_diagnosis_to_public()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, checkpd, core
+AS $$
+DECLARE
+  v_thaiid text;
+BEGIN
+  SELECT pt.thaiid
+    INTO v_thaiid
+    FROM core.patients_v2 pt
+   WHERE pt.id = NEW.patient_id;
+
+  PERFORM public.fn_sync_diagnosis(
+    v_thaiid,
+    NEW.condition,
+    NEW.other_diagnosis_text,
+    'core'
+  );
+
+  RETURN NULL;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS tg_sync_diagnosis_to_public ON core.patient_diagnosis_v2;
+DROP TRIGGER IF EXISTS tg_sync_diagnosis_to_public_insert ON core.patient_diagnosis_v2;
+DROP TRIGGER IF EXISTS tg_sync_diagnosis_to_public_update ON core.patient_diagnosis_v2;
+
+CREATE TRIGGER tg_sync_diagnosis_to_public_insert
+AFTER INSERT
+ON core.patient_diagnosis_v2
+FOR EACH ROW
+WHEN (pg_trigger_depth() = 1)
+EXECUTE FUNCTION core.tg_sync_diagnosis_to_public();
+
+CREATE TRIGGER tg_sync_diagnosis_to_public_update
+AFTER UPDATE OF condition, other_diagnosis_text
+ON core.patient_diagnosis_v2
+FOR EACH ROW
+WHEN (
+  pg_trigger_depth() = 1
+  AND (OLD.condition IS DISTINCT FROM NEW.condition OR OLD.other_diagnosis_text IS DISTINCT FROM NEW.other_diagnosis_text)
+)
+EXECUTE FUNCTION core.tg_sync_diagnosis_to_public();
 
 
 -- ============================================================

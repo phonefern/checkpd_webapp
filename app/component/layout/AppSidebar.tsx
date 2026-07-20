@@ -2,14 +2,18 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
+  BarChart3,
   Bell,
   Building2,
+  CalendarDays,
   ChevronLeft,
   ChevronRight,
+  Database,
   Clock,
   Download,
   FileDown,
   FileText,
+  Home,
   LogOut,
   LogIn,
   Package,
@@ -32,13 +36,16 @@ type SidebarUser = {
 type SidebarItem = {
   label: string;
   icon: LucideIcon;
-  path: string;
-  feature: AppFeature;
+  path?: string;
+  feature?: AppFeature;
   badge?: string;
+  hideForRoles?: AppRole[];
+  children?: SidebarItem[];
 };
 
 const mainItems: SidebarItem[] = [
-  { label: "Dashboard", icon: Building2, path: "/pages/index", feature: "dashboard" },
+  { label: "Home", icon: Home, path: "/pages/index", feature: "dashboard", hideForRoles: ["guest"] },
+  { label: "Statistics Dashboard", icon: BarChart3, path: "/pages/dashboard", feature: "dashboard" },
   { label: "User Management", icon: ShieldCheck, path: "/pages/admin", feature: "admin" },
   { label: "Activity Logs", icon: Bell, path: "/pages/log", feature: "log" },
 ];
@@ -47,9 +54,17 @@ const workspaceItems: SidebarItem[] = [
   { label: "Diagnosis Management", icon: ShieldCheck, path: "/pages/users", feature: "users" },
   // { label: "Questionnaire Management V1", icon: FileText, path: "/pages/papers", feature: "papers" },
     { label: "Screening Assessments", icon: Download, path: "/pages/qa", feature: "qa" },
+  { label: "Event Management", icon: CalendarDays, path: "/pages/event", feature: "event" },
   { label: "Usage Analytics", icon: Clock, path: "/pages/tracking", feature: "tracking" },
   { label: "CheckPD Report Export (PDF)", icon: FileDown, path: "/pages/pdf", feature: "pdf" },
-  { label: "Raw Data Access", icon: Package, path: "/pages/storage", feature: "storage" },
+  {
+    label: "Raw Data Access",
+    icon: Package,
+    children: [
+      { label: "Patient Records ZIP", icon: Download, path: "/pages/export", feature: "export" },
+      { label: "Storage Files", icon: Database, path: "/pages/storage", feature: "storage" },
+    ],
+  },
 
 ];
 
@@ -81,15 +96,30 @@ export default function AppSidebar({ activePath, role, user, onNavigate, onLogou
   }, []);
 
 
+  const isItemVisible = (item: SidebarItem): boolean => {
+    if (role && item.hideForRoles?.includes(role)) return false;
+    if (item.children?.length) {
+      return item.children.some((child) => isItemVisible(child));
+    }
+    return item.feature ? canAccessFeature(role, item.feature) : false;
+  };
+
   const visibleMainItems = useMemo(
-    () => mainItems.filter((item) => canAccessFeature(role, item.feature)),
+    () => mainItems.filter(isItemVisible),
     [role]
   );
 
   const visibleWorkspaceItems = useMemo(
-    () => workspaceItems.filter((item) => canAccessFeature(role, item.feature)),
+    () => workspaceItems.filter(isItemVisible),
     [role]
   );
+
+  const visibleChildren = (item: SidebarItem) => item.children?.filter(isItemVisible) ?? [];
+
+  const isActiveItem = (item: SidebarItem) => {
+    if (item.path && activePath === item.path) return true;
+    return visibleChildren(item).some((child) => child.path === activePath);
+  };
 
   return (
     <aside
@@ -214,11 +244,11 @@ export default function AppSidebar({ activePath, role, user, onNavigate, onLogou
         <nav className="mt-6 flex-1 overflow-y-auto overflow-x-hidden">
           <div className="space-y-1">
             {visibleMainItems.map((item) => {
-              const isActive = activePath === item.path;
+              const isActive = isActiveItem(item);
               return (
                 <button
                   key={item.label}
-                  onClick={() => onNavigate(item.path)}
+                  onClick={() => item.path && onNavigate(item.path)}
                   title={collapsed ? item.label : undefined}
                   className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition ${
                     isActive ? "bg-white text-[#4339C6] shadow-sm" : "text-indigo-100 hover:bg-white/10 hover:text-white"
@@ -255,27 +285,56 @@ export default function AppSidebar({ activePath, role, user, onNavigate, onLogou
               Workspace
             </p>
             <div className="space-y-1">
-              {visibleWorkspaceItems.map((item) => (
-                <button
-                  key={item.label}
-                  onClick={() => onNavigate(item.path)}
-                  title={collapsed ? item.label : undefined}
-                  className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition ${
-                    activePath === item.path
-                      ? "bg-white/16 text-white"
-                      : "text-indigo-100 hover:bg-white/10 hover:text-white"
-                  }`}
-                >
-                  <item.icon className="h-4 w-4 shrink-0" />
-                  <span
-                    className={`overflow-hidden whitespace-nowrap transition-all duration-300 ease-in-out ${
-                      collapsed ? "w-0 opacity-0" : "w-auto opacity-100"
-                    }`}
-                  >
-                    {item.label}
-                  </span>
-                </button>
-              ))}
+              {visibleWorkspaceItems.map((item) => {
+                const children = visibleChildren(item);
+                const active = isActiveItem(item);
+                const firstChildPath = children[0]?.path;
+                return (
+                  <div key={item.label} className="space-y-1">
+                    <button
+                      onClick={() => item.path ? onNavigate(item.path) : firstChildPath && onNavigate(firstChildPath)}
+                      title={collapsed ? item.label : undefined}
+                      className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition ${
+                        active
+                          ? "bg-white/16 text-white"
+                          : "text-indigo-100 hover:bg-white/10 hover:text-white"
+                      }`}
+                    >
+                      <item.icon className="h-4 w-4 shrink-0" />
+                      <span
+                        className={`overflow-hidden whitespace-nowrap transition-all duration-300 ease-in-out ${
+                          collapsed ? "w-0 opacity-0" : "w-auto opacity-100"
+                        }`}
+                      >
+                        {item.label}
+                      </span>
+                    </button>
+
+                    {children.length > 0 && !collapsed ? (
+                      <div className="ml-4 space-y-1 border-l border-white/15 pl-3">
+                        {children.map((child) => {
+                          const ChildIcon = child.icon;
+                          const childActive = activePath === child.path;
+                          return (
+                            <button
+                              key={child.label}
+                              onClick={() => child.path && onNavigate(child.path)}
+                              className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs transition ${
+                                childActive
+                                  ? "bg-white text-[#4339C6] shadow-sm"
+                                  : "text-indigo-100/85 hover:bg-white/10 hover:text-white"
+                              }`}
+                            >
+                              <ChildIcon className="h-3.5 w-3.5 shrink-0" />
+                              <span className="overflow-hidden whitespace-nowrap">{child.label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
             </div>
           </div>
         </nav>
