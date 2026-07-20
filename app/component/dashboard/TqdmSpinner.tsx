@@ -9,12 +9,9 @@ type Props = {
 
 export default function TqdmSpinner({ label = "กำลังโหลดข้อมูล", detail }: Props) {
   const [pct, setPct] = useState(0)
-  const [elapsed, setElapsed] = useState(0)
 
   useEffect(() => {
-    const startedAt = Date.now()
     const tick = setInterval(() => {
-      setElapsed((Date.now() - startedAt) / 1000)
       setPct((prev) => {
         const remaining = 95 - prev
         if (remaining <= 0) return prev
@@ -24,29 +21,8 @@ export default function TqdmSpinner({ label = "กำลังโหลดข้
     return () => clearInterval(tick)
   }, [])
 
-  const blocks = 18
-  const filled = Math.min(blocks, Math.round((pct / 100) * blocks))
-
   return (
-    <div className="relative flex w-[360px] flex-col items-center gap-5 overflow-hidden rounded-2xl border border-teal-100 bg-white/96 px-8 py-7 shadow-[0_8px_40px_rgba(13,148,136,0.18)] backdrop-blur-md">
-      {/* Medical grid background */}
-      <div
-        className="pointer-events-none absolute inset-0 opacity-[0.025]"
-        style={{
-          backgroundImage:
-            "linear-gradient(#0d9488 1px, transparent 1px), linear-gradient(90deg, #0d9488 1px, transparent 1px)",
-          backgroundSize: "32px 32px",
-        }}
-      />
-
-      {/* Top accent bar */}
-      <div className="absolute inset-x-0 top-0 h-0.5 overflow-hidden rounded-t-2xl">
-        <div
-          className="h-full bg-gradient-to-r from-teal-400 via-teal-500 to-teal-400 transition-all duration-300"
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-
+    <div className="flex w-[360px] flex-col items-center gap-5">
       {/* Sonar + rotating arc */}
       <div className="relative flex h-28 w-28 items-center justify-center">
         {/* Staggered sonar rings */}
@@ -104,25 +80,15 @@ export default function TqdmSpinner({ label = "กำลังโหลดข้
       </div>
 
       {/* Label + detail */}
-      <div className="flex flex-col items-center gap-1 text-center">
+      <div className="mt-5 flex flex-col items-center gap-1 text-center">
         <p className="text-sm font-semibold tracking-wide text-slate-700">{label}</p>
         {detail ? (
           <p className="text-[11px] text-slate-400 leading-relaxed">{detail}</p>
         ) : null}
       </div>
 
-      {/* Progress bar */}
-      <div className="w-full">
-        <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
-          <div
-            className="h-full rounded-full bg-gradient-to-r from-teal-400 to-teal-600 transition-all duration-300"
-            style={{ width: `${pct}%` }}
-          />
-        </div>
-      </div>
-
       {/* EKG heartbeat line */}
-      <div className="w-full overflow-hidden" style={{ filter: "drop-shadow(0 0 4px #0d948866)" }}>
+      <div className="mt-4 w-full overflow-hidden" style={{ filter: "drop-shadow(0 0 4px #0d948866)" }}>
         <svg viewBox="0 0 300 32" className="w-full">
           <path
             d="M 0,16 L 300,16"
@@ -141,18 +107,6 @@ export default function TqdmSpinner({ label = "กำลังโหลดข้
             strokeLinejoin="round"
           />
         </svg>
-      </div>
-
-      {/* Stats row */}
-      <div className="flex items-center gap-2.5 font-mono text-[11px] tabular-nums text-slate-400">
-        <span className="font-bold text-teal-600">{Math.round(pct).toString().padStart(2, " ")}%</span>
-        <span className="text-slate-200">│</span>
-        <span>
-          <span className="text-teal-500">{"█".repeat(filled)}</span>
-          <span className="text-slate-200">{"░".repeat(blocks - filled)}</span>
-        </span>
-        <span className="text-slate-200">│</span>
-        <span>{elapsed.toFixed(1)}s</span>
       </div>
 
       <style>{`
