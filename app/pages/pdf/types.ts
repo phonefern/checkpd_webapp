@@ -1,5 +1,24 @@
 import { Timestamp } from "firebase/firestore";
 
+/**
+ * Minimal timestamp shape the UI relies on (`.toDate()` / `.toMillis()`).
+ * A Firestore `Timestamp` already satisfies this; Supabase rows (ISO strings)
+ * are wrapped with `toTsLike()` so both data sources render identically and
+ * downstream components (UserList, PdfUserCardList) need no changes.
+ */
+export interface TsLike {
+  toDate: () => Date;
+  toMillis: () => number;
+}
+
+/** Wrap a Supabase timestamp (ISO string / Date) into the `TsLike` shape. */
+export function toTsLike(value?: string | Date | null): TsLike | undefined {
+  if (!value) return undefined;
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return undefined;
+  return { toDate: () => d, toMillis: () => d.getTime() };
+}
+
 export type UserRow = {
   userDocId: string;
   firstName?: string;
@@ -9,8 +28,8 @@ export type UserRow = {
   age?: number | null;
   idCardAddress?: string;
   liveAddress?: string;
-  timestamp?: Timestamp;
-  lastUpdate?: Timestamp;
+  timestamp?: TsLike;
+  lastUpdate?: TsLike;
   source: "users" | "temps";
 };
 

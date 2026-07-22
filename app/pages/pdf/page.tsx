@@ -1,15 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Image from "next/image";
-import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
+import { collection, limit, onSnapshot, orderBy, query } from "firebase/firestore";
 import { db } from "@/lib/firebaseClient";
 import { supabase } from "@/lib/supabase";
 import { UserList } from "@/app/component/pdf/UserList";
 import { RecordsPanel } from "@/app/component/pdf/RecordsPanel";
 import { ExportSection } from "@/app/component/pdf/ExportSection";
 import { PaginationControls } from "@/app/component/pdf/PaginationControls";
-import { UserRow, RecordRow, extractProvince } from "./types";
+import { UserRow, RecordRow, extractProvince, toTsLike } from "./types";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import QaCreateModal from "@/app/component/qa/QaCreateModal";
@@ -17,7 +17,13 @@ import type { QaCreatedIdentity } from "@/app/component/qa/QaCreateModal";
 import { QaPatient, QaDiagnosisRow } from "@/app/component/qa/types";
 import SidebarLayout from "@/app/component/layout/SidebarLayout";
 
+// How many rows to show per page in the table (kept small so the DOM stays light).
 const ITEMS_PER_PAGE = 50;
+// How many of the latest patients to stream from Firebase into memory. This set
+// powers both the realtime browse list AND the in-memory "lane 1" search, so it
+// must be big enough to hold a full event day's registrations (~1000). Still only
+// ~1.5% of the ~100k collection, so it loads fast.
+const BROWSE_LIMIT = 1500;
 
 // Firestore Timestamp -> local "yyyy-MM-dd" for the date input (avoids UTC off-by-one)
 const toDateInputValue = (ts?: { toDate?: () => Date }): string => {
@@ -35,10 +41,20 @@ export default function ExportTestPage() {
   const [recordId, setRecordId] = useState("");
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  // Debounced copy of searchQuery so we hit Supabase once the user pauses
+  // typing, not on every keystroke (ilike over ~100k rows is not free).
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [loadingSingle, setLoadingSingle] = useState(false);
   const [loadingBatch, setLoadingBatch] = useState(false);
-  const [users, setUsers] = useState<UserRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Lane 1 source: the latest BROWSE_LIMIT patients, streamed realtime from
+  // Firebase and kept in memory. Powers both browse and the in-memory search.
+  const [firebaseUsers, setFirebaseUsers] = useState<UserRow[]>([]);
+  const [firebaseLoading, setFirebaseLoading] = useState(true);
+  // Lane 2 source: one page of Supabase results for the current search (covers
+  // older, already-synced patients across the whole ~100k mirror).
+  const [supabaseUsers, setSupabaseUsers] = useState<UserRow[]>([]);
+  const [supabaseCount, setSupabaseCount] = useState(0);
+  const [supabaseLoading, setSupabaseLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedUser, setSelectedUser] = useState<UserRow | null>(null);
   const [mobileRecordsOpen, setMobileRecordsOpen] = useState(false);
@@ -68,81 +84,95 @@ export default function ExportTestPage() {
     }
   };
 
-  // ===== Firebase Listeners =====
+  // Map a Firestore users/temps doc into the shared UserRow shape.
+  const mapFirebaseDoc = (
+    docSnap: { id: string; data: () => any },
+    source: "users" | "temps"
+  ): UserRow => {
+    const d = docSnap.data();
+    return {
+      userDocId: docSnap.id,
+      firstName: d.firstName || d.firstname,
+      lastName: d.lastName || d.lastname,
+      gender: d.gender,
+      thaiId: d.thaiId || d.thaiid,
+      age:
+        typeof d.age === "number"
+          ? d.age
+          : typeof d.age === "string"
+            ? Number(d.age) || null
+            : calculateAgeFromBod(d.bod),
+      idCardAddress: d.idCardAddress,
+      liveAddress: d.liveAddress,
+      timestamp: d.timestamp,
+      lastUpdate: d.lastUpdate,
+      source,
+    };
+  };
+
+  // Map a Supabase public.users row into the shared UserRow shape. `source` is
+  // derived from the id format to match the PDF API route exactly (numeric id
+  // => temps, otherwise users), so records/PDF resolve the same Firestore
+  // collection no matter what the stored `source` column happens to say.
+  const mapSupabaseRow = (r: any): UserRow => ({
+    userDocId: String(r.id),
+    firstName: r.firstname ?? undefined,
+    lastName: r.lastname ?? undefined,
+    gender: r.gender ?? undefined,
+    thaiId: r.thaiid ?? undefined,
+    age:
+      typeof r.age === "number"
+        ? r.age
+        : r.age != null
+          ? Number(r.age) || null
+          : null,
+    idCardAddress: r.idcardaddress ?? undefined,
+    liveAddress: r.liveaddress ?? undefined,
+    timestamp: toTsLike(r.timestamp),
+    lastUpdate: toTsLike(r.lastupdate),
+    source: /^[0-9]+$/.test(String(r.id)) ? "temps" : "users",
+  });
+
+  // Debounce the search box so we query Supabase once the user pauses typing.
   useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchQuery.trim()), 300);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
+
+  // ===== Lane 1 source: latest BROWSE_LIMIT patients, realtime from Firebase =====
+  // Subscribed once and kept alive for the whole page. Brand-new registrations
+  // (incl. a live event's) appear here instantly — this is what makes same-day
+  // search work without waiting for the daily Supabase sync.
+  useEffect(() => {
+    setFirebaseLoading(true);
     const usersQuery = query(
       collection(db, "users"),
-      orderBy("timestamp", "desc")
+      orderBy("timestamp", "desc"),
+      limit(BROWSE_LIMIT)
     );
-
     const tempsQuery = query(
       collection(db, "temps"),
-      orderBy("timestamp", "desc")
+      orderBy("timestamp", "desc"),
+      limit(BROWSE_LIMIT)
     );
 
     let usersData: UserRow[] = [];
     let tempsData: UserRow[] = [];
 
     const mergeAndSet = () => {
-      const merged = [...usersData, ...tempsData].sort((a, b) => {
-        const ta = a.timestamp?.toMillis?.() || 0;
-        const tb = b.timestamp?.toMillis?.() || 0;
-        return tb - ta;
-      });
-
-      setUsers(merged);
-      setLoading(false);
+      const merged = [...usersData, ...tempsData]
+        .sort((a, b) => (b.timestamp?.toMillis?.() || 0) - (a.timestamp?.toMillis?.() || 0))
+        .slice(0, BROWSE_LIMIT);
+      setFirebaseUsers(merged);
+      setFirebaseLoading(false);
     };
 
     const unsubUsers = onSnapshot(usersQuery, (snap) => {
-      usersData = [];
-      snap.forEach((doc) => {
-        const d = doc.data();
-        usersData.push({
-          userDocId: doc.id,
-          firstName: d.firstName || d.firstname,
-          lastName: d.lastName || d.lastname,
-          gender: d.gender,
-          thaiId: d.thaiId || d.thaiid,
-          age:
-            typeof d.age === "number"
-              ? d.age
-              : typeof d.age === "string"
-                ? Number(d.age) || null
-                : calculateAgeFromBod(d.bod),
-          idCardAddress: d.idCardAddress,
-          liveAddress: d.liveAddress,
-          timestamp: d.timestamp,
-          lastUpdate: d.lastUpdate,
-          source: "users",
-        });
-      });
+      usersData = snap.docs.map((d) => mapFirebaseDoc(d, "users"));
       mergeAndSet();
     });
-
     const unsubTemps = onSnapshot(tempsQuery, (snap) => {
-      tempsData = [];
-      snap.forEach((doc) => {
-        const d = doc.data();
-        tempsData.push({
-          userDocId: doc.id,
-          firstName: d.firstName || d.firstname,
-          lastName: d.lastName || d.lastname,
-          gender: d.gender,
-          thaiId: d.thaiId || d.thaiid,
-          age:
-            typeof d.age === "number"
-              ? d.age
-              : typeof d.age === "string"
-                ? Number(d.age) || null
-                : calculateAgeFromBod(d.bod),
-          idCardAddress: d.idCardAddress,
-          liveAddress: d.liveAddress,
-          timestamp: d.timestamp,
-          lastUpdate: d.lastUpdate,
-          source: "temps",
-        });
-      });
+      tempsData = snap.docs.map((d) => mapFirebaseDoc(d, "temps"));
       mergeAndSet();
     });
 
@@ -151,6 +181,64 @@ export default function ExportTestPage() {
       unsubTemps();
     };
   }, []);
+
+  // ===== Lane 2 source: Supabase search over the whole ~100k mirror =====
+  // Only runs while a filter is active. Covers older, already-synced patients
+  // that fell outside the in-memory BROWSE_LIMIT window. Paginated server-side.
+  useEffect(() => {
+    const searchActive = !!(debouncedSearch || provinceFilter || dateFrom || dateTo);
+    if (!searchActive) {
+      setSupabaseUsers([]);
+      setSupabaseCount(0);
+      setSupabaseLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setSupabaseLoading(true);
+    const from = (currentPage - 1) * ITEMS_PER_PAGE;
+    const to = from + ITEMS_PER_PAGE - 1;
+
+    (async () => {
+      let q = supabase
+        .from("users")
+        .select(
+          "id,firstname,lastname,gender,thaiid,age,idcardaddress,liveaddress,timestamp,lastupdate,source,province",
+          { count: "exact" }
+        )
+        .order("timestamp", { ascending: false, nullsFirst: false })
+        .order("id", { ascending: true })
+        .range(from, to);
+
+      if (debouncedSearch) {
+        const like = `%${debouncedSearch}%`;
+        q = q.or(`firstname.ilike.${like},lastname.ilike.${like},thaiid.ilike.${like}`);
+      }
+      if (provinceFilter) q = q.eq("province", provinceFilter);
+      if (dateFrom) q = q.gte("timestamp", dateFrom);
+      if (dateTo) {
+        const end = new Date(dateTo);
+        end.setDate(end.getDate() + 1);
+        q = q.lt("timestamp", end.toISOString());
+      }
+
+      const { data, error, count } = await q;
+      if (cancelled) return;
+      if (error) {
+        console.error("PDF user search failed:", error);
+        setSupabaseUsers([]);
+        setSupabaseCount(0);
+      } else {
+        setSupabaseUsers((data ?? []).map(mapSupabaseRow));
+        setSupabaseCount(count ?? 0);
+      }
+      setSupabaseLoading(false);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [debouncedSearch, provinceFilter, dateFrom, dateTo, currentPage]);
 
   useEffect(() => {
     if (!selectedUser?.userDocId) {
@@ -234,38 +322,71 @@ export default function ExportTestPage() {
     return () => desktopQuery.removeEventListener("change", closeMobileDialogOnDesktop);
   }, []);
 
-  // ===== Filtering and Pagination =====
-  const filteredUsers = users.filter((u) => {
-    const q = searchQuery.toLowerCase().trim();
-    if (q && !(
-      u.firstName?.toLowerCase().includes(q) ||
-      u.lastName?.toLowerCase().includes(q) ||
-      u.thaiId?.toLowerCase().includes(q)
-    )) return false;
+  // ===== Compose the two lanes into the visible page =====
+  const searchActive = !!(debouncedSearch || provinceFilter || dateFrom || dateTo);
 
-    if (provinceFilter) {
-      const p = extractProvince(u.liveAddress);
-      if (p !== provinceFilter) return false;
-    }
-
-    if (dateFrom || dateTo) {
-      const ts = u.timestamp?.toDate?.();
-      if (!ts) return false;
-      if (dateFrom && ts < new Date(dateFrom)) return false;
-      if (dateTo) {
-        const end = new Date(dateTo);
-        end.setHours(23, 59, 59, 999);
-        if (ts > end) return false;
+  // Lane 1: filter the in-memory realtime set (substring name/thaiid + province
+  // + date). Surfaces recent / live-event patients that Supabase may not have
+  // synced yet, so they are findable the same day.
+  const lane1Matches = useMemo(() => {
+    if (!searchActive) return [] as UserRow[];
+    const q = debouncedSearch.toLowerCase();
+    return firebaseUsers.filter((u) => {
+      if (q) {
+        const hit =
+          u.firstName?.toLowerCase().includes(q) ||
+          u.lastName?.toLowerCase().includes(q) ||
+          u.thaiId?.toLowerCase().includes(q);
+        if (!hit) return false;
       }
-    }
+      if (provinceFilter && extractProvince(u.liveAddress) !== provinceFilter) return false;
+      if (dateFrom || dateTo) {
+        const ts = u.timestamp?.toDate?.();
+        if (!ts) return false;
+        if (dateFrom && ts < new Date(dateFrom)) return false;
+        if (dateTo) {
+          const end = new Date(dateTo);
+          end.setHours(23, 59, 59, 999);
+          if (ts > end) return false;
+        }
+      }
+      return true;
+    });
+  }, [searchActive, firebaseUsers, debouncedSearch, provinceFilter, dateFrom, dateTo]);
 
-    return true;
-  });
+  const lane1Ids = useMemo(
+    () => new Set(lane1Matches.map((u) => u.userDocId)),
+    [lane1Matches]
+  );
 
-  const totalPages = Math.ceil(filteredUsers.length / ITEMS_PER_PAGE);
+  let currentUsers: UserRow[];
+  let totalItems: number;
+  let loading: boolean;
+
+  if (!searchActive) {
+    // Browse: paginate the in-memory realtime set, ITEMS_PER_PAGE per page.
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    currentUsers = firebaseUsers.slice(start, start + ITEMS_PER_PAGE);
+    totalItems = firebaseUsers.length;
+    loading = firebaseLoading;
+  } else {
+    // Search: fresh in-memory hits (lane 1, capped so page 1 stays light) shown
+    // on top of page 1, then Supabase (lane 2) with lane-1 ids removed so nobody
+    // appears twice. Later pages are Supabase-only.
+    const lane1Top = lane1Matches.slice(0, ITEMS_PER_PAGE);
+    const lane2 = supabaseUsers.filter((u) => !lane1Ids.has(u.userDocId));
+    currentUsers = currentPage === 1 ? [...lane1Top, ...lane2] : lane2;
+    totalItems = supabaseCount + lane1Matches.length;
+    // Show fresh hits immediately; only spin if there is nothing to show yet.
+    loading = supabaseLoading && lane1Matches.length === 0;
+  }
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil((searchActive ? supabaseCount : firebaseUsers.length) / ITEMS_PER_PAGE)
+  );
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const endIndex = Math.min(startIndex + ITEMS_PER_PAGE, filteredUsers.length);
-  const currentUsers = filteredUsers.slice(startIndex, endIndex);
+  const endIndex = startIndex + currentUsers.length;
 
   // ===== Event Handlers =====
   const handleExportSingle = async () => {
@@ -442,7 +563,7 @@ export default function ExportTestPage() {
 
           {/* Left: Users List */}
           <UserList
-            users={users}
+            users={firebaseUsers}
             loading={loading}
             searchQuery={searchQuery}
             selectedUserId={selectedUser?.userDocId || ""}
@@ -463,7 +584,7 @@ export default function ExportTestPage() {
               totalPages,
               startIndex,
               endIndex,
-              totalItems: filteredUsers.length,
+              totalItems,
             }}
           />
 
@@ -521,7 +642,7 @@ export default function ExportTestPage() {
                 totalPages={totalPages}
                 startIndex={startIndex}
                 endIndex={endIndex}
-                totalItems={filteredUsers.length}
+                totalItems={totalItems}
                 onPageChange={setCurrentPage}
               />
             </CardContent>
