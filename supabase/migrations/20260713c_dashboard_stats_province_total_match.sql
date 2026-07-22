@@ -1,20 +1,16 @@
-﻿-- PLAN-027: Aggregate dashboard stats in Postgres. Source of truth for public.dashboard_stats.
--- Counting policy (revised 2026-07-13): RAW ROW COUNT over user_record_summary_with_users
--- (matches Looker Studio COUNT(id)); download_count = same filtered row count as the charts.
--- p_risk (revised 2026-07-13b): propagates to EVERY widget via filtered_base, not just
--- download_count -- selecting "กลุ่มเสี่ยง" narrows the pies/charts too, not only the big number.
--- province_top (revised 2026-07-13c): top 15 + one "อื่นๆ" tail row summing the remainder, so the
--- displayed total always equals download_count instead of undercounting past 15 provinces.
+-- PLAN-027 fix (2026-07-13c): province_top only returned the top 15 provinces
+-- (LIMIT 15), so the "รวม" total shown on the province bar chart (client sums
+-- the returned array) undercounted vs. download_count / the other widgets
+-- whenever more than 15 provinces have data — e.g. reported as 81,306 while
+-- download_count was the full filtered total. Fix: keep the top 15 named
+-- provinces, and append one extra "อื่นๆ" row summing every remaining
+-- province so SUM(province_top) == download_count always, exactly like the
+-- existing app/component/dashboard/types.ts `topWithTail` convention used
+-- elsewhere in this codebase.
+-- p_end is inclusive: filters ending on 2026-07-10 include every row before 2026-07-11.
+-- p_risk propagates to every widget via filtered_base (see 20260713b).
+-- Counting policy: RAW ROW COUNT over user_record_summary_with_users (see 20260713).
 
-CREATE INDEX IF NOT EXISTS idx_checkpd_user_risk_user_parent_timestamp
-  ON public.checkpd_user_risk (user_id, parent_timestamp DESC);
-
-CREATE INDEX IF NOT EXISTS idx_checkpd_user_risk_province_parent_timestamp
-  ON public.checkpd_user_risk (province, parent_timestamp DESC);
-
--- Legacy (20260710): supported the old checkpd.users download count; kept for other readers.
-CREATE INDEX IF NOT EXISTS idx_checkpd_users_created_province_area
-  ON checkpd.users (firebase_created_at, province, area);
 CREATE OR REPLACE FUNCTION public.dashboard_stats(
   p_start    date DEFAULT NULL,
   p_end      date DEFAULT NULL,

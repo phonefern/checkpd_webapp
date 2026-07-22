@@ -1,20 +1,13 @@
-﻿-- PLAN-027: Aggregate dashboard stats in Postgres. Source of truth for public.dashboard_stats.
--- Counting policy (revised 2026-07-13): RAW ROW COUNT over user_record_summary_with_users
--- (matches Looker Studio COUNT(id)); download_count = same filtered row count as the charts.
--- p_risk (revised 2026-07-13b): propagates to EVERY widget via filtered_base, not just
--- download_count -- selecting "กลุ่มเสี่ยง" narrows the pies/charts too, not only the big number.
--- province_top (revised 2026-07-13c): top 15 + one "อื่นๆ" tail row summing the remainder, so the
--- displayed total always equals download_count instead of undercounting past 15 provinces.
+-- PLAN-027 fix (2026-07-13b): the "ผลคัดกรอง" (p_risk) filter only narrowed
+-- download_count; every other widget (risk pie, test-result pie, condition,
+-- gender, age buckets, top provinces) still aggregated over the UNFILTERED
+-- row set, so selecting e.g. "กลุ่มเสี่ยง" moved the download number but left
+-- the pie charts unchanged. Fix: compute each row's risk bucket inside `base`
+-- itself, then derive a `filtered_base` that every downstream aggregate reads
+-- from, so p_risk propagates everywhere (province_options/area_options stay
+-- unfiltered by risk — they populate the dropdown, not a chart).
+-- p_end is inclusive: filters ending on 2026-07-10 include every row before 2026-07-11.
 
-CREATE INDEX IF NOT EXISTS idx_checkpd_user_risk_user_parent_timestamp
-  ON public.checkpd_user_risk (user_id, parent_timestamp DESC);
-
-CREATE INDEX IF NOT EXISTS idx_checkpd_user_risk_province_parent_timestamp
-  ON public.checkpd_user_risk (province, parent_timestamp DESC);
-
--- Legacy (20260710): supported the old checkpd.users download count; kept for other readers.
-CREATE INDEX IF NOT EXISTS idx_checkpd_users_created_province_area
-  ON checkpd.users (firebase_created_at, province, area);
 CREATE OR REPLACE FUNCTION public.dashboard_stats(
   p_start    date DEFAULT NULL,
   p_end      date DEFAULT NULL,
@@ -179,36 +172,18 @@ age_buckets AS (
   ) AS labels(sort, label)
   LEFT JOIN age_bucket_counts ON age_bucket_counts.bucket = labels.label
 ),
-province_counts AS (
-  SELECT COALESCE(NULLIF(BTRIM(province), ''), 'ไม่ระบุจังหวัด') AS name, COUNT(*)::int AS count
-  FROM filtered_base
-  GROUP BY 1
-),
-province_ranked AS (
-  SELECT name, count, ROW_NUMBER() OVER (ORDER BY count DESC, name ASC) AS rn
-  FROM province_counts
-),
-province_tail AS (
-  -- everything beyond the top 15, collapsed into one "อื่นๆ" bucket so the
-  -- displayed total always equals the true filtered total (download_count).
-  SELECT COALESCE(SUM(count), 0)::int AS count
-  FROM province_ranked
-  WHERE rn > 15
-),
 province_top AS (
-  SELECT (
-    COALESCE(
-      (SELECT jsonb_agg(jsonb_build_object('name', pr.name, 'count', pr.count) ORDER BY pr.rn)
-       FROM province_ranked pr WHERE pr.rn <= 15),
-      '[]'::jsonb
-    )
-    ||
-    CASE WHEN pt.count > 0
-      THEN jsonb_build_array(jsonb_build_object('name', 'อื่นๆ', 'count', pt.count))
-      ELSE '[]'::jsonb
-    END
+  SELECT COALESCE(
+    jsonb_agg(jsonb_build_object('name', name, 'count', count) ORDER BY count DESC, name ASC),
+    '[]'::jsonb
   ) AS value
-  FROM province_tail pt
+  FROM (
+    SELECT COALESCE(NULLIF(BTRIM(province), ''), 'ไม่ระบุจังหวัด') AS name, COUNT(*)::int AS count
+    FROM filtered_base
+    GROUP BY COALESCE(NULLIF(BTRIM(province), ''), 'ไม่ระบุจังหวัด')
+    ORDER BY count DESC, name ASC
+    LIMIT 15
+  ) ranked
 ),
 -- Dropdown option lists intentionally ignore p_risk (a province shouldn't
 -- disappear from the picker just because the current risk filter has no
@@ -237,7 +212,7 @@ area_options AS (
   ) areas
 ),
 download_count AS (
-  -- trivially the size of filtered_base, kept as its own CTE for clarity
+  -- now trivially the size of filtered_base, kept as its own CTE for clarity
   -- and so the JSON shape / key name is unchanged for the client.
   SELECT COUNT(*)::int AS count FROM filtered_base
 )

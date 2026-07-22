@@ -5,11 +5,16 @@ import { MapPin } from "lucide-react"
 import { type ChartDatum } from "./types"
 
 const NO_PROVINCE_LABEL = "ไม่ระบุจังหวัด"
+const OTHER_PROVINCE_LABEL = "อื่นๆ"
 
 function normalizeProvinceLabel(name: string): string {
   const trimmed = name.trim()
   if (!trimmed || trimmed === "ไม่ระบุ" || trimmed === "ไม่ระบุจังหวัด") return NO_PROVINCE_LABEL
   return trimmed
+}
+
+function isAggregateLabel(name: string): boolean {
+  return name === NO_PROVINCE_LABEL || name === OTHER_PROVINCE_LABEL
 }
 
 export default function ProvinceBarChart({ data }: { data: ChartDatum[] }) {
@@ -25,7 +30,7 @@ export default function ProvinceBarChart({ data }: { data: ChartDatum[] }) {
           </div>
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">การกระจายตามจังหวัด</p>
-            <p className="text-sm font-medium text-slate-800">จังหวัดที่มีผู้คัดกรองสูงสุด 15 อันดับ</p>
+            <p className="text-sm font-medium text-slate-800">จังหวัดที่มีผู้คัดกรองสูงสุด 15 อันดับ (จังหวัดที่เหลือรวมเป็น &ldquo;อื่นๆ&rdquo;)</p>
           </div>
         </div>
         <span className="rounded-full bg-slate-50 px-3 py-1 text-[11px] font-medium tabular-nums text-slate-600">
@@ -75,8 +80,8 @@ export default function ProvinceBarChart({ data }: { data: ChartDatum[] }) {
                 {normalized.map((entry, idx) => (
                   <Cell
                     key={idx}
-                    fill={entry.name === NO_PROVINCE_LABEL ? "#cbd5e1" : "#0d9488"}
-                    fillOpacity={entry.name === NO_PROVINCE_LABEL ? 0.85 : 1}
+                    fill={isAggregateLabel(entry.name) ? "#cbd5e1" : "#0d9488"}
+                    fillOpacity={isAggregateLabel(entry.name) ? 0.85 : 1}
                   />
                 ))}
               </Bar>

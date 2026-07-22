@@ -219,6 +219,44 @@ Studio's `COUNT(id)`), *not* distinct users. Implemented directly (not via Codex
 - The reconciliation section below is retained for history; its "distinct users is the right
   statistic" recommendation was **overruled** by the project owner.
 
+## ⚠️ Revision 2026-07-13b — risk filter now propagates to every widget (already implemented)
+
+Found immediately after the first revision shipped: selecting "ผลคัดกรอง" (the `p_risk` dropdown —
+กลุ่มเสี่ยง/ไม่เสี่ยง/ไม่ทราบผล) moved the download-count card but left every pie/bar chart unchanged,
+because **edge case rule #8** (below, now obsolete) only applied `p_risk` to `download_count`. Fixed
+in [`supabase/migrations/20260713b_dashboard_stats_risk_filter_propagation.sql`](../supabase/migrations/20260713b_dashboard_stats_risk_filter_propagation.sql):
+
+- `base` now carries each row's risk `bucket` (computed once via `risk_latest` join).
+- New `filtered_base` CTE applies `p_risk` (narrows to the matching bucket, or keeps everything for
+  `'all'`) and is what **every** downstream aggregate reads from — `risk_counts`, `test_result_counts`,
+  `condition_counts`, `gender_counts`, `age_buckets`, `province_top`, and `download_count` (now simply
+  `COUNT(*) FROM filtered_base`).
+- `province_options` / `area_options` deliberately still ignore `p_risk` — they populate the filter
+  dropdowns, and a province shouldn't vanish from the picker just because it has no rows in the
+  currently-selected risk bucket.
+- Consequence: when `p_risk <> 'all'`, the risk pie necessarily shows ~100% in one segment (the
+  dataset itself is now restricted to that bucket) — this is the correct, consistent reading of "filter
+  by risk," not a bug.
+- **Edge case rule #8 is superseded**: `p_risk` is no longer download-count-only.
+
+## ⚠️ Revision 2026-07-13c — province chart total now matches download_count (already implemented)
+
+Reported immediately after 2026-07-13b shipped: the province bar chart's "รวม" total showed 81,306
+while the download card showed the full filtered count — because `province_top` was `LIMIT 15`, and
+the client ([`ProvinceBarChart.tsx`](../app/component/dashboard/ProvinceBarChart.tsx)) sums only the
+rows it receives. With 60+ provinces in the dataset, the top-15 slice is necessarily smaller than the
+true total. Fixed in [`supabase/migrations/20260713c_dashboard_stats_province_total_match.sql`](../supabase/migrations/20260713c_dashboard_stats_province_total_match.sql):
+
+- `province_top` still returns the top 15 named provinces (ranked by count), but appends one extra
+  `{"name": "อื่นๆ", "count": <remainder>}` row summing everything beyond rank 15 (omitted when there
+  is no remainder). `SUM(province_top[].count)` now always equals `download_count`.
+- Same convention as the existing `topWithTail` helper in
+  [`app/component/dashboard/types.ts`](../app/component/dashboard/types.ts) (used elsewhere in this
+  codebase for "top N + tail" breakdowns) — applied server-side here since the RPC does the ranking.
+- `ProvinceBarChart.tsx`: added `OTHER_PROVINCE_LABEL` / `isAggregateLabel()`, so the "อื่นๆ" bar gets
+  the same muted gray styling as "ไม่ระบุจังหวัด" (both are aggregate buckets, not real provinces);
+  subtitle updated to note the remainder is folded in.
+
 ## Count reconciliation (dashboard vs Looker Studio)
 
 Observed on production (2026-07-13, no filters): download card **95,707** · chart totals **95,646** ·
