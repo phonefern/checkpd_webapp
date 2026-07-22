@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import QaSearchFilters from '@/app/component/qa/QaSearchFilters'
 import QaTable, { type QaSortColumn, type QaSortDirection } from '@/app/component/qa/QaTable'
@@ -44,6 +44,7 @@ export default function QaPage() {
 
   // Filter state
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [thaiId, setThaiId] = useState('')
   const [condition, setCondition] = useState<QaConditionFilter>('')
   const [otherDiagnosis, setOtherDiagnosis] = useState<string | null>(null)
@@ -83,8 +84,20 @@ export default function QaPage() {
   const from = (currentPage - 1) * PAGE_SIZE
   const to = from + PAGE_SIZE - 1
 
+  // Debounce the raw search box so fast typing doesn't fire a query per keystroke.
+  useEffect(() => {
+    const timeout = setTimeout(() => setDebouncedSearch(search), 300)
+    return () => clearTimeout(timeout)
+  }, [search])
+
+  // Tags each fetch so a slower, stale response (e.g. from an earlier keystroke)
+  // can't land after a newer one and overwrite it with mismatched results.
+  const fetchSeqRef = useRef(0)
+
   const fetchData = useCallback(async () => {
     if (!session) return
+    const seq = ++fetchSeqRef.current
+    const isStale = () => fetchSeqRef.current !== seq
 
     setLoading(true)
     setError(null)
@@ -151,8 +164,8 @@ export default function QaPage() {
       }
       patientQuery = patientQuery.range(from, to)
 
-      if (search.trim()) {
-        const raw = search.trim()
+      if (debouncedSearch.trim()) {
+        const raw = debouncedSearch.trim()
         const q = `%${raw}%`
         const orParts = [
           `first_name.ilike.${q}`,
@@ -171,9 +184,10 @@ export default function QaPage() {
       if (endDate)   patientQuery = patientQuery.lte('collection_date', endDate)
       if (diagFilteredIds !== null) {
         if (diagFilteredIds.length === 0) {
-          setRows([])
-          setTotalCount(0)
-          setLoading(false)
+          if (!isStale()) {
+            setRows([])
+            setTotalCount(0)
+          }
           return
         }
         patientQuery = patientQuery.in('id', diagFilteredIds)
@@ -181,13 +195,13 @@ export default function QaPage() {
 
       const { data: patientData, error: pErr, count } = await patientQuery
       if (pErr) throw new Error(`patient_visits_v2: ${pErr.message}`)
+      if (isStale()) return
 
       const patients = (patientData ?? []) as QaPatient[]
       setTotalCount(count ?? 0)
 
       if (patients.length === 0) {
         setRows([])
-        setLoading(false)
         return
       }
 
@@ -301,6 +315,8 @@ export default function QaPage() {
       }
       const visionMap = Object.fromEntries((visionRes.data ?? []).map((d: VisionRow) => [d.patient_id, d]))
 
+      if (isStale()) return
+
       setRows(normalizedPatients.map((p) => {
         const vis = visionMap[p.id] as VisionRow | undefined
         return {
@@ -326,11 +342,12 @@ export default function QaPage() {
         }
       }))
     } catch (err) {
+      if (isStale()) return
       setError(err instanceof Error ? err.message : String(err))
     } finally {
-      setLoading(false)
+      if (!isStale()) setLoading(false)
     }
-  }, [session, search, thaiId, condition, otherDiagnosis, gp2, hyStage, province, startDate, endDate, currentPage, sortColumn, sortDirection])
+  }, [session, debouncedSearch, thaiId, condition, otherDiagnosis, gp2, hyStage, province, startDate, endDate, currentPage, sortColumn, sortDirection])
 
   const handleSort = (column: QaSortColumn) => {
     if (sortColumn === column) {

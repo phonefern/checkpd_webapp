@@ -225,8 +225,8 @@ export default function DashboardStatsPage() {
         ) : null}
 
         {loading ? (
-          <div className="flex items-center justify-center py-10">
-            <TqdmSpinner label="กำลังโหลดข้อมูลแดชบอร์ด" detail="ดึงข้อมูลผู้ใช้และผลคัดกรองจาก CheckPD" />
+          <div className="flex items-center justify-center pt-16 pb-10">
+            <TqdmSpinner label="กำลังดาวน์โหลดข้อมูลแดชบอร์ด" detail="ดึงข้อมูลผู้ใช้และผลการคัดกรอง CheckPD" />
           </div>
         ) : (
           <>

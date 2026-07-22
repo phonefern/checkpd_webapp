@@ -264,9 +264,9 @@ export default function QaSearchFilters({
 
       {/* ── DESKTOP LAYOUT (≥ md) ── */}
       <div className="hidden md:block p-6">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-12">
+        <div className="flex flex-wrap gap-4">
           {/* Search */}
-          <div className="xl:col-span-2">
+          <div className="w-[320px] shrink-0">
             <label className="block text-sm font-medium text-foreground mb-2">Search Patient</label>
             <div className="flex gap-2">
               <input
@@ -282,15 +282,15 @@ export default function QaSearchFilters({
                 onClick={() => setScannerOpen(true)}
                 title="สแกน QR ผู้ป่วย"
                 aria-label="สแกน QR ผู้ป่วย"
-                className="shrink-0 cursor-pointer"
+                className="h-11 w-11 shrink-0 cursor-pointer"
               >
-                <ScanLine className="h-4 w-4" />
+                <ScanLine className="h-5 w-5" />
               </Button>
             </div>
           </div>
 
           {/* Thai ID */}
-          <div className="xl:col-span-2">
+          <div className="w-[280px] shrink-0">
             <label className="block text-sm font-medium text-foreground mb-2">บัตรประชาชน (Thai ID)</label>
             <input
               type="text"
@@ -303,7 +303,7 @@ export default function QaSearchFilters({
           </div>
 
           {/* Condition */}
-          <div>
+          <div className="w-[190px] shrink-0">
             <label className="block text-sm font-medium text-foreground mb-2">Condition</label>
             <select
               value={condition}
@@ -316,7 +316,7 @@ export default function QaSearchFilters({
             </select>
           </div>
 
-          <div className="md:col-span-2 xl:col-span-2">
+          <div className="w-[190px] shrink-0">
             <label className="block text-sm font-medium text-foreground mb-2">Other Diagnosis</label>
             <OtherDiagnosisSelect
               value={otherDiagnosis}
@@ -328,7 +328,7 @@ export default function QaSearchFilters({
             />
           </div>
 
-          <div>
+          <div className="w-[190px] shrink-0">
             <label className="block text-sm font-medium text-foreground mb-2">Blood Test</label>
             <select
               value={gp2}
@@ -342,7 +342,7 @@ export default function QaSearchFilters({
           </div>
 
           {/* H&Y Stage */}
-          <div>
+          <div className="w-[190px] shrink-0">
             <label className="block text-sm font-medium text-foreground mb-2">H&amp;Y Stage</label>
             <select
               value={hyStage}
@@ -356,7 +356,7 @@ export default function QaSearchFilters({
           </div>
 
           {/* Province */}
-          <div>
+          <div className="w-[190px] shrink-0">
             <label className="block text-sm font-medium text-foreground mb-2">Province</label>
             <select
               value={province}
@@ -371,7 +371,7 @@ export default function QaSearchFilters({
           </div>
 
           {/* From Date */}
-          <div>
+          <div className="w-[190px] shrink-0">
             <label className="block text-sm font-medium text-foreground mb-2">From Date</label>
             <Popover>
               <PopoverTrigger asChild>
@@ -395,7 +395,7 @@ export default function QaSearchFilters({
           </div>
 
           {/* To Date */}
-          <div>
+          <div className="w-[190px] shrink-0">
             <label className="block text-sm font-medium text-foreground mb-2">To Date</label>
             <Popover>
               <PopoverTrigger asChild>
