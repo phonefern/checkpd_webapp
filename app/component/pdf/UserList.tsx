@@ -184,8 +184,8 @@ export function UserList({
                     </div>
                     <Badge variant={hasActiveFilter || searchQuery ? "outline" : "secondary"} className="px-3 py-1">
                         {hasActiveFilter || searchQuery
-                            ? `${paginationInfo.totalItems} / ${users.length} รายการ`
-                            : `${users.length} รายการทั้งหมด`}
+                            ? `พบ ${paginationInfo.totalItems} รายการ`
+                            : `${users.length} รายการล่าสุด`}
                     </Badge>
                 </div>
             </CardHeader>
