@@ -78,8 +78,13 @@ export function ThaiIdReaderPage() {
     setCardStatus("checking");
     try {
       const data = await readThaiIdCard();
-      const read = { id: crypto.randomUUID(), readAt: new Date(), data };
-      setReads((current) => [read, ...current]);
+      const citizenId = data.citizenID.trim();
+      const read = { id: citizenId || crypto.randomUUID(), readAt: new Date(), data };
+      setReads((current) => {
+        if (!citizenId) return [read, ...current];
+
+        return [read, ...current.filter((existing) => existing.data.citizenID.trim() !== citizenId)];
+      });
       setExpandedReadId(read.id);
       setBridgeStatus("connected");
       setReaderStatus("ready");
