@@ -81,6 +81,7 @@ async function fetchLocalBridge(path: string, init?: RequestInit) {
       cachedBaseUrl = baseUrl;
       return response;
     } catch (error) {
+      if (init?.signal?.aborted) throw error;
       lastError = error;
     }
   }
@@ -105,12 +106,33 @@ export async function pingThaiIdBridge(timeoutMs = 4_000) {
 }
 
 export async function readThaiIdCard(): Promise<ThaiIdCardPayload> {
-  const response = await fetchLocalBridge("/read-id");
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), 15_000);
+  let response: Response;
+  try {
+    response = await fetchLocalBridge("/read-id", { signal: controller.signal });
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new ThaiIdReadUserError("Thai ID card read timed out. Reinsert the card and try again.", "CARD_ERROR");
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
+
+  if (!response.ok) {
+    throw new ThaiIdReadUserError(`Thai ID bridge returned HTTP ${response.status}.`, "HTTP_ERROR");
+  }
+
   let payload: ThaiIdReadResponse;
   try {
     payload = (await response.json()) as ThaiIdReadResponse;
   } catch {
-    throw new ThaiIdReadUserError(`Thai ID bridge returned HTTP ${response.status}.`, "HTTP_ERROR");
+    throw new ThaiIdReadUserError("Thai ID bridge returned malformed JSON.", "BAD_JSON");
+  }
+
+  if (!payload || typeof payload !== "object" || typeof payload.success !== "boolean") {
+    throw new ThaiIdReadUserError("Thai ID bridge returned an invalid response.", "BAD_JSON");
   }
 
   if (payload.success) return payload.data;
