@@ -8,6 +8,7 @@ import {
   CalendarDays,
   ChevronLeft,
   ChevronRight,
+  CreditCard,
   Database,
   Clock,
   Download,
@@ -57,6 +58,13 @@ const workspaceItems: SidebarItem[] = [
   { label: "Event Management", icon: CalendarDays, path: "/pages/event", feature: "event" },
   { label: "Usage Analytics", icon: Clock, path: "/pages/tracking", feature: "tracking" },
   { label: "CheckPD Report Export (PDF)", icon: FileDown, path: "/pages/pdf", feature: "pdf" },
+  {
+    label: "Thai ID Reader",
+    icon: CreditCard,
+    children: [
+      { label: "Read Thai ID Card", icon: CreditCard, path: "/pages/thai-id-reader", feature: "thai_id_reader" },
+    ],
+  },
   {
     label: "Raw Data Access",
     icon: Package,

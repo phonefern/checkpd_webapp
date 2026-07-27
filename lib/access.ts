@@ -13,7 +13,8 @@ export type AppFeature =
   | "papers"
   | "export"
   | "event"
-  | "log";
+  | "log"
+  | "thai_id_reader";
 
 export type AccessSource = "admin_users" | "metadata" | "guest" | "none";
 
@@ -50,6 +51,7 @@ export const APP_FEATURE_LABELS: Record<AppFeature, string> = {
   export: "Export",
   event: "Event",
   log: "Activity Log",
+  thai_id_reader: "Thai ID Reader",
 };
 
 export const APP_ROLE_LABELS: Record<AppRole, string> = {
@@ -61,11 +63,11 @@ export const APP_ROLE_LABELS: Record<AppRole, string> = {
 };
 
 export const ROLE_ACCESS: Record<AppRole, AppFeature[]> = {
-  super_admin: ["dashboard", "admin", "users", "storage", "qa", "pdf", "tracking", "papers", "export", "event", "log"],
-  admin: ["dashboard", "users", "tracking", "storage", "pdf", "qa", "papers", "export", "event", "log"],
-  doctor: ["dashboard", "users", "qa", "pdf"],
-  medical_staff: [ "dashboard", "users", "qa", "pdf"],
-  guest: ["dashboard"],
+  super_admin: ["dashboard", "admin", "users", "storage", "qa", "pdf", "tracking", "papers", "export", "event", "log", "thai_id_reader"],
+  admin: ["dashboard", "users", "tracking", "storage", "pdf", "qa", "papers", "export", "event", "log", "thai_id_reader"],
+  doctor: ["dashboard", "users", "qa", "pdf", "thai_id_reader"],
+  medical_staff: [ "dashboard", "users", "qa", "pdf", "thai_id_reader"],
+  guest: ["dashboard", "thai_id_reader"],
 };
 
 const FEATURE_ROUTE_PREFIXES: Array<{ prefix: string; feature: AppFeature }> = [
@@ -81,6 +83,7 @@ const FEATURE_ROUTE_PREFIXES: Array<{ prefix: string; feature: AppFeature }> = [
   { prefix: "/pages/dashboard", feature: "dashboard" },
   { prefix: "/pages/index", feature: "dashboard" },
   { prefix: "/pages/log", feature: "log" },
+  { prefix: "/pages/thai-id-reader", feature: "thai_id_reader" },
 ];
 
 export function isAppRole(value: unknown): value is AppRole {
