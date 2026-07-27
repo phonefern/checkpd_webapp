@@ -1,29 +1,8 @@
+import type { ThaiIdCardPayload, ThaiIdReadErrorCode, ThaiIdReadResponse } from "../types";
+
 const DEFAULT_BASE_URLS = ["https://localhost:18310", "http://127.0.0.1:18310"] as const;
 
-export type ThaiIdReadErrorCode = "NO_READER" | "NO_CARD" | "CARD_ERROR";
-
-export type ThaiIdCardPayload = {
-  citizenID: string;
-  titleTH: string;
-  titleEN: string;
-  fullNameTH: string;
-  fullNameEN: string;
-  firstNameTH: string;
-  firstNameEN: string;
-  lastNameTH: string;
-  lastNameEN: string;
-  dateOfBirth: string;
-  gender: "M" | "F";
-  cardIssuer: string;
-  issueDate: string;
-  expireDate: string;
-  address: string;
-  photoAsBase64Uri: string;
-};
-
-type ThaiIdReadResponse =
-  | { success: true; data: ThaiIdCardPayload }
-  | { success: false; error?: string; code?: ThaiIdReadErrorCode };
+export type { ThaiIdCardPayload } from "../types";
 
 export class LocalBridgeConfigurationError extends Error {
   constructor(message: string) {
@@ -39,6 +18,13 @@ export class LocalBridgeUnreachableError extends Error {
   }
 }
 
+export class LocalBridgeAuthenticationError extends Error {
+  constructor() {
+    super("SolId Reader version or bridge token does not match this web app. Update SolId Reader or check the configured token.");
+    this.name = "LocalBridgeAuthenticationError";
+  }
+}
+
 export class ThaiIdReadUserError extends Error {
   readonly code?: ThaiIdReadErrorCode | "BAD_JSON" | "HTTP_ERROR";
 
@@ -50,6 +36,10 @@ export class ThaiIdReadUserError extends Error {
 }
 
 let cachedBaseUrl: string | null = null;
+
+export function clearThaiIdBridgeCachedBaseUrl() {
+  cachedBaseUrl = null;
+}
 
 function getBridgeToken() {
   return process.env.NEXT_PUBLIC_SOLID_READER_TOKEN?.trim() ?? "";
@@ -89,18 +79,25 @@ async function fetchLocalBridge(path: string, init?: RequestInit) {
   throw new LocalBridgeUnreachableError("Cannot reach SolId Reader. Start SolId Reader and try again.", { cause: lastError });
 }
 
-export async function pingThaiIdBridge(timeoutMs = 4_000) {
+export async function pingThaiIdBridge(timeoutMs = 4_000, outerSignal?: AbortSignal) {
   const controller = new AbortController();
+  const abortFromOuter = () => controller.abort();
+  if (outerSignal?.aborted) controller.abort();
+  else outerSignal?.addEventListener("abort", abortFromOuter, { once: true });
   const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+
   try {
-    return await fetchLocalBridge("/ping", { signal: controller.signal });
+    const response = await fetchLocalBridge("/ping", { signal: controller.signal });
+    if (response.status === 401 || response.status === 403) throw new LocalBridgeAuthenticationError();
+    return response;
   } catch (error) {
-    if (error instanceof LocalBridgeConfigurationError) throw error;
+    if (error instanceof LocalBridgeConfigurationError || error instanceof LocalBridgeAuthenticationError) throw error;
     if (error instanceof Error && error.name === "AbortError") {
       throw new LocalBridgeUnreachableError("Local bridge ping timed out.", { cause: error });
     }
     throw error;
   } finally {
+    outerSignal?.removeEventListener("abort", abortFromOuter);
     window.clearTimeout(timeoutId);
   }
 }
@@ -109,6 +106,7 @@ export async function readThaiIdCard(): Promise<ThaiIdCardPayload> {
   const controller = new AbortController();
   const timeoutId = window.setTimeout(() => controller.abort(), 15_000);
   let response: Response;
+
   try {
     response = await fetchLocalBridge("/read-id", { signal: controller.signal });
   } catch (error) {
@@ -120,9 +118,7 @@ export async function readThaiIdCard(): Promise<ThaiIdCardPayload> {
     window.clearTimeout(timeoutId);
   }
 
-  if (!response.ok) {
-    throw new ThaiIdReadUserError(`Thai ID bridge returned HTTP ${response.status}.`, "HTTP_ERROR");
-  }
+  if (response.status === 401 || response.status === 403) throw new LocalBridgeAuthenticationError();
 
   let payload: ThaiIdReadResponse;
   try {
@@ -135,10 +131,12 @@ export async function readThaiIdCard(): Promise<ThaiIdCardPayload> {
     throw new ThaiIdReadUserError("Thai ID bridge returned an invalid response.", "BAD_JSON");
   }
 
-  if (payload.success) return payload.data;
+  if (payload.success && response.ok) return payload.data;
+  if (payload.success) throw new ThaiIdReadUserError(`Thai ID bridge returned HTTP ${response.status}.`, "HTTP_ERROR");
   if (payload.code === "NO_READER") throw new ThaiIdReadUserError("No card reader detected. Connect a reader and try again.", "NO_READER");
   if (payload.code === "NO_CARD") throw new ThaiIdReadUserError("No card inserted. Insert the Thai ID card and try again.", "NO_CARD");
   if (payload.code === "CARD_ERROR") throw new ThaiIdReadUserError(payload.error?.trim() || "Card read failed. Reinsert the card and try again.", "CARD_ERROR");
+  if (!response.ok) throw new ThaiIdReadUserError(payload.error?.trim() || `Thai ID bridge returned HTTP ${response.status}.`, "HTTP_ERROR");
   throw new ThaiIdReadUserError(payload.error?.trim() || "Failed to read Thai ID card.");
 }
 
