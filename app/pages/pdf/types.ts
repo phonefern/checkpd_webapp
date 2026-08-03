@@ -46,20 +46,32 @@ export function extractProvince(address?: string): string | null {
 
 export type TestCompleteness = "complete" | "partial" | "none";
 
+// Firestore record docs store these fields under inconsistent casing across
+// app versions (e.g. `tremorResting` on newer records, `tremorresting` on
+// older ones) — the same inconsistency documented for user docs (see
+// mapFirebaseDoc's `d.firstName || d.firstname`). lib/processRecordData.ts
+// (used server-side to build the PDF) already works around this with a
+// case-insensitive key lookup; this does the same so the badge doesn't
+// undercount fields that are actually present under a different casing.
+function hasField(d: Record<string, any>, fieldLower: string): boolean {
+  const key = Object.keys(d).find((k) => k.toLowerCase() === fieldLower);
+  return key !== undefined && d[key] !== undefined && d[key] !== null;
+}
+
 // Mirrors the "testItem" battery lib/pdfReportDocument.tsx checks for
 // (hasQuestionnaire, hasVoice, tremor resting/postural, tap left/right,
 // balance, gait) so a record's list badge shows the same ครบ/บางส่วน/ยังไม่ได้ทำ
 // verdict the PDF would derive — computed live from the Firestore record doc,
 // not from the (possibly lagging) Supabase mirror.
 const COMPLETENESS_CHECKS: Array<(d: Record<string, any>) => boolean> = [
-  (d) => Boolean(d.questionnaire),
-  (d) => Boolean(d.voiceAhh || d.voiceYPL),
-  (d) => Boolean(d.tremorresting),
-  (d) => Boolean(d.tremorpostural),
-  (d) => Boolean(d.dualtap),
-  (d) => Boolean(d.dualtapright),
-  (d) => Boolean(d.balance),
-  (d) => Boolean(d.gaitwalk),
+  (d) => hasField(d, "questionnaire"),
+  (d) => hasField(d, "voiceahh") || hasField(d, "voiceypl"),
+  (d) => hasField(d, "tremorresting"),
+  (d) => hasField(d, "tremorpostural"),
+  (d) => hasField(d, "dualtap"),
+  (d) => hasField(d, "dualtapright"),
+  (d) => hasField(d, "balance"),
+  (d) => hasField(d, "gaitwalk"),
 ];
 
 export function getTestCompleteness(recordData: Record<string, any>): TestCompleteness {
