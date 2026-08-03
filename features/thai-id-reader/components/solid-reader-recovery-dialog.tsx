@@ -38,9 +38,10 @@ type SolidReaderRecoveryDialogProps = {
   open: boolean;
   onReady: () => void;
   onCancel: () => void;
+  variant?: "admin" | "kiosk";
 };
 
-export function SolidReaderRecoveryDialog({ open, onReady, onCancel }: SolidReaderRecoveryDialogProps) {
+export function SolidReaderRecoveryDialog({ open, onReady, onCancel, variant = "admin" }: SolidReaderRecoveryDialogProps) {
   const [phase, setPhase] = useState<RecoveryPhase>("opening");
   const [downloads, setDownloads] = useState<SolidReaderDownloadOption[]>([]);
   const [selectedFile, setSelectedFile] = useState("");
@@ -110,6 +111,7 @@ export function SolidReaderRecoveryDialog({ open, onReady, onCancel }: SolidRead
   const selectedDownload = downloads.find((option) => option.fileName === selectedFile) ?? downloads[0];
   const isWaiting = phase === "opening" || phase === "install";
   const canDownload = downloads.length > 0 && (isWaiting || phase === "incompatible");
+  const kiosk = variant === "kiosk";
 
   function handleDownload() {
     if (!selectedDownload) return;
@@ -122,21 +124,21 @@ export function SolidReaderRecoveryDialog({ open, onReady, onCancel }: SolidRead
       <DialogContent className="sm:max-w-md" showCloseButton={false}>
         <DialogHeader>
           <DialogTitle>
-            {phase === "opening" && "Opening SolId Reader"}
-            {phase === "install" && "Install SolId Reader"}
-            {phase === "unknown" && "Installation is not available for this computer"}
-            {phase === "incompatible" && "SolId Reader needs attention"}
-            {phase === "give_up" && "SolId Reader is still unavailable"}
+            {phase === "opening" && (kiosk ? "กำลังเปิดเครื่องอ่านบัตร" : "Opening SolId Reader")}
+            {phase === "install" && (kiosk ? "ติดตั้งโปรแกรมเครื่องอ่านบัตร" : "Install SolId Reader")}
+            {phase === "unknown" && (kiosk ? "กรุณาแจ้งเจ้าหน้าที่" : "Installation is not available for this computer")}
+            {phase === "incompatible" && (kiosk ? "กรุณาแจ้งเจ้าหน้าที่" : "SolId Reader needs attention")}
+            {phase === "give_up" && (kiosk ? "กรุณาแจ้งเจ้าหน้าที่" : "SolId Reader is still unavailable")}
           </DialogTitle>
           <DialogDescription className="space-y-3 text-left">
-            {phase === "opening" && <span className="block">If your browser asks, choose Open. This page is checking the local reader in the background.</span>}
-            {phase === "install" && <span className="block">Download and install SolId Reader, then open it. This page will reconnect automatically while you finish.</span>}
-            {phase === "unknown" && <span className="block">Use a supported Windows or Mac clinic computer, or ask IT to install SolId Reader.</span>}
-            {phase === "incompatible" && <span className="block">Update SolId Reader and confirm that its bridge token matches this clinic web app.</span>}
-            {phase === "give_up" && <span className="block">Open SolId Reader from the Start menu or Applications, then check the connection again.</span>}
+            {phase === "opening" && <span className="block">{kiosk ? "กำลังเชื่อมต่อเครื่องอ่านบัตร กรุณารอสักครู่" : "If your browser asks, choose Open. This page is checking the local reader in the background."}</span>}
+            {phase === "install" && <span className="block">{kiosk ? "กรุณาดาวน์โหลดและติดตั้งโปรแกรมเครื่องอ่านบัตร แล้วเปิดโปรแกรม ระบบจะลองเชื่อมต่อให้อัตโนมัติ" : "Download and install SolId Reader, then open it. This page will reconnect automatically while you finish."}</span>}
+            {phase === "unknown" && <span className="block">{kiosk ? "เครื่องนี้ยังไม่พร้อมใช้งาน กรุณาแจ้งเจ้าหน้าที่" : "Use a supported Windows or Mac clinic computer, or ask IT to install SolId Reader."}</span>}
+            {phase === "incompatible" && <span className="block">{kiosk ? "เครื่องอ่านบัตรต้องได้รับการดูแล กรุณาแจ้งเจ้าหน้าที่" : "Update SolId Reader and confirm that its bridge token matches this clinic web app."}</span>}
+            {phase === "give_up" && <span className="block">{kiosk ? "กรุณาแจ้งเจ้าหน้าที่เพื่อช่วยดำเนินการต่อ" : "Open SolId Reader from the Start menu or Applications, then check the connection again."}</span>}
             {isWaiting && (
               <span className="flex items-center gap-2 font-medium text-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" /> Checking connection…
+                <Loader2 className="h-4 w-4 animate-spin" /> {kiosk ? "กำลังตรวจสอบ…" : "Checking connection…"}
               </span>
             )}
           </DialogDescription>
@@ -146,14 +148,14 @@ export function SolidReaderRecoveryDialog({ open, onReady, onCancel }: SolidRead
           <div className="space-y-3">
             {downloads.length > 1 && (
               <Select value={selectedFile} onValueChange={setSelectedFile}>
-                <SelectTrigger className="w-full"><SelectValue placeholder="Choose Mac type" /></SelectTrigger>
+                <SelectTrigger className="w-full"><SelectValue placeholder={kiosk ? "เลือกรุ่น Mac" : "Choose Mac type"} /></SelectTrigger>
                 <SelectContent>
                   {downloads.map((option) => <SelectItem key={option.fileName} value={option.fileName}>{option.label}</SelectItem>)}
                 </SelectContent>
               </Select>
             )}
             <Button type="button" className="w-full" variant={phase === "opening" ? "outline" : "default"} onClick={handleDownload}>
-              <Download className="mr-2 h-4 w-4" /> {selectedDownload?.label ?? "Download SolId Reader"}
+              <Download className="mr-2 h-4 w-4" /> {kiosk ? "ดาวน์โหลดโปรแกรมเครื่องอ่านบัตร" : selectedDownload?.label ?? "Download SolId Reader"}
             </Button>
           </div>
         )}
@@ -161,18 +163,18 @@ export function SolidReaderRecoveryDialog({ open, onReady, onCancel }: SolidRead
         {(phase === "incompatible" || phase === "give_up") && (
           <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
             <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />
-            The card reader page keeps all card data temporary; closing this dialog does not save anything.
+            {kiosk ? "กรุณาแจ้งเจ้าหน้าที่เพื่อช่วยดำเนินการต่อ" : "The card reader page keeps all card data temporary; closing this dialog does not save anything."}
           </div>
         )}
 
         <DialogFooter className="sm:justify-between">
           {isWaiting ? (
             <>
-              <Button type="button" variant="secondary" onClick={finishCancelled}>Stop waiting</Button>
-              {phase === "install" && <Button type="button" variant="outline" onClick={tryLaunchSolidReader}>Try opening again</Button>}
+              <Button type="button" variant="secondary" onClick={finishCancelled}>{kiosk ? "หยุดรอ" : "Stop waiting"}</Button>
+              {phase === "install" && <Button type="button" variant="outline" onClick={tryLaunchSolidReader}>{kiosk ? "ลองเปิดอีกครั้ง" : "Try opening again"}</Button>}
             </>
           ) : (
-            <Button type="button" onClick={finishCancelled}>Close</Button>
+            <Button type="button" onClick={finishCancelled}>{kiosk ? "ปิด" : "Close"}</Button>
           )}
         </DialogFooter>
       </DialogContent>

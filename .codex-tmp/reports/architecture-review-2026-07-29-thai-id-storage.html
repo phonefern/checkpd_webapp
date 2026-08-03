@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Architecture review — CheckPD Thai ID storage</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script type="module">
+    import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+    mermaid.initialize({ startOnLoad: true, theme: "neutral", securityLevel: "loose" });
+  </script>
+  <style>
+    .seam { border-style: dashed; }
+    .deep { background: linear-gradient(135deg, #0f172a, #1e293b); }
+  </style>
+</head>
+<body class="bg-stone-50 text-slate-900 font-sans">
+<main class="max-w-6xl mx-auto px-6 py-12 space-y-12">
+  <header class="space-y-5">
+    <div class="flex flex-wrap items-end justify-between gap-4">
+      <div>
+        <p class="text-xs uppercase tracking-[0.25em] text-indigo-700">Architecture review · 2026-07-29</p>
+        <h1 class="mt-2 text-4xl font-semibold tracking-tight">CheckPD Thai ID storage</h1>
+      </div>
+      <p class="max-w-xl text-sm text-slate-600">Live metadata check: <code>public.users</code>, <code>core.patients_v2</code>, and <code>checkpd.users</code> exist. <code>public.pd_screenings</code> returns PostgreSQL <code>42P01</code>: relation does not exist.</p>
+    </div>
+    <div class="flex flex-wrap gap-3 text-xs">
+      <span class="rounded border bg-white px-3 py-2">solid box = module</span>
+      <span class="seam rounded border bg-white px-3 py-2">dashed = seam</span>
+      <span class="rounded bg-red-50 px-3 py-2 text-red-700">red = identity leakage</span>
+      <span class="deep rounded px-3 py-2 text-white">dark = deep module</span>
+    </div>
+  </header>
+
+  <section id="candidates" class="space-y-10">
+    <article id="identity-module" class="rounded-2xl border border-slate-200 bg-white p-7 shadow-sm">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <h2 class="text-2xl font-semibold">1. Deepen patient identity in <code>core.patient_identities</code></h2>
+        <div class="flex gap-2 text-xs font-semibold">
+          <span class="rounded-full bg-emerald-100 px-3 py-1 text-emerald-800">Strong</span>
+          <span class="rounded-full bg-indigo-100 px-3 py-1 text-indigo-800">ports &amp; adapters</span>
+        </div>
+      </div>
+      <p class="mt-3 font-mono text-xs text-slate-500">core.patient_identities · core.patients_v2 · Thai ID reader feature · authenticated server route</p>
+      <div class="mt-7 grid gap-6 lg:grid-cols-2">
+        <div class="rounded-xl border bg-red-50/40 p-4">
+          <p class="mb-3 text-xs font-bold uppercase tracking-wider text-red-700">Before</p>
+          <pre class="mermaid">
+flowchart TD
+  S[Thai ID scan] --> U[public.users mirror]
+  S --> C[checkpd.users mirror]
+  S --> V[core.patients_v2 visit]
+  U -. thaiid .-> V
+  C -. thai_id .-> V
+  classDef leak stroke:#dc2626,stroke-width:2px;
+  class U,C,V leak
+          </pre>
+        </div>
+        <div class="rounded-xl border bg-slate-50 p-4">
+          <p class="mb-3 text-xs font-bold uppercase tracking-wider text-emerald-700">After</p>
+          <pre class="mermaid">
+flowchart TD
+  S[Thai ID scan] --> R[Role-checked save route]
+  R --> I[core.patient_identities]
+  I --> V[core.patients_v2 visits]
+  I -. optional mirror adapters .-> U[public / checkpd users]
+  classDef deep fill:#0f172a,color:#fff,stroke:#0f172a,stroke-width:3px;
+  class I deep
+          </pre>
+        </div>
+      </div>
+      <div class="mt-6 grid gap-5 md:grid-cols-2">
+        <div>
+          <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Problem</p>
+          <p class="mt-2 text-sm">Identity leaks across mirror rows and visit rows; none provides one stable interface for a person read from a card.</p>
+        </div>
+        <div>
+          <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Solution</p>
+          <p class="mt-2 text-sm">One deep patient identity module owns normalized Thai ID and verified card demographics; visits reference its <code>patient_uid</code>.</p>
+        </div>
+      </div>
+      <ul class="mt-5 grid gap-2 text-sm sm:grid-cols-2">
+        <li>• locality: identity rules concentrate</li>
+        <li>• leverage: one upsert interface</li>
+        <li>• tests cross one seam</li>
+        <li>• mirrors remain adapters</li>
+      </ul>
+    </article>
+
+    <article id="scanner-registry" class="rounded-2xl border border-slate-200 bg-white p-7 shadow-sm">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <h2 class="text-2xl font-semibold">2. Add only <code>core.thai_id_card_registry</code></h2>
+        <div class="flex gap-2 text-xs font-semibold">
+          <span class="rounded-full bg-amber-100 px-3 py-1 text-amber-800">Worth exploring</span>
+          <span class="rounded-full bg-slate-100 px-3 py-1 text-slate-700">in-process</span>
+        </div>
+      </div>
+      <p class="mt-3 font-mono text-xs text-slate-500">new registry table · Thai ID reader feature · core.patients_v2 lookup</p>
+      <div class="mt-7 grid gap-6 lg:grid-cols-2">
+        <div class="rounded-xl border bg-red-50/40 p-4">
+          <p class="mb-3 text-xs font-bold uppercase tracking-wider text-red-700">Before</p>
+          <div class="space-y-2">
+            <div class="rounded border border-red-300 bg-white p-3 text-sm">Reader state owns full card</div>
+            <div class="text-center text-red-600">↓ no durable seam</div>
+            <div class="rounded border border-red-300 bg-white p-3 text-sm">Callers choose a patient table</div>
+          </div>
+        </div>
+        <div class="rounded-xl border bg-slate-50 p-4">
+          <p class="mb-3 text-xs font-bold uppercase tracking-wider text-emerald-700">After</p>
+          <div class="deep rounded-xl p-5 text-white">
+            <p class="text-xs uppercase tracking-wider text-slate-300">deep module</p>
+            <p class="mt-2 font-semibold">Thai ID card registry</p>
+            <p class="mt-3 text-sm text-slate-300">upsert by unique Thai ID · link optional patient_uid · card dates · audit metadata</p>
+          </div>
+        </div>
+      </div>
+      <div class="mt-6 grid gap-5 md:grid-cols-2">
+        <div>
+          <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Problem</p>
+          <p class="mt-2 text-sm">A narrow scanner table avoids existing mirrors but leaves patient identity split across modules.</p>
+        </div>
+        <div>
+          <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Solution</p>
+          <p class="mt-2 text-sm">Use a registry as an incremental seam now; migrate it into patient identity when the visit model is ready.</p>
+        </div>
+      </div>
+      <ul class="mt-5 grid gap-2 text-sm sm:grid-cols-2">
+        <li>• smaller migration</li>
+        <li>• locality: scanner fields together</li>
+        <li>• interface stays narrow</li>
+        <li>• future consolidation remains</li>
+      </ul>
+    </article>
+
+    <article id="existing-tables" class="rounded-2xl border border-slate-200 bg-white p-7 shadow-sm">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <h2 class="text-2xl font-semibold">3. Write directly into an existing patient relation</h2>
+        <div class="flex gap-2 text-xs font-semibold">
+          <span class="rounded-full bg-slate-200 px-3 py-1 text-slate-700">Speculative</span>
+          <span class="rounded-full bg-slate-100 px-3 py-1 text-slate-700">local-substitutable</span>
+        </div>
+      </div>
+      <p class="mt-3 font-mono text-xs text-slate-500">public.users · checkpd.users · core.patients_v2 · missing public.pd_screenings</p>
+      <div class="mt-7 grid gap-6 lg:grid-cols-2">
+        <div class="rounded-xl border bg-red-50/40 p-4">
+          <p class="mb-3 text-xs font-bold uppercase tracking-wider text-red-700">Before</p>
+          <pre class="mermaid">
+flowchart LR
+  S[Scan] --> Q{Choose table}
+  Q --> P[public.users]
+  Q --> C[checkpd.users]
+  Q --> V[core.patients_v2]
+  Q --> X[pd_screenings missing]
+  classDef leak stroke:#dc2626,stroke-width:2px;
+  class Q,P,C,V,X leak
+          </pre>
+        </div>
+        <div class="rounded-xl border bg-slate-50 p-4">
+          <p class="mb-3 text-xs font-bold uppercase tracking-wider text-slate-500">Deletion test</p>
+          <div class="space-y-3 text-sm">
+            <div class="rounded border bg-white p-3"><strong>public.users:</strong> Firebase-backed mirror identity</div>
+            <div class="rounded border bg-white p-3"><strong>checkpd.users:</strong> reporting/migration mirror</div>
+            <div class="rounded border bg-white p-3"><strong>core.patients_v2:</strong> repeatable visit row</div>
+            <div class="rounded border border-red-200 bg-red-50 p-3 text-red-800"><strong>pd_screenings:</strong> absent live</div>
+          </div>
+        </div>
+      </div>
+      <div class="mt-6 grid gap-5 md:grid-cols-2">
+        <div>
+          <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Problem</p>
+          <p class="mt-2 text-sm">Each existing interface carries a different invariant; direct writes couple scanner behaviour to migration or visit semantics.</p>
+        </div>
+        <div>
+          <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Solution</p>
+          <p class="mt-2 text-sm">Do not choose among them as scanner authority; keep them downstream adapters or visit consumers.</p>
+        </div>
+      </div>
+      <ul class="mt-5 grid gap-2 text-sm sm:grid-cols-2">
+        <li>• avoids mirror corruption</li>
+        <li>• preserves visit invariants</li>
+        <li>• no missing-table dependency</li>
+        <li>• seam remains explicit</li>
+      </ul>
+    </article>
+  </section>
+
+  <section class="rounded-2xl border border-indigo-200 bg-indigo-50 p-7">
+    <h2 class="text-xl font-semibold">Recommended stored shape</h2>
+    <div class="mt-5 grid gap-5 md:grid-cols-3">
+      <div class="rounded-xl bg-white p-5">
+        <p class="font-mono text-sm font-semibold">core.patient_identities</p>
+        <p class="mt-2 text-sm text-slate-600"><code>patient_uid</code> primary key; normalized <code>thaiid</code> unique; names, DOB, gender, ID-card address; verified timestamps.</p>
+      </div>
+      <div class="rounded-xl bg-white p-5">
+        <p class="font-mono text-sm font-semibold">core.thai_id_cards</p>
+        <p class="mt-2 text-sm text-slate-600">Card issuer, issue/expiry dates, optional private photo path, last scan actor/time. No base64 photo column.</p>
+      </div>
+      <div class="rounded-xl bg-white p-5">
+        <p class="font-mono text-sm font-semibold">core.thai_id_scan_events</p>
+        <p class="mt-2 text-sm text-slate-600">Optional append-only audit: patient UID, actor, result, reader version, timestamp. No repeated raw payload.</p>
+      </div>
+    </div>
+    <div class="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+      Photo stays temporary by default. If retention is approved, store it in a private Supabase Storage bucket and keep only its path in Postgres.
+    </div>
+  </section>
+
+  <section id="top-recommendation" class="deep rounded-2xl p-8 text-white">
+    <p class="text-xs uppercase tracking-[0.25em] text-emerald-300">Top recommendation</p>
+    <h2 class="mt-3 text-3xl font-semibold"><a class="underline decoration-emerald-400 underline-offset-4" href="#identity-module">Deepen patient identity in <code>core.patient_identities</code></a></h2>
+    <p class="mt-3 text-slate-300">Thai ID card data describes a person, not a screening visit or a Firebase mirror; one identity interface gives the scanner, QA visits, exports, and future matching the most leverage and locality.</p>
+  </section>
+</main>
+</body>
+</html>

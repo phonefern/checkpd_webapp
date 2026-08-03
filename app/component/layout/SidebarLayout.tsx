@@ -125,6 +125,7 @@ export default function SidebarLayout({ children, activePath, mainClassName }: P
         >
           <Menu className="h-5 w-5" />
         </button>
+        <img src="/brand/checkpd-mark.png" alt="" className="h-7 w-7 object-contain" />
         <span className="text-white font-medium text-sm tracking-wide">CheckPD Admin</span>
       </header>
 

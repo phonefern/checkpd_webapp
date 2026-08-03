@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import {
   BarChart3,
   Bell,
-  Building2,
   CalendarDays,
   ChevronLeft,
   ChevronRight,
@@ -19,6 +18,7 @@ import {
   LogIn,
   Package,
   ShieldCheck,
+  ScanLine,
   type LucideIcon,
 } from "lucide-react";
 
@@ -63,6 +63,8 @@ const workspaceItems: SidebarItem[] = [
     icon: CreditCard,
     children: [
       { label: "Read Thai ID Card", icon: CreditCard, path: "/pages/thai-id-reader", feature: "thai_id_reader" },
+      { label: "Participant Card Scan", icon: ScanLine, path: "/pages/thai-id-reader/kiosk", feature: "thai_id_reader" },
+      { label: "Thai ID Card Records", icon: Database, path: "/pages/thai-id-reader/records", feature: "thai_id_records" },
     ],
   },
   {
@@ -154,8 +156,8 @@ export default function AppSidebar({ activePath, role, user, onNavigate, onLogou
       <div className="flex h-full flex-col overflow-hidden px-3 py-5">
         {/* Logo */}
         <div className="flex items-center gap-3 px-2">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/14 ring-1 ring-white/20">
-            <Building2 className="h-5 w-5 text-white" />
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#e2e2f4] ring-1 ring-white/20">
+            <img src="/brand/checkpd-mark.png" alt="CheckPD" className="h-full w-full object-contain" />
           </div>
           <div
             className={`overflow-hidden transition-all duration-300 ease-in-out ${

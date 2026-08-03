@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 const PUBLIC_PATHS = new Set(["/pages/login"]);
-const GUEST_ALLOWED_PATHS = new Set(["/pages/dashboard", "/pages/thai-id-reader"]);
+const GUEST_ALLOWED_PATHS = new Set(["/pages/dashboard", "/pages/thai-id-reader", "/pages/thai-id-reader/kiosk"]);
 
 function hasSupabaseAuthCookie(request: NextRequest): boolean {
   return request.cookies
