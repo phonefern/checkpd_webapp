@@ -44,10 +44,36 @@ export function extractProvince(address?: string): string | null {
   return null;
 }
 
+export type TestCompleteness = "complete" | "partial" | "none";
+
+// Mirrors the "testItem" battery lib/pdfReportDocument.tsx checks for
+// (hasQuestionnaire, hasVoice, tremor resting/postural, tap left/right,
+// balance, gait) so a record's list badge shows the same ครบ/บางส่วน/ยังไม่ได้ทำ
+// verdict the PDF would derive — computed live from the Firestore record doc,
+// not from the (possibly lagging) Supabase mirror.
+const COMPLETENESS_CHECKS: Array<(d: Record<string, any>) => boolean> = [
+  (d) => Boolean(d.questionnaire),
+  (d) => Boolean(d.voiceAhh || d.voiceYPL),
+  (d) => Boolean(d.tremorresting),
+  (d) => Boolean(d.tremorpostural),
+  (d) => Boolean(d.dualtap),
+  (d) => Boolean(d.dualtapright),
+  (d) => Boolean(d.balance),
+  (d) => Boolean(d.gaitwalk),
+];
+
+export function getTestCompleteness(recordData: Record<string, any>): TestCompleteness {
+  const doneCount = COMPLETENESS_CHECKS.filter((check) => check(recordData)).length;
+  if (doneCount === 0) return "none";
+  if (doneCount === COMPLETENESS_CHECKS.length) return "complete";
+  return "partial";
+}
+
 export type RecordRow = {
   recordId: string;
   timestamp?: Timestamp;
   risk?: boolean | null;
+  testStatus: TestCompleteness;
 };
 
 export type PaginationInfo = {

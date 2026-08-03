@@ -8,8 +8,9 @@ import { supabase } from "@/lib/supabase";
 import { UserList } from "@/app/component/pdf/UserList";
 import { RecordsPanel } from "@/app/component/pdf/RecordsPanel";
 import { ExportSection } from "@/app/component/pdf/ExportSection";
+import { FullFirestoreSearchModal } from "@/app/component/pdf/FullFirestoreSearchModal";
 import { PaginationControls } from "@/app/component/pdf/PaginationControls";
-import { UserRow, RecordRow, extractProvince, toTsLike } from "./types";
+import { UserRow, RecordRow, extractProvince, toTsLike, getTestCompleteness } from "./types";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import QaCreateModal from "@/app/component/qa/QaCreateModal";
@@ -63,6 +64,7 @@ export default function ExportTestPage() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [qaIdentityByUser, setQaIdentityByUser] = useState<Record<string, QaCreatedIdentity>>({});
+  const [fullSearchOpen, setFullSearchOpen] = useState(false);
 
   const calculateAgeFromBod = (bod: any): number | null => {
     try {
@@ -269,6 +271,7 @@ export default function ExportTestPage() {
             typeof d.prediction?.risk === "boolean"
               ? d.prediction.risk
               : null,
+          testStatus: getTestCompleteness(d),
         });
       });
 
@@ -561,6 +564,17 @@ export default function ExportTestPage() {
             prefillData={qaPrefill}
           />
 
+          <FullFirestoreSearchModal
+            open={fullSearchOpen}
+            onClose={() => setFullSearchOpen(false)}
+            onSelectUser={(user) => {
+              setFullSearchOpen(false);
+              handleUserSelect(user);
+            }}
+            onQaClick={handleQaClick}
+            qaIdentityByUser={qaIdentityByUser}
+          />
+
           {/* Left: Users List */}
           <UserList
             users={firebaseUsers}
@@ -577,6 +591,7 @@ export default function ExportTestPage() {
             onDateToChange={(v) => { setDateTo(v); setCurrentPage(1); }}
             onUserSelect={handleUserSelect}
             onQaClick={handleQaClick}
+            onOpenFullSearch={() => setFullSearchOpen(true)}
             qaIdentityByUser={qaIdentityByUser}
             currentUsers={currentUsers}
             paginationInfo={{

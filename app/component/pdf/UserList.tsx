@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ChevronDown, ClipboardCheck, Loader2, Search, SlidersHorizontal, User, X } from "lucide-react";
+import { ChevronDown, ClipboardCheck, Loader2, Search, SlidersHorizontal, User, X, Database } from "lucide-react";
 import { UserRow, provinceOptions, extractProvince } from "@/app/pages/pdf/types";
 import type { QaCreatedIdentity } from "@/app/component/qa/QaCreateModal";
 import { PdfUserCardList } from "@/app/component/pdf/PdfUserCardList";
@@ -33,6 +33,7 @@ interface UserListProps {
     onDateToChange: (v: string) => void;
     onUserSelect: (user: UserRow) => void;
     onQaClick: (user: UserRow) => void;
+    onOpenFullSearch: () => void;
     qaIdentityByUser: Record<string, QaCreatedIdentity>;
     currentUsers: UserRow[];
     paginationInfo: {
@@ -61,6 +62,7 @@ export function UserList({
     onDateToChange,
     onUserSelect,
     onQaClick,
+    onOpenFullSearch,
     qaIdentityByUser,
     currentUsers,
     paginationInfo,
@@ -192,16 +194,33 @@ export function UserList({
 
             <CardContent className="space-y-3">
                 {/* Search */}
-                <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
-                    <Input
-                        type="text"
-                        placeholder="ค้นหาด้วยชื่อ, นามสกุล, หรือเลขบัตรประชาชน..."
-                        value={searchQuery}
-                        onChange={(e) => onSearchChange(e.target.value)}
-                        className="h-12 pl-10 text-base lg:h-9 lg:text-sm"
-                    />
+                <div className="flex gap-2">
+                    <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
+                        <Input
+                            type="text"
+                            placeholder="ค้นหาด้วยชื่อ, นามสกุล, หรือเลขบัตรประชาชน..."
+                            value={searchQuery}
+                            onChange={(e) => onSearchChange(e.target.value)}
+                            className="h-12 pl-10 text-base lg:h-9 lg:text-sm"
+                        />
+                    </div>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={onOpenFullSearch}
+                        title="ค้นหาทั้งหมดในระบบ ไม่จำกัดเฉพาะ 1,500 คนล่าสุด (ใช้เมื่อหาไม่เจอในรายการปกติ)"
+                        className="h-12 shrink-0 gap-1.5 px-3 text-xs lg:h-9 lg:text-sm"
+                    >
+                        <Database className="h-4 w-4" />
+                        <span className="hidden sm:inline">ค้นหาทั้งหมด</span>
+                    </Button>
                 </div>
+                {(searchQuery || hasActiveFilter) && (
+                    <p className="text-xs text-muted-foreground">
+                        หาไม่เจอ? รายการนี้ครอบคลุมแค่ 1,500 คนล่าสุด — กด &ldquo;ค้นหาทั้งหมด&rdquo; เพื่อค้นทั่วทั้งระบบ
+                    </p>
+                )}
 
                 {/* Desktop filters */}
                 <div className="hidden space-y-3 lg:block">

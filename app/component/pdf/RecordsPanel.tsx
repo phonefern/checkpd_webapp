@@ -7,7 +7,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Loader2, FileText, X, AlertCircle, ArrowLeft, CheckCircle, HelpCircle, UserPlus } from "lucide-react";
-import { UserRow, RecordRow } from "@/app/pages/pdf/types";
+import { UserRow, RecordRow, TestCompleteness } from "@/app/pages/pdf/types";
 import type { QaCreatedIdentity } from "@/app/component/qa/QaCreateModal";
 
 interface RecordsPanelProps {
@@ -75,6 +75,17 @@ export function RecordsPanel({
     }
   };
 
+  const getTestStatusConfig = (status: TestCompleteness) => {
+    switch (status) {
+      case "complete":
+        return { label: "ทำครบ", className: "border-transparent bg-green-100 text-green-800" };
+      case "partial":
+        return { label: "ทำบางส่วน", className: "border-transparent bg-amber-100 text-amber-800" };
+      default:
+        return { label: "ยังไม่ได้ทำ", className: "border-transparent bg-gray-100 text-gray-600" };
+    }
+  };
+
   if (!selectedUser) return null;
 
   const exportButtonLabel = qaIdentity?.id
@@ -90,6 +101,7 @@ export function RecordsPanel({
             const riskConfig = getRiskConfig(record.risk);
             const Icon = riskConfig.icon;
             const inputId = `${variant}-${record.recordId}`;
+            const testStatusConfig = getTestStatusConfig(record.testStatus);
 
             return (
               <div key={record.recordId}>
@@ -105,10 +117,13 @@ export function RecordsPanel({
                       <div className={`h-3 w-3 shrink-0 rounded-full ${selectedRecordId === record.recordId ? "bg-primary" : "bg-muted"}`} />
                       <span className="sarabun max-w-[200px] truncate text-xs">{record.recordId}</span>
                     </div>
-                    <Badge variant={riskConfig.variant} className="shrink-0">
-                      <Icon className="h-3 w-3" />
-                      {riskConfig.label}
-                    </Badge>
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      <Badge className={testStatusConfig.className}>{testStatusConfig.label}</Badge>
+                      <Badge variant={riskConfig.variant}>
+                        <Icon className="h-3 w-3" />
+                        {riskConfig.label}
+                      </Badge>
+                    </div>
                   </div>
                   <div className="flex items-end justify-between gap-2">
                     <span className="text-xs text-muted-foreground">{riskConfig.description}</span>
