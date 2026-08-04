@@ -342,6 +342,13 @@ CREATE TABLE core.moca_v2 (
   orientation              INTEGER NULL,  -- max 6
 
   total_score              INTEGER NULL,
+
+  -- Visuospatial drawing data (vector strokes, JSONB — not images).
+  -- Shape: { v, w, h, strokes:[{pts:[[x,y]]}] }. See lib/mocaStrokes.ts.
+  visuospatial_trail_strokes JSONB NULL,
+  visuospatial_cube_strokes  JSONB NULL,
+  visuospatial_clock_strokes JSONB NULL,
+
   created_at               TIMESTAMPTZ DEFAULT TIMEZONE('utc', NOW()),
 
   CONSTRAINT uq_moca_patient UNIQUE (patient_id)
