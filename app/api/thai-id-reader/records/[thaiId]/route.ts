@@ -32,10 +32,7 @@ export async function GET(request: Request, context: RouteContext) {
         .maybeSingle(),
       supabaseServer
         .schema("checkpd")
-        .from("users")
-        .select("id,thai_id,first_name,last_name,phone_number")
-        .eq("thai_id", thaiId)
-        .order("id"),
+        .rpc("find_users_by_normalized_thai_id", { p_thai_id: thaiId }),
     ]);
 
     if (cardError || usersError) {
@@ -89,15 +86,16 @@ export async function PATCH(request: Request, context: RouteContext) {
     }
 
     if (userId) {
-      const { data: user, error: userError } = await supabaseServer
+      // Normalized match (see 20260805_thai_id_card_normalized_matching.sql) —
+      // checkpd.users.thai_id is free text and can carry dashes/spaces, so a
+      // plain `.eq('thai_id', thaiId)` misses genuinely-matching users.
+      const { data: candidates, error: candidatesError } = await supabaseServer
         .schema("checkpd")
-        .from("users")
-        .select("id,thai_id")
-        .eq("id", userId)
-        .maybeSingle();
+        .rpc("find_users_by_normalized_thai_id", { p_thai_id: thaiId });
 
-      if (userError) throw userError;
-      if (!user || user.thai_id !== thaiId) {
+      if (candidatesError) throw candidatesError;
+      const isMatch = (candidates ?? []).some((candidate: { id: string }) => candidate.id === userId);
+      if (!isMatch) {
         return NextResponse.json({ error: "This user is not an exact Thai ID match." }, { status: 409 });
       }
     }

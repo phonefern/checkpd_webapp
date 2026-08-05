@@ -35,6 +35,13 @@ function formatDate(value: string) {
   return new Date(value).toLocaleString("th-TH");
 }
 
+// checkpd.users mirrors both the patient-facing "users" collection (Firebase
+// auto-id, non-numeric) and the staff "temps" collection (numeric id) — same
+// convention app/pages/pdf/page.tsx uses to tell them apart.
+function candidateKind(id: string): "Staff" | "Patient" {
+  return /^[0-9]+$/.test(id) ? "Staff" : "Patient";
+}
+
 function statusFor(row: CardRecord) {
   if (row.user_id) return { label: "Linked", variant: "default" as const };
   if (row.match_count > 1) return { label: "Needs review", variant: "secondary" as const };
@@ -127,6 +134,38 @@ export function ThaiIdCardRecordsPage() {
         <Card className="rounded-2xl shadow-sm"><CardHeader><CardTitle>Saved card scans</CardTitle><CardDescription>{total.toLocaleString()} record{total === 1 ? "" : "s"}. A duplicate Thai ID scan updates its existing record.</CardDescription></CardHeader><CardContent><div className="overflow-x-auto rounded-xl border"><Table><TableHeader><TableRow><TableHead>Thai ID</TableHead><TableHead>Name</TableHead><TableHead>Status</TableHead><TableHead>Last scanned</TableHead><TableHead /></TableRow></TableHeader><TableBody>{loading ? <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">Loading records…</TableCell></TableRow> : rows.length === 0 ? <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">No card records found.</TableCell></TableRow> : rows.map((row) => { const status = statusFor(row); return <TableRow key={row.thai_id}><TableCell className="font-mono text-xs">{row.thai_id}</TableCell><TableCell>{row.full_name_th || row.full_name_en || "-"}</TableCell><TableCell><Badge variant={status.variant}>{status.label}</Badge></TableCell><TableCell className="whitespace-nowrap text-xs">{formatDate(row.last_scanned_at)}</TableCell><TableCell><Button size="sm" variant="outline" onClick={() => void openDetail(row.thai_id)}><Eye className="mr-2 h-4 w-4" />View</Button></TableCell></TableRow>; })}</TableBody></Table></div><div className="mt-4 flex items-center justify-between text-sm text-muted-foreground"><span>Page {page}</span><div className="flex gap-2"><Button size="sm" variant="outline" disabled={page === 1 || loading} onClick={() => setPage((current) => current - 1)}>Previous</Button><Button size="sm" variant="outline" disabled={loading || page * 25 >= total} onClick={() => setPage((current) => current + 1)}>Next</Button></div></div></CardContent></Card>
       </>}
     </div>
-    <Dialog open={detailOpen} onOpenChange={setDetailOpen}><DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto"><DialogHeader><DialogTitle>Thai ID card record</DialogTitle><DialogDescription>{detail?.thai_id ?? "Loading card record…"}</DialogDescription></DialogHeader>{detailLoading && !detail ? <p className="text-sm text-muted-foreground">Loading…</p> : detail ? <div className="space-y-5"><div className="flex flex-wrap gap-5">{detail.photo_base64_uri ? <img src={detail.photo_base64_uri} alt="Thai ID card holder" className="h-32 w-28 rounded-lg border object-cover" /> : null}<div className="space-y-1 text-sm"><p className="font-semibold">{detail.full_name_th || detail.full_name_en || "-"}</p><p>Birth date: {detail.date_of_birth || "-"}</p><p>Card validity: {detail.issue_date || "-"} – {detail.expire_date || "-"}</p><p className="max-w-xl text-muted-foreground">{detail.address || "No address on card"}</p></div></div><div className="rounded-xl border p-4"><p className="mb-3 font-medium">Registered-user link</p>{detail.user_id ? <div className="flex flex-wrap items-center gap-3 text-sm"><Badge>Linked to {detail.user_id}</Badge><Button size="sm" variant="outline" disabled={detailLoading} onClick={() => void updateLink(null)}><Unlink className="mr-2 h-4 w-4" />Unlink</Button></div> : candidates.length === 1 ? <div className="flex flex-wrap items-center gap-3 text-sm"><span>Exact Thai ID match: {candidates[0].first_name || ""} {candidates[0].last_name || ""}</span><Button size="sm" disabled={detailLoading} onClick={() => void updateLink(candidates[0].id)}><Link2 className="mr-2 h-4 w-4" />Link user</Button></div> : candidates.length > 1 ? <p className="text-sm text-muted-foreground">Multiple existing users have this Thai ID. Resolve the duplicate user records before linking.</p> : <p className="text-sm text-muted-foreground">No registered user has this exact Thai ID yet.</p>}</div></div> : null}</DialogContent></Dialog>
+    <Dialog open={detailOpen} onOpenChange={setDetailOpen}><DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto"><DialogHeader><DialogTitle>Thai ID card record</DialogTitle><DialogDescription>{detail?.thai_id ?? "Loading card record…"}</DialogDescription></DialogHeader>{detailLoading && !detail ? <p className="text-sm text-muted-foreground">Loading…</p> : detail ? <div className="space-y-5"><div className="flex flex-wrap gap-5">{detail.photo_base64_uri ? <img src={detail.photo_base64_uri} alt="Thai ID card holder" className="h-32 w-28 rounded-lg border object-cover" /> : null}<div className="space-y-1 text-sm"><p className="font-semibold">{detail.full_name_th || detail.full_name_en || "-"}</p><p>Birth date: {detail.date_of_birth || "-"}</p><p>Card validity: {detail.issue_date || "-"} – {detail.expire_date || "-"}</p><p className="max-w-xl text-muted-foreground">{detail.address || "No address on card"}</p></div></div><div className="rounded-xl border p-4"><p className="mb-3 font-medium">Registered-user link</p>{detail.user_id ? (
+                <div className="flex flex-wrap items-center gap-3 text-sm">
+                  <Badge>Linked to {detail.user_id}</Badge>
+                  <Button size="sm" variant="outline" disabled={detailLoading} onClick={() => void updateLink(null)}>
+                    <Unlink className="mr-2 h-4 w-4" />Unlink
+                  </Button>
+                </div>
+              ) : candidates.length > 0 ? (
+                <div className="space-y-2">
+                  {candidates.length > 1 ? (
+                    <p className="text-xs text-muted-foreground">
+                      {candidates.length} registered records share this exact Thai ID — pick the right one to link.
+                    </p>
+                  ) : null}
+                  {candidates.map((candidate) => (
+                    <div key={candidate.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3 text-sm">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant={candidateKind(candidate.id) === "Staff" ? "secondary" : "outline"}>
+                          {candidateKind(candidate.id)}
+                        </Badge>
+                        <span>{candidate.first_name || ""} {candidate.last_name || ""}</span>
+                        <span className="font-mono text-xs text-muted-foreground">{candidate.id}</span>
+                        {candidate.phone_number ? <span className="text-xs text-muted-foreground">{candidate.phone_number}</span> : null}
+                      </div>
+                      <Button size="sm" disabled={detailLoading} onClick={() => void updateLink(candidate.id)}>
+                        <Link2 className="mr-2 h-4 w-4" />Link user
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">No registered user has this exact Thai ID yet.</p>
+              )}</div></div> : null}</DialogContent></Dialog>
   </SidebarLayout>;
 }
