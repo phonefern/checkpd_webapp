@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Architecture review — Thai ID schema placement</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script type="module">
+    import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+    mermaid.initialize({ startOnLoad: true, theme: "neutral", securityLevel: "loose" });
+  </script>
+  <style>
+    .seam { border-style: dashed; }
+    .deep { background: linear-gradient(135deg, #0f172a, #1e293b); }
+  </style>
+</head>
+<body class="bg-stone-50 font-sans text-slate-900">
+<main class="mx-auto max-w-6xl space-y-12 px-6 py-12">
+  <header class="space-y-4">
+    <p class="text-xs uppercase tracking-[0.25em] text-indigo-700">Architecture review · 2026-07-29</p>
+    <h1 class="text-4xl font-semibold tracking-tight">Thai ID schema placement</h1>
+    <div class="flex flex-wrap gap-3 text-xs">
+      <span class="rounded border bg-white px-3 py-2">solid box = module</span>
+      <span class="seam rounded border bg-white px-3 py-2">dashed = seam</span>
+      <span class="rounded bg-red-50 px-3 py-2 text-red-700">red = identity leakage</span>
+      <span class="deep rounded px-3 py-2 text-white">dark = deep module</span>
+    </div>
+  </header>
+
+  <section id="candidates" class="space-y-10">
+    <article id="registry" class="space-y-6 rounded-2xl border border-slate-200 bg-white p-7 shadow-sm">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <h2 class="text-2xl font-semibold">Create a patient registry module</h2>
+        <div class="flex gap-2 text-xs font-medium">
+          <span class="rounded-full bg-emerald-100 px-3 py-1 text-emerald-800">Strong</span>
+          <span class="rounded-full bg-indigo-100 px-3 py-1 text-indigo-800">ports &amp; adapters</span>
+        </div>
+      </div>
+      <p class="font-mono text-sm text-slate-600">future migration: patient_registry.patients · source_links · thai_id_cards · scan_events</p>
+      <div class="grid gap-5 lg:grid-cols-2">
+        <div>
+          <h3 class="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Before</h3>
+          <div class="rounded-xl border bg-stone-50 p-4">
+            <pre class="mermaid">
+flowchart TB
+  S[Thai ID scanner] --> P[public.users mirror]
+  S --> C[checkpd.users mirror]
+  S --> V[core.patients_v2 visits]
+  P -. thaiid .-> V
+  C -. thai_id .-> V
+  classDef leak stroke:#dc2626,stroke-width:2px,color:#991b1b;
+  class P,C,V leak
+            </pre>
+          </div>
+        </div>
+        <div>
+          <h3 class="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">After</h3>
+          <div class="rounded-xl border bg-stone-50 p-4">
+            <pre class="mermaid">
+flowchart TB
+  S[Thai ID scanner] --> R[patient_registry]
+  R --> P[public projection]
+  R --> C[checkpd source link]
+  R --> V[core visit patient_uid]
+  R --> B[private photo bucket]
+  classDef deep fill:#0f172a,color:#fff,stroke:#0f172a,stroke-width:3px;
+  class R deep
+            </pre>
+          </div>
+        </div>
+      </div>
+      <div class="grid gap-5 md:grid-cols-3">
+        <div><h3 class="text-xs font-semibold uppercase tracking-wider text-slate-500">Problem</h3><p class="mt-2 text-sm">Identity is duplicated in three modules whose implementations own different facts: Firebase imports, mobile screening records, and clinical visits.</p></div>
+        <div><h3 class="text-xs font-semibold uppercase tracking-wider text-slate-500">Solution</h3><p class="mt-2 text-sm">A deep patient registry module owns person identity, source mappings, card versions, matching, and conflicts behind one interface.</p></div>
+        <div><h3 class="text-xs font-semibold uppercase tracking-wider text-slate-500">Benefits</h3><ul class="mt-2 space-y-1 text-sm"><li>• locality: identity rules concentrate</li><li>• leverage: one match interface</li><li>• patient UID stops leaking</li><li>• private card-photo adapter</li></ul></div>
+      </div>
+    </article>
+
+    <article id="core" class="space-y-6 rounded-2xl border border-slate-200 bg-white p-7 shadow-sm">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <h2 class="text-2xl font-semibold">Put identity inside core</h2>
+        <div class="flex gap-2 text-xs font-medium">
+          <span class="rounded-full bg-amber-100 px-3 py-1 text-amber-800">Worth exploring</span>
+          <span class="rounded-full bg-slate-100 px-3 py-1 text-slate-700">in-process</span>
+        </div>
+      </div>
+      <p class="font-mono text-sm text-slate-600">app/pages/qa/core_schema.sql · core.patients_v2 · eleven assessment tables</p>
+      <div class="grid gap-5 lg:grid-cols-2">
+        <div class="rounded-xl border bg-stone-50 p-5">
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-500">Current core cross-section</h3>
+          <div class="mt-4 space-y-2 text-sm">
+            <div class="border-l-4 border-indigo-500 bg-white p-3">patients_v2 — screening visit + demographics</div>
+            <div class="border-l-4 border-slate-300 bg-white p-3">11 tables — one assessment per visit</div>
+            <div class="border-l-4 border-red-400 bg-red-50 p-3">Thai ID diagnosis sync into public/checkpd</div>
+          </div>
+        </div>
+        <div class="rounded-xl border bg-stone-50 p-5">
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-500">If identity is added</h3>
+          <div class="mt-4 space-y-2 text-sm">
+            <div class="deep rounded p-4 text-white">core grows from screening module into patient registry + screening module</div>
+            <div class="seam rounded border border-indigo-400 bg-white p-3">Interface must serve scanner and QA</div>
+          </div>
+        </div>
+      </div>
+      <div class="grid gap-5 md:grid-cols-3">
+        <div><h3 class="text-xs font-semibold uppercase tracking-wider text-slate-500">Problem</h3><p class="mt-2 text-sm"><code>core</code> currently means PD screening visits; <code>patient_uid</code> is indexed but not unique, and every assessment references a visit ID.</p></div>
+        <div><h3 class="text-xs font-semibold uppercase tracking-wider text-slate-500">Solution</h3><p class="mt-2 text-sm">Add identity tables and make visits reference them while retaining assessment locality.</p></div>
+        <div><h3 class="text-xs font-semibold uppercase tracking-wider text-slate-500">Benefits</h3><ul class="mt-2 space-y-1 text-sm"><li>• smallest schema count</li><li>• direct visit integration</li><li>• weaker ownership locality</li><li>• wider core interface</li></ul></div>
+      </div>
+    </article>
+
+    <article id="existing" class="space-y-6 rounded-2xl border border-slate-200 bg-white p-7 shadow-sm">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <h2 class="text-2xl font-semibold">Write into an existing user table</h2>
+        <div class="flex gap-2 text-xs font-medium">
+          <span class="rounded-full bg-slate-200 px-3 py-1 text-slate-700">Speculative</span>
+          <span class="rounded-full bg-red-100 px-3 py-1 text-red-800">shallow</span>
+        </div>
+      </div>
+      <p class="font-mono text-sm text-slate-600">public.users · checkpd.users</p>
+      <div class="grid gap-5 lg:grid-cols-2">
+        <div class="rounded-xl border bg-stone-50 p-5">
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-500">Before</h3>
+          <div class="mt-4 grid grid-cols-2 gap-3 text-center text-sm">
+            <div class="rounded border bg-white p-4"><strong>public.users</strong><br><span class="text-slate-500">Firebase mirror</span></div>
+            <div class="rounded border bg-white p-4"><strong>checkpd.users</strong><br><span class="text-slate-500">migration model</span></div>
+          </div>
+        </div>
+        <div class="rounded-xl border border-red-200 bg-red-50 p-5">
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-red-700">After scanner writes</h3>
+          <div class="mt-4 text-sm text-red-900">The scanner becomes another source with different freshness, card fields, authorization, and conflict rules hidden inside a mirror interface.</div>
+        </div>
+      </div>
+      <div class="grid gap-5 md:grid-cols-3">
+        <div><h3 class="text-xs font-semibold uppercase tracking-wider text-slate-500">Problem</h3><p class="mt-2 text-sm">Both tables use Firebase text IDs as primary keys and allow duplicate Thai IDs; neither owns verified card identity.</p></div>
+        <div><h3 class="text-xs font-semibold uppercase tracking-wider text-slate-500">Solution</h3><p class="mt-2 text-sm">Do not add scanner writes. Keep these as adapters or projections at the registry seam.</p></div>
+        <div><h3 class="text-xs font-semibold uppercase tracking-wider text-slate-500">Benefits</h3><ul class="mt-2 space-y-1 text-sm"><li>• preserves mirror semantics</li><li>• avoids silent overwrite</li><li>• conflict rules stay local</li><li>• migration remains replayable</li></ul></div>
+      </div>
+    </article>
+  </section>
+
+  <section id="evidence" class="rounded-2xl border border-slate-200 bg-white p-7">
+    <h2 class="text-2xl font-semibold">Whole-core evidence</h2>
+    <div class="mt-5 grid gap-4 md:grid-cols-2 lg:grid-cols-4 text-sm">
+      <div class="rounded-lg bg-stone-50 p-4"><strong>12 tables</strong><br><span class="text-slate-600">1 visit + 11 assessments</span></div>
+      <div class="rounded-lg bg-stone-50 p-4"><strong>11 foreign keys</strong><br><span class="text-slate-600">all target visit integer ID</span></div>
+      <div class="rounded-lg bg-stone-50 p-4"><strong>1 public view</strong><br><span class="text-slate-600">visit numbering by patient UID</span></div>
+      <div class="rounded-lg bg-stone-50 p-4"><strong>1 sync function + 2 triggers</strong><br><span class="text-slate-600">diagnosis matched by Thai ID</span></div>
+    </div>
+    <p class="mt-4 text-sm text-slate-600">The repository defines no RLS policies for these relations. Live zero-row checks confirm <code>public.users</code>, <code>checkpd.users</code>, and <code>core.patients_v2</code> exist; no patient rows were retrieved.</p>
+  </section>
+
+  <section id="top-recommendation" class="deep rounded-2xl p-8 text-white">
+    <p class="text-xs uppercase tracking-[0.2em] text-indigo-200">Top recommendation</p>
+    <h2 class="mt-2 text-3xl font-semibold">Create <code>patient_registry</code></h2>
+    <p class="mt-3 max-w-3xl text-slate-200">It gives identity matching and card retention one deep module, while <code>core</code> keeps locality around screening visits and <code>checkpd</code>/<code>public</code> remain source adapters and projections.</p>
+    <a href="#registry" class="mt-5 inline-block rounded bg-white px-4 py-2 text-sm font-medium text-slate-900">View candidate</a>
+  </section>
+</main>
+</body>
