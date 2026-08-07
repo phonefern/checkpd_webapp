@@ -311,6 +311,10 @@ CREATE TABLE core.tmse_v2 (
   language_draw                INTEGER NULL,
   language_similarity          INTEGER NULL,
 
+  -- House-drawing task as vector strokes (JSONB — not an image).
+  -- Shape: { v, w, h, strokes:[{pts:[[x,y]]}] }. See lib/drawStrokes.ts.
+  language_draw_strokes        JSONB NULL,
+
   -- Recall (3 pts)
   recall                       INTEGER NULL,
 
@@ -342,6 +346,13 @@ CREATE TABLE core.moca_v2 (
   orientation              INTEGER NULL,  -- max 6
 
   total_score              INTEGER NULL,
+
+  -- Visuospatial drawing data (vector strokes, JSONB — not images).
+  -- Shape: { v, w, h, strokes:[{pts:[[x,y]]}] }. See lib/drawStrokes.ts.
+  visuospatial_trail_strokes JSONB NULL,
+  visuospatial_cube_strokes  JSONB NULL,
+  visuospatial_clock_strokes JSONB NULL,
+
   created_at               TIMESTAMPTZ DEFAULT TIMEZONE('utc', NOW()),
 
   CONSTRAINT uq_moca_patient UNIQUE (patient_id)

@@ -3,6 +3,9 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import Image from 'next/image'
+import TmseHouseDraw from './TmseHouseDraw'
+import { StrokeData } from '@/lib/drawStrokes'
 
 interface Props {
   open: boolean
@@ -51,14 +54,17 @@ export default function QaTmseForm({ open, patientId, onClose, onSaved }: Props)
   const [calculationMode, setCalculationMode] = useState<'total' | 'steps'>('total')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [drawStrokes, setDrawStrokes] = useState<StrokeData | null>(null)
 
   useEffect(() => {
     if (!open) return
+    setDrawStrokes(null)
     supabase.schema('core').from('tmse_v2')
-      .select('orientation_day,orientation_date,orientation_month,orientation_time,orientation_place,orientation_picture,registration,attention,calculation,language_watch,language_shirt,language_repeat,language_3step_take_paper,language_3step_fold_paper,language_3step_hand_paper,language_read_close_eyes,language_draw,language_similarity,recall,total_score')
+      .select('orientation_day,orientation_date,orientation_month,orientation_time,orientation_place,orientation_picture,registration,attention,calculation,language_watch,language_shirt,language_repeat,language_3step_take_paper,language_3step_fold_paper,language_3step_hand_paper,language_read_close_eyes,language_draw,language_similarity,recall,total_score,language_draw_strokes')
       .eq('patient_id', patientId).maybeSingle()
       .then(({ data }) => {
         if (data) {
+          setDrawStrokes(((data as Record<string, unknown>).language_draw_strokes as StrokeData | null) ?? null)
           const d = data as unknown as Record<string, number | null>
           const f: FormState = {
             ...EMPTY,
@@ -143,6 +149,7 @@ export default function QaTmseForm({ open, patientId, onClose, onSaved }: Props)
       language_similarity: form.language_similarity,
       recall: form.recall,
       total_score: normalizedTotalScore,
+      language_draw_strokes: drawStrokes,
     }
     const { error: err } = await supabase.schema('core').from('tmse_v2').upsert(
       payload,
@@ -210,12 +217,26 @@ export default function QaTmseForm({ open, patientId, onClose, onSaved }: Props)
               { key: 'orientation_month', label: 'เดือนนี้ เดือนอะไร' },
               { key: 'orientation_time', label: 'ขณะนี้เป็นช่วงเวลาไหนของวัน (เช้า เที่ยง บ่าย เย็น)' },
               { key: 'orientation_place', label: 'ที่นี่ที่ไหน (บริเวณที่ตรวจ)' },
-              { key: 'orientation_picture', label: 'คนที่เห็นในภาพนี้มีอาชีพอะไร (ภาพอยู่ด้านหลัง)' },
+              { key: 'orientation_picture', label: 'คนที่เห็นในภาพนี้มีอาชีพอะไร (ดูภาพด้านล่าง)' },
             ].map((item) => (
-              <div key={item.key} className="flex items-center gap-3 py-1">
-                <span className="text-base flex-1">{item.label}</span>
-                <ScoreSelect value={form[item.key as keyof FormState]} max={1} onChange={(v) => set(item.key as keyof FormState, v)} />
-                <span className="text-sm text-muted-foreground w-8">/1</span>
+              <div key={item.key} className="py-1">
+                <div className="flex items-center gap-3">
+                  <span className="text-base flex-1">{item.label}</span>
+                  <ScoreSelect value={form[item.key as keyof FormState]} max={1} onChange={(v) => set(item.key as keyof FormState, v)} />
+                  <span className="text-sm text-muted-foreground w-8">/1</span>
+                </div>
+                {item.key === 'orientation_picture' && (
+                  <div className="mt-2 flex flex-col items-center text-center">
+                    <p className="text-xs uppercase tracking-wide text-slate-400 mb-1.5">ภาพ</p>
+                    <Image
+                      src="/img/asset/tmse_nurse.png"
+                      alt="ภาพบุคคลสำหรับถามอาชีพ"
+                      width={420}
+                      height={540}
+                      className="w-[420px] max-w-full h-auto rounded-lg border border-slate-300 bg-white p-1.5 object-contain"
+                    />
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -288,8 +309,8 @@ export default function QaTmseForm({ open, patientId, onClose, onSaved }: Props)
               { key: 'language_3step_take_paper', label: 'หยิบกระดาษด้วยมือขวา', max: 1 },
               { key: 'language_3step_fold_paper', label: 'พับกระดาษเป็นครี่งแผ่น', max: 1 },
               { key: 'language_3step_hand_paper', label: 'ส่งกระดาษให้ผู้ตรวจ', max: 1 },
-              { key: 'language_read_close_eyes', label: 'ให้ผู้ทดสอบอ่านแล้วทำตามคำสั่ง "หลับตา" (ข้อความอยู่ด้านหลัง)', max: 1 },
-              { key: 'language_draw', label: 'จงวาดภาพต่อไปนี้ให้เหมือนตัวอย่างมากที่สุด เท่าที่ท่านจะสามารถทำได้ (ภาพอยู่ด้านหลัง)', max: 2 },
+              { key: 'language_read_close_eyes', label: 'ให้ผู้ทดสอบอ่านแล้วทำตามคำสั่ง "หลับตา" (ให้ผู้ถูกทดสอบอ่านข้อความด้านล่าง)', max: 1 },
+              { key: 'language_draw', label: 'จงวาดภาพต่อไปนี้ให้เหมือนตัวอย่างมากที่สุด เท่าที่ท่านจะสามารถทำได้ (วาดตามตัวอย่างด้านล่าง)', max: 2 },
               { key: 'language_similarity', label: 'กล้วยกับส้ม เหมือนกันคือผลไม้ แล้วแมวกับสุนัขเหมือนกันคือ (เป็นสัตว์. เป็นสิ่งมีชีวิต)', max: 1 },
             ].map((item) => (
               <div key={item.key} className="py-1">
@@ -302,6 +323,15 @@ export default function QaTmseForm({ open, patientId, onClose, onSaved }: Props)
                   <p className="mt-1 pl-1 text-xs text-muted-foreground">
                   จงทำตามคำสั่งต่อไปนี้ (มี 3 ชั้นตอนคำสั่ง) ให้ผู้ทดสอบพูดต่อกันไปให้ครบทั้ง 3 ขั้นตอน "หยิบกระดาษด้วยมือขวา พับกระดาษเป็นครึ่งแผ่น แล้วส่งกระดาษให้ผู้ตรวจ
                   </p>
+                )}
+                {item.key === 'language_read_close_eyes' && (
+                  <div className="mt-2 rounded-xl border border-slate-200 bg-white p-6 text-center">
+                    <p className="text-xs uppercase tracking-wide text-slate-400 mb-2">ให้ผู้ถูกทดสอบอ่านแล้วทำตาม</p>
+                    <p className="text-7xl sm:text-8xl font-bold text-slate-900 tracking-wide">หลับตา</p>
+                  </div>
+                )}
+                {item.key === 'language_draw' && (
+                  <TmseHouseDraw value={drawStrokes} onChange={setDrawStrokes} />
                 )}
               </div>
             ))}

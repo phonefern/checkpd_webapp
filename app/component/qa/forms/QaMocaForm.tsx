@@ -1,8 +1,11 @@
 'use client'
 import { useState, useEffect } from 'react'
+import Image from 'next/image'
 import { supabase } from '@/lib/supabase'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import MocaVisuospatialDraw from './MocaVisuospatialDraw'
+import { StrokeData } from '@/lib/drawStrokes'
 
 interface Props {
   open: boolean
@@ -72,7 +75,6 @@ function TaskCard({ title, instruction, image, value, options, onChange }: {
         <p className="text-sm font-semibold uppercase tracking-wide text-slate-400">{title}</p>
         <p className="text-base text-slate-600 mt-1 leading-relaxed whitespace-pre-line">{instruction}</p>
       </div>
-      {/* Temporarily hide image preview
       {image && (
         <div className="px-4 py-2">
           <Image
@@ -80,11 +82,10 @@ function TaskCard({ title, instruction, image, value, options, onChange }: {
             alt={title}
             width={600}
             height={300}
-            className="mx-auto w-full max-w-[220px] sm:max-w-[260px] md:max-w-[300px] h-auto rounded-lg border bg-white object-contain"
+            className="mx-auto w-full max-w-[440px] sm:max-w-[600px] md:max-w-[760px] h-auto rounded-lg border bg-white object-contain"
           />
         </div>
       )}
-      */}
       {options && onChange && value !== undefined && (
         <div className="px-4 pb-3 pt-1">
           <ScoreButtons value={value} options={options} onChange={onChange} />
@@ -131,6 +132,11 @@ export default function QaMocaForm({ open, patientId, onClose, onSaved }: Props)
   const [totalScoreInput, setTotalScoreInput] = useState('0')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [strokes, setStrokes] = useState<{
+    trail: StrokeData | null
+    cube: StrokeData | null
+    clock: StrokeData | null
+  }>({ trail: null, cube: null, clock: null })
 
   useEffect(() => {
     if (!open) return
@@ -139,14 +145,21 @@ export default function QaMocaForm({ open, patientId, onClose, onSaved }: Props)
     setForm(EMPTY)
     setTotalScoreInput('0')
     setError(null)
+    setStrokes({ trail: null, cube: null, clock: null })
 
     let cancelled = false
     supabase.schema('core').from('moca_v2')
-      .select('visuospatial_executive,naming,attention_digits,attention_vigilance,attention_serial7,language_repeat,language_fluency,abstraction,delayed_recall,orientation,total_score')
+      .select('visuospatial_executive,naming,attention_digits,attention_vigilance,attention_serial7,language_repeat,language_fluency,abstraction,delayed_recall,orientation,total_score,visuospatial_trail_strokes,visuospatial_cube_strokes,visuospatial_clock_strokes')
       .eq('patient_id', patientId).maybeSingle()
       .then(({ data }) => {
         if (cancelled) return
         if (data) {
+          const raw = data as Record<string, unknown>
+          setStrokes({
+            trail: (raw.visuospatial_trail_strokes as StrokeData | null) ?? null,
+            cube: (raw.visuospatial_cube_strokes as StrokeData | null) ?? null,
+            clock: (raw.visuospatial_clock_strokes as StrokeData | null) ?? null,
+          })
           const d = data as unknown as Record<string, number | null>
           const nextForm: FormState = {
             visuospatial_executive: d.visuospatial_executive ?? 0,
@@ -186,7 +199,14 @@ export default function QaMocaForm({ open, patientId, onClose, onSaved }: Props)
     const totalScoreForSave = Math.max(0, Math.min(30, Math.trunc(parsedTotalScore)))
 
     const { error: err } = await supabase.schema('core').from('moca_v2').upsert(
-      { patient_id: patientId, ...form, total_score: totalScoreForSave },
+      {
+        patient_id: patientId,
+        ...form,
+        total_score: totalScoreForSave,
+        visuospatial_trail_strokes: strokes.trail,
+        visuospatial_cube_strokes: strokes.cube,
+        visuospatial_clock_strokes: strokes.clock,
+      },
       { onConflict: 'patient_id' }
     )
     setSaving(false)
@@ -244,46 +264,17 @@ export default function QaMocaForm({ open, patientId, onClose, onSaved }: Props)
 
         <div className="space-y-5 mt-1">
 
-          {/* ── VISUOSPATIAL / EXECUTIVE ── */}
+          {/* ── VISUOSPATIAL / EXECUTIVE (on-screen drawing) ── */}
           <section className="space-y-3">
             <SectionHeader title="Visuospatial / Executive" score={form.visuospatial_executive} max={5} />
-
-            {/* Display-only image cards */}
-            <TaskCard
-              title="Trail Making — 1 คะแนน"
-              instruction="ให้ผู้ทดสอบลากเส้นตามลำดับสลับกัน: 1 → ก → 2 → ข → 3 → ค → 4 → ง → 5 → จ (ห้ามยกปากกา ถ้าผิดให้แก้แล้วลากต่อ)"
-              image="/img/asset/number_assessment.png"
+            <MocaVisuospatialDraw
+              value={form.visuospatial_executive}
+              onChange={(n) => set('visuospatial_executive', n)}
+              trailStrokes={strokes.trail}
+              cubeStrokes={strokes.cube}
+              clockStrokes={strokes.clock}
+              onStrokesChange={(task, data) => setStrokes((prev) => ({ ...prev, [task]: data }))}
             />
-            <TaskCard
-              title="Copy Cube — 1 คะแนน"
-              instruction="ให้ผู้ทดสอบวาดรูปลูกบาศก์ 3 มิติตามตัวอย่าง ต้องมีมิติ มีเส้นขนาน และมุมถูกต้อง"
-              image="/img/asset/Cube.png"
-            />
-            <TaskCard
-              title="Clock Drawing — 3 คะแนน"
-              instruction={"ให้ผู้ทดสอบวาดนาฬิกา ให้เข็มชี้เวลา 11:10 น.\n• รูปทรงวงกลม = 1\n• ตัวเลข 1–12 ครบและถูกตำแหน่ง = 1\n• เข็มชี้ 11:10 ถูกต้อง = 1"}
-              image="/img/asset/clock.png"
-            />
-
-            {/* Combined score selector */}
-            <div className="bg-white border rounded-xl px-4 py-3">
-              <p className="text-sm font-semibold text-slate-700 mb-2">
-                คะแนนรวม Visuospatial / Executive &nbsp;
-                <span className="font-normal text-slate-500">(Trail 1 + Cube 1 + Clock 3 = max 5)</span>
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {[0,1,2,3,4,5].map((n) => (
-                  <button key={n} type="button"
-                    onClick={() => set('visuospatial_executive', n)}
-                    className={`w-10 h-10 rounded-lg border text-sm font-bold transition-colors ${
-                      form.visuospatial_executive === n
-                        ? 'bg-slate-900 text-white border-slate-900'
-                        : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
-                    }`}
-                  >{n}</button>
-                ))}
-              </div>
-            </div>
           </section>
 
           {/* ── NAMING ── */}
@@ -291,7 +282,7 @@ export default function QaMocaForm({ open, patientId, onClose, onSaved }: Props)
             <SectionHeader title="Naming" score={form.naming} max={3} />
             <TaskCard
               title="Naming Animals — 3 คะแนน"
-              instruction="ชี้รูปภาพทีละตัว ให้ผู้ทดสอบบอกชื่อสัตว์ทั้ง 3 ตัว (สิงโต / แรด / อูฐ)"
+              instruction="ชี้รูปภาพทีละตัว ให้ผู้ทดสอบบอกชื่อสัตว์ทั้ง 3 ตัว "
               image="/img/asset/animals2.png"
               value={form.naming}
               options={[
