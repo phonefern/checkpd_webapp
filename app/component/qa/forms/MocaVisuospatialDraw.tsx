@@ -1,7 +1,7 @@
 'use client'
 import Image from 'next/image'
 import { useEffect, useRef, useState } from 'react'
-import { StrokeData, Stroke, StrokePoint, drawStrokesOnCtx, STROKE_VERSION } from '@/lib/mocaStrokes'
+import { StrokeData, Stroke, StrokePoint, drawStrokesOnCtx, STROKE_VERSION } from '@/lib/drawStrokes'
 import { analyzeClock, ClockAnalysis } from '@/lib/mocaClockCheck'
 import { TRAIL_DOTS, TRAIL_DOT_R } from '@/lib/mocaTrail'
 

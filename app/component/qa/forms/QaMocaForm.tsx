@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import MocaVisuospatialDraw from './MocaVisuospatialDraw'
-import { StrokeData } from '@/lib/mocaStrokes'
+import { StrokeData } from '@/lib/drawStrokes'
 
 interface Props {
   open: boolean

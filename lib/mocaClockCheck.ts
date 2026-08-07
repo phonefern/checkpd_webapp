@@ -6,7 +6,7 @@
 // This is a *suggestion* for the tester, never the final score. Thresholds are
 // first-pass defaults and should be calibrated against real drawings.
 
-import type { StrokeData, Stroke, StrokePoint } from './mocaStrokes'
+import type { StrokeData, Stroke, StrokePoint } from './drawStrokes'
 
 export interface ClockAnalysis {
   hasEnough: boolean
