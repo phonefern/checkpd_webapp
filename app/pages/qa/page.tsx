@@ -409,14 +409,21 @@ export default function QaPage() {
   }
   const handleQuickDiag = useCallback(
     async (patientId: number, conditionValue: 'pd' | 'ctrl' | 'pdm' | 'other' | '-', otherDiagnosisText?: string | null) => {
-      const payload =
-        conditionValue === '-'
-          ? { patient_id: patientId, condition: '-', other_diagnosis_text: null }
-          : {
-              patient_id: patientId,
-              condition: conditionValue,
-              ...(conditionValue === 'other' ? { other_diagnosis_text: otherDiagnosisText?.trim() || null } : {}),
-            }
+      // Built as one object type (not a ternary of differently-shaped object
+      // literals) — a conditional-spread union here made `.upsert()`'s type
+      // inference choke (other_diagnosis_text optional in one branch, always
+      // null in another). Omitting the key for pd/ctrl/pdm is intentional:
+      // upsert only touches columns present in the payload, so the existing
+      // other_diagnosis_text is left untouched when the condition isn't '-'/'other'.
+      const payload: { patient_id: number; condition: string; other_diagnosis_text?: string | null } = {
+        patient_id: patientId,
+        condition: conditionValue,
+      }
+      if (conditionValue === '-') {
+        payload.other_diagnosis_text = null
+      } else if (conditionValue === 'other') {
+        payload.other_diagnosis_text = otherDiagnosisText?.trim() || null
+      }
 
       const { error: diagErr } = await supabase
         .schema('core')
