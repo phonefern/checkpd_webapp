@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import JSZip from "jszip"
 import { parseOther } from "@/lib/otherDiagnosis"
+import { extractDistrict } from "@/app/pages/users/provinceDistricts"
 
 const IN_CHUNK_SIZE = 200
 const QUERY_PAGE_SIZE = 1000
@@ -18,7 +19,7 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
-const exportScopes = ["demo", "demo_test", "demo_test_screening", "full", "full_detail"] as const
+const exportScopes = ["demo", "demo_test", "demo_test_screening", "screening_basic", "full", "full_detail"] as const
 
 type ExportScope = (typeof exportScopes)[number]
 type Pair = { userId: string; recordId: string | null }
@@ -31,8 +32,10 @@ type FilterParams = {
   searchRisk?: string
   searchOther?: string
   searchArea?: string
+  searchDistrict?: string
   searchSource?: string
   searchProvince?: string
+  searchTestResult?: string
   startDate?: string
   endDate?: string
 }
@@ -61,7 +64,7 @@ export async function POST(req: NextRequest) {
     const scope = parseScope(body.scope)
     if (!scope) {
       return NextResponse.json(
-        { error: "Invalid scope. Must be one of: demo, demo_test, demo_test_screening, full." },
+        { error: `Invalid scope. Must be one of: ${exportScopes.join(", ")}.` },
         { status: 400 }
       )
     }
@@ -152,8 +155,18 @@ function buildFilteredPairsQuery(filters: FilterParams, from: number, to: number
     query = query.ilike("other", `%${otherDiagnosis}%`)
   }
   if (filters.searchArea?.trim()) query = query.eq("area", filters.searchArea)
+  // District has no dedicated column — derived from Live Address, same as
+  // the Users page filter (app/pages/users/provinceDistricts.ts).
+  if (filters.searchDistrict?.trim()) query = query.ilike("liveaddress", `%${filters.searchDistrict.trim()}%`)
   if (filters.searchSource?.trim()) query = query.eq("source", filters.searchSource)
   if (filters.searchProvince?.trim()) query = query.eq("province", filters.searchProvince)
+  if (filters.searchTestResult === "complete") {
+    query = query.eq("test_result", "Complete")
+  } else if (filters.searchTestResult === "partial") {
+    query = query.in("test_result", ["Incomplete", "Imcomplete", "Partial"])
+  } else if (filters.searchTestResult === "unattempt") {
+    query = query.or("test_result.is.null,test_result.eq.Unattempt")
+  }
 
   return query
 }
@@ -168,6 +181,8 @@ function encodeSmell(given: unknown, correct: string): string {
 }
 
 async function buildCsv(pairs: Pair[], scope: ExportScope): Promise<CsvBuildResult> {
+  if (scope === "screening_basic") return buildScreeningBasicCsv(pairs)
+
   const userIds = [...new Set(pairs.map((p) => p.userId))]
   const includeCore = scope === "demo_test" || scope === "demo_test_screening" || scope === "full" || scope === "full_detail"
   const includeScreening = scope === "demo_test_screening" || scope === "full" || scope === "full_detail"
@@ -435,6 +450,71 @@ async function buildCsv(pairs: Pair[], scope: ExportScope): Promise<CsvBuildResu
   return {
     csv: lines.join("\r\n"),
     includesQuestionnaire: includeScreening,
+  }
+}
+
+async function buildScreeningBasicCsv(pairs: Pair[]): Promise<CsvBuildResult> {
+  const userIds = [...new Set(pairs.map((p) => p.userId))]
+  const viewRows = await fetchInChunks<Record<string, unknown>>(userIds, (chunkIds, from, to) =>
+    supabaseAdmin
+      .from("user_record_summary_with_users")
+      .select("id,record_id,thaiid,timestamp,firstname,lastname,province,liveaddress,prediction_risk,test_result,condition")
+      .in("id", chunkIds as string[])
+      .order("timestamp", { ascending: false, nullsFirst: false })
+      .range(from, to)
+  )
+
+  const viewByRecord: RowMap = {}
+  const viewByUser: RowMap = {}
+  for (const row of viewRows) {
+    const uid = row.id as string
+    const rid = row.record_id as string | null
+    if (rid) {
+      const key = `${uid}||${rid}`
+      if (!viewByRecord[key]) viewByRecord[key] = row
+    }
+    if (!viewByUser[uid]) viewByUser[uid] = row
+  }
+
+  const headers = [
+    "id",
+    "thaiid",
+    "timestamp",
+    "firstname",
+    "lastname",
+    "province",
+    "district",
+    "subdistrict",
+    "prediction_risk",
+    "test_result",
+    "condition",
+  ]
+  const lines: string[] = [headers.map(csvCell).join(",")]
+
+  for (const pair of pairs) {
+    const pairKey = `${pair.userId}||${pair.recordId ?? ""}`
+    const viewRow = viewByRecord[pairKey] ?? viewByUser[pair.userId] ?? {}
+    const province = str(viewRow.province)
+    const liveaddress = str(viewRow.liveaddress)
+    const row = [
+      str(viewRow.id) || pair.userId,
+      str(viewRow.thaiid),
+      str(viewRow.timestamp),
+      str(viewRow.firstname),
+      str(viewRow.lastname),
+      province,
+      extractDistrict(liveaddress, province) ?? "",
+      extractSubdistrict(liveaddress),
+      formatPredictionRiskThai(viewRow.prediction_risk),
+      formatTestResultThai(viewRow.test_result),
+      str(viewRow.condition),
+    ]
+    lines.push(row.map(csvCell).join(","))
+  }
+
+  return {
+    csv: lines.join("\r\n"),
+    includesQuestionnaire: false,
   }
 }
 
@@ -797,6 +877,7 @@ function buildReadme(scope: ExportScope, includesQuestionnaire: boolean) {
     demo: "Demo only - demographics and risk-factor fields only.",
     demo_test: "Demo + Test - demographics plus in-clinic clinical scores (incl. D-15 color vision d15_* columns).",
     demo_test_screening: "Demo + Test + Screening - adds mobile app screening, q01-q20, and prediction.",
+    screening_basic: "Screening Basic - compact demographic export for screening staff with Thai risk and test-result labels.",
     full: "Full - all export columns, including admin condition/other metadata.",
     full_detail: "Full + Detail - all full columns plus RBD item breakdown (rbd1-rbd13 score/frequency) and Smell encoding (s1-s16: 1=correct, 0=wrong).",
   }
@@ -935,6 +1016,26 @@ function fBool(v: unknown): string {
   return ""
 }
 
+function formatPredictionRiskThai(v: unknown): string {
+  if (v === true) return "มีความเสี่ยง"
+  if (v === false) return "ปกติ"
+  const value = str(v).trim().toLowerCase()
+  if (value === "true") return "มีความเสี่ยง"
+  if (value === "false") return "ปกติ"
+  return "ไม่ทราบผล"
+}
+
+function formatTestResultThai(v: unknown): string {
+  const value = str(v).trim().toLowerCase()
+  if (!value) return ""
+  if (value.includes("incomplete") || value.includes("imcomplete") || value.includes("partial")) {
+    return "ทำแบบทดสอบบางส่วน"
+  }
+  if (value.includes("unattempt")) return "ไม่ได้ทำแบบทดสอบ"
+  if (value.includes("complete")) return "ทำแบบทดสอบครบ"
+  return str(v)
+}
+
 function fYesNo(v: unknown): string {
   if (v === true) return "Yes"
   if (v === false) return "No"
@@ -980,6 +1081,32 @@ function csvCell(value: string): string {
 
 function normalizeThaiId(v: string): string {
   return v.replace(/\D/g, "")
+}
+
+function cleanAddressPart(value: string | undefined): string {
+  return (value ?? "").replace(/\*/g, "").trim()
+}
+
+function extractSubdistrict(address: string): string {
+  const normalized = address.replace(/\s+/g, " ").trim()
+  if (!normalized) return ""
+
+  if (/.*,.*,.*,.*[0-9]{1,5}/u.test(normalized)) {
+    const commaMatch = normalized.match(/,\s*([^,]+),\s*[^,]+,\s*[^,]+(?:,\s*|\s+)[0-9]{1,5}\s*$/u)
+    const value = cleanAddressPart(commaMatch?.[1])
+    if (value) return value
+  }
+
+  const khwaengMatch = normalized.match(/แขวง\s*([^ ,]+)/u)
+  const khwaengValue = cleanAddressPart(khwaengMatch?.[1])
+  if (khwaengValue) return khwaengValue
+
+  const tambonMatch = normalized.match(/ตำบล\s*([^ ,]+)/u)
+  const tambonValue = cleanAddressPart(tambonMatch?.[1])
+  if (tambonValue) return tambonValue
+
+  const abbreviatedTambonMatch = normalized.match(/ต\.\s*([^ ,]+)/u)
+  return cleanAddressPart(abbreviatedTambonMatch?.[1])
 }
 
 function thaiIdVariants(v: string): string[] {

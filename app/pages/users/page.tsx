@@ -7,23 +7,15 @@ import Pagination from '@/app/component/users/Pagination'
 import SearchFilters from '@/app/component/users/SearchFilters'
 import { User } from '@/app/types/user'
 import SidebarLayout from '@/app/component/layout/SidebarLayout'
+import { useSession } from '@/app/providers/SessionProvider'
 import { logActivity } from '@/lib/activityLog'
 import UserEditModal from '@/app/component/users/UserEditModal'
 import UserDetailModal from '@/app/component/users/UserDetailModal'
 import TqdmSpinner from '@/app/component/dashboard/TqdmSpinner'
-import { Button } from '@/components/ui/button'
 import { parseOther } from '@/lib/otherDiagnosis'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { AlertTriangle, RefreshCw } from 'lucide-react'
 
 export default function UsersClientPage() {
+  const { session } = useSession()
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [searchId, setSearchId] = useState('')
@@ -36,8 +28,10 @@ export default function UsersClientPage() {
   const [searchOther, setSearchOther] = useState('')
   const [searchArea, setSearchArea] = useState('')
   const [areaOptions, setAreaOptions] = useState<string[]>([])
+  const [searchDistrict, setSearchDistrict] = useState('')
   const [searchSource, setSearchSource] = useState('')
   const [searchProvince, setSearchProvince] = useState('')
+  const [searchTestResult, setSearchTestResult] = useState('')
   const [viewingUser, setViewingUser] = useState<User | null>(null)
   const [editingUser, setEditingUser] = useState<User | null>(null)
   const [screeningThaiIds, setScreeningThaiIds] = useState<string[]>([])
@@ -45,10 +39,9 @@ export default function UsersClientPage() {
   const [sortColumn, setSortColumn] = useState<SortColumn>('timestamp')
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
   const [isExporting, setIsExporting] = useState(false)
-  const [isSyncingDemographic, setIsSyncingDemographic] = useState(false)
-  const [demographicSyncDialogOpen, setDemographicSyncDialogOpen] = useState(false)
-  const [demographicSyncMessage, setDemographicSyncMessage] = useState<string | null>(null)
-  const [exportScope, setExportScope] = useState<'demo' | 'demo_test' | 'demo_test_screening' | 'full' | 'full_detail'>('full')
+  const [syncingUserId, setSyncingUserId] = useState<string | null>(null)
+  const [syncMessage, setSyncMessage] = useState<string | null>(null)
+  const [exportScope, setExportScope] = useState<'demo' | 'demo_test' | 'demo_test_screening' | 'screening_basic' | 'full' | 'full_detail'>('full')
   const itemsPerPage = 50
 
   const buildFilterPayload = () => ({
@@ -57,8 +50,10 @@ export default function UsersClientPage() {
     searchRisk,
     searchOther,
     searchArea,
+    searchDistrict,
     searchSource,
     searchProvince,
+    searchTestResult,
     startDate,
     endDate,
   })
@@ -87,8 +82,10 @@ export default function UsersClientPage() {
     setSearchRisk('')
     setSearchOther('')
     setSearchArea('')
+    setSearchDistrict('')
     setSearchSource('')
     setSearchProvince('')
+    setSearchTestResult('')
     setStartDate('')
     setEndDate('')
     setCurrentPage(1)
@@ -141,38 +138,32 @@ export default function UsersClientPage() {
     }
   }
 
-  const handleTriggerDemographicSync = async () => {
+  const handleSyncUser = async (user: User) => {
+    const token = session?.access_token
+    if (!token) {
+      setSyncMessage('Sign in again to sync this person.')
+      return
+    }
+    setSyncingUserId(user.id)
+    setSyncMessage(null)
     try {
-      setIsSyncingDemographic(true)
-      setDemographicSyncMessage(null)
-
-      const res = await fetch('/api/users/demographic-migration/trigger-job', {
+      const res = await fetch('/api/users/demographic-migration/migrate-user', {
         method: 'POST',
-        cache: 'no-store',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ userId: user.id }),
       })
       const data = await res.json()
-      if (!res.ok || !data?.ok) {
-        throw new Error(data?.error || 'Failed to trigger demographic sync job')
+      if (!res.ok || data?.status !== 'ok') {
+        throw new Error(data?.error || data?.message || 'Sync failed')
       }
-
-      const startedAt = data.startedAt
-        ? new Date(data.startedAt).toLocaleTimeString('th-TH', {
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-          })
-        : '--:--:--'
-
-      setDemographicSyncMessage(
-        `Started ${data.jobName ?? 'migrate-demographic'} (${data.region ?? 'asia-southeast1'}) at ${startedAt} [${data.mode ?? 'gcloud'}]`
-      )
-      setDemographicSyncDialogOpen(false)
+      const name = `${user.firstname ?? ''} ${user.lastname ?? ''}`.trim() || user.id
+      setSyncMessage(`Synced ${name} (${data.summaries_updated ?? 0} record summaries)`)
+      logActivity({ action: 'UPDATE', page: 'users', description: `Manual sync: ${user.id}`, userEmail: session?.user?.email })
       await fetchUsers()
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to trigger demographic sync job'
-      setDemographicSyncMessage(message)
+      setSyncMessage(error instanceof Error ? error.message : 'Sync failed')
     } finally {
-      setIsSyncingDemographic(false)
+      setSyncingUserId(null)
     }
   }
 
@@ -215,8 +206,18 @@ export default function UsersClientPage() {
       query = query.ilike('other', `%${otherDiagnosis}%`)
     }
     if (searchArea.trim()) query = query.eq('area', searchArea)
+    // District has no dedicated column — it's derived from Live Address (see
+    // app/pages/users/provinceDistricts.ts), so filter with the same match.
+    if (searchDistrict.trim()) query = query.ilike('liveaddress', `%${searchDistrict}%`)
     if (searchSource.trim()) query = query.eq('source', searchSource)
     if (searchProvince.trim()) query = query.eq('province', searchProvince)
+    if (searchTestResult === 'complete') {
+      query = query.eq('test_result', 'Complete')
+    } else if (searchTestResult === 'partial') {
+      query = query.in('test_result', ['Incomplete', 'Imcomplete', 'Partial'])
+    } else if (searchTestResult === 'unattempt') {
+      query = query.or('test_result.is.null,test_result.eq.Unattempt')
+    }
 
     const { data, error, count } = await query
 
@@ -244,7 +245,7 @@ export default function UsersClientPage() {
 
   useEffect(() => {
     fetchUsers()
-  }, [currentPage, searchId, startDate, endDate, searchCondition, searchRisk, searchOther, searchArea, searchSource, searchProvince, sortColumn, sortDirection])
+  }, [currentPage, searchId, startDate, endDate, searchCondition, searchRisk, searchOther, searchArea, searchDistrict, searchSource, searchProvince, searchTestResult, sortColumn, sortDirection])
 
   useEffect(() => {
     const loadAreaOptions = async () => {
@@ -291,10 +292,14 @@ export default function UsersClientPage() {
           searchArea={searchArea}
           setSearchArea={setSearchArea}
           areaOptions={areaOptions}
+          searchDistrict={searchDistrict}
+          setSearchDistrict={setSearchDistrict}
           searchSource={searchSource}
           setSearchSource={setSearchSource}
           searchProvince={searchProvince}
           setSearchProvince={setSearchProvince}
+          searchTestResult={searchTestResult}
+          setSearchTestResult={setSearchTestResult}
           startDate={startDate}
           setStartDate={setStartDate}
           endDate={endDate}
@@ -305,19 +310,17 @@ export default function UsersClientPage() {
           itemsPerPage={itemsPerPage}
           selectedCount={selectedKeys.size}
           isExporting={isExporting}
-          isSyncingDemographic={isSyncingDemographic}
           exportScope={exportScope}
           setExportScope={setExportScope}
           onExportSelected={() => handleExport('selected')}
           onExportAll={() => handleExport('filtered')}
           onClearSelection={() => setSelectedKeys(new Set())}
           onResetFilters={handleResetFilters}
-          onOpenDemographicSync={() => setDemographicSyncDialogOpen(true)}
         />
 
-        {demographicSyncMessage ? (
-          <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-            {demographicSyncMessage}
+        {syncMessage ? (
+          <div className="mb-4 rounded-md border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-900">
+            {syncMessage}
           </div>
         ) : null}
 
@@ -333,6 +336,8 @@ export default function UsersClientPage() {
               itemsPerPage={itemsPerPage}
               onEdit={setEditingUser}
               onViewDetail={setViewingUser}
+              onSync={handleSyncUser}
+              syncingUserId={syncingUserId}
               selectedKeys={selectedKeys}
               onSelectionChange={setSelectedKeys}
               sortColumn={sortColumn}
@@ -366,54 +371,11 @@ export default function UsersClientPage() {
           hasScreeningThaiId={(thaiid) => screeningThaiIds.includes(thaiid)}
         />
 
-        <Dialog open={demographicSyncDialogOpen} onOpenChange={(open) => !isSyncingDemographic && setDemographicSyncDialogOpen(open)}>
-          <DialogContent className="sm:max-w-lg">
-            <DialogHeader>
-              <div className="mb-2 flex h-11 w-11 items-center justify-center rounded-full bg-amber-100 text-amber-700">
-                <AlertTriangle className="h-5 w-5" />
-              </div>
-              <DialogTitle>Run demographic migration now?</DialogTitle>
-              <DialogDescription>
-                This will manually execute the Cloud Run Job <span className="font-medium text-foreground">migrate-demographic</span> in
-                asia-southeast1. Use this when you want to pull the latest demographic data immediately instead of waiting for the scheduled run.
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-              The job can update patient demographic data used by this page and exports. Please avoid clicking multiple times while a run is already starting.
-            </div>
-
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setDemographicSyncDialogOpen(false)}
-                disabled={isSyncingDemographic}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                onClick={handleTriggerDemographicSync}
-                disabled={isSyncingDemographic}
-                className="bg-amber-600 text-white hover:bg-amber-700"
-              >
-                {isSyncingDemographic ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : null}
-                Run Job
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {isExporting || isSyncingDemographic ? (
+        {isExporting ? (
           <div className="fixed inset-0 z-50 flex items-start justify-center bg-slate-950/40 px-4 pt-16 backdrop-blur-sm">
             <TqdmSpinner
-              label={isSyncingDemographic ? "Starting demographic sync" : "กำลังเตรียมไฟล์ Export"}
-              detail={
-                isSyncingDemographic
-                  ? "Triggering migrate-demographic on Cloud Run"
-                  : `กำลังรวมข้อมูล ${exportScope.replace(/_/g, " ")} และบีบอัดเป็น ZIP`
-              }
+              label="กำลังเตรียมไฟล์ Export"
+              detail={`กำลังรวมข้อมูล ${exportScope.replace(/_/g, " ")} และบีบอัดเป็น ZIP`}
             />
           </div>
         ) : null}

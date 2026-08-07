@@ -1,11 +1,13 @@
 "use client"
 
+import { useState } from "react"
 import { conditionOptions, riskOptions, sourceOptions, provinceOptions } from "@/app/types/user"
+import { ALL_DISTRICTS, PROVINCE_DISTRICTS } from "@/app/pages/users/provinceDistricts"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { AlertTriangle, CalendarIcon, Download, RefreshCw, RotateCcw, X } from "lucide-react"
+import { CalendarIcon, ChevronDown, Download, RefreshCw, RotateCcw, X } from "lucide-react"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 import { OtherDiagnosisSelect } from "@/app/component/diagnosis/OtherDiagnosisSelect"
@@ -23,10 +25,14 @@ interface SearchFiltersProps {
   searchArea: string
   setSearchArea: (value: string) => void
   areaOptions: string[]
+  searchDistrict: string
+  setSearchDistrict: (value: string) => void
   searchSource: string
   setSearchSource: (value: string) => void
   searchProvince: string
   setSearchProvince: (value: string) => void
+  searchTestResult: string
+  setSearchTestResult: (value: string) => void
   startDate: string
   setStartDate: (value: string) => void
   endDate: string
@@ -37,14 +43,12 @@ interface SearchFiltersProps {
   itemsPerPage: number
   selectedCount: number
   isExporting: boolean
-  isSyncingDemographic: boolean
-  exportScope: "demo" | "demo_test" | "demo_test_screening" | "full" | "full_detail"
-  setExportScope: (value: "demo" | "demo_test" | "demo_test_screening" | "full" | "full_detail") => void
+  exportScope: "demo" | "demo_test" | "demo_test_screening" | "screening_basic" | "full" | "full_detail"
+  setExportScope: (value: "demo" | "demo_test" | "demo_test_screening" | "screening_basic" | "full" | "full_detail") => void
   onExportSelected: () => void
   onExportAll: () => void
   onClearSelection: () => void
   onResetFilters: () => void
-  onOpenDemographicSync: () => void
 }
 
 export default function SearchFilters({
@@ -60,10 +64,14 @@ export default function SearchFilters({
   searchArea,
   setSearchArea,
   areaOptions,
+  searchDistrict,
+  setSearchDistrict,
   searchSource,
   setSearchSource,
   searchProvince,
   setSearchProvince,
+  searchTestResult,
+  setSearchTestResult,
   startDate,
   setStartDate,
   endDate,
@@ -74,15 +82,14 @@ export default function SearchFilters({
   itemsPerPage,
   selectedCount,
   isExporting,
-  isSyncingDemographic,
   exportScope,
   setExportScope,
   onExportSelected,
   onExportAll,
   onClearSelection,
   onResetFilters,
-  onOpenDemographicSync,
 }: SearchFiltersProps) {
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
   const startDateObj = startDate ? new Date(startDate) : undefined
   const endDateObj   = endDate   ? new Date(endDate)   : undefined
 
@@ -94,11 +101,20 @@ export default function SearchFilters({
     searchRisk,
     searchOther,
     searchArea,
+    searchDistrict,
     searchSource,
     searchProvince,
+    searchTestResult,
     startDate,
     endDate,
   ].filter(Boolean).length
+  const advancedFilters = [searchCondition, searchRisk, searchOther, searchArea, searchDistrict].filter(Boolean).length
+  const testResultOptions = [
+    { value: "", label: "All Test Results" },
+    { value: "complete", label: "ทำแบบทดสอบครบ" },
+    { value: "partial", label: "ทำแบบทดสอบไม่ครบ" },
+    { value: "unattempt", label: "ไม่ได้ทำแบบทดสอบ" },
+  ]
 
   return (
     <div className="mb-6 rounded-xl border border-border bg-card shadow-sm">
@@ -163,13 +179,56 @@ export default function SearchFilters({
             <label className="mb-1.5 block text-xs font-medium text-foreground">Province</label>
             <select
               value={searchProvince}
-              onChange={(e) => { setSearchProvince(e.target.value); setCurrentPage(1) }}
+              onChange={(e) => {
+                const nextProvince = e.target.value
+                setSearchProvince(nextProvince)
+                // District options are scoped to the province — a district
+                // picked under the old province may not exist in the new
+                // one's list, so clear it rather than keep a stale filter.
+                const nextDistricts = nextProvince && nextProvince !== "null" ? PROVINCE_DISTRICTS[nextProvince] ?? [] : ALL_DISTRICTS
+                if (searchDistrict && !nextDistricts.includes(searchDistrict)) setSearchDistrict("")
+                setCurrentPage(1)
+              }}
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer"
             >
               {provinceOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </div>
 
+          {/* Test result */}
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-foreground">Test Result</label>
+            <select
+              value={searchTestResult}
+              onChange={(e) => { setSearchTestResult(e.target.value); setCurrentPage(1) }}
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer"
+            >
+              {testResultOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </div>
+
+          <div className="flex items-end">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowAdvancedFilters((open) => !open)}
+              className="h-10 w-full justify-between text-sm"
+              aria-expanded={showAdvancedFilters}
+            >
+              <span className="inline-flex items-center gap-2">
+                More detail
+                {advancedFilters > 0 ? (
+                  <Badge variant="secondary" className="h-5 px-1.5 text-[10px]">
+                    {advancedFilters}
+                  </Badge>
+                ) : null}
+              </span>
+              <ChevronDown className={cn("h-4 w-4 transition-transform", showAdvancedFilters && "rotate-180")} />
+            </Button>
+          </div>
+
+          {showAdvancedFilters ? (
+            <>
           {/* Condition */}
           <div>
             <label className="mb-1.5 block text-xs font-medium text-foreground">Condition</label>
@@ -221,6 +280,25 @@ export default function SearchFilters({
               {areaOptions.map((o) => <option key={o} value={o}>{o}</option>)}
             </select>
           </div>
+
+          {/* District (อำเภอ) — separate from Area; options scoped to the
+              selected province, matched against Live Address (see
+              app/pages/users/district.md / provinceDistricts.ts). */}
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-foreground">District</label>
+            <select
+              value={searchDistrict}
+              onChange={(e) => { setSearchDistrict(e.target.value); setCurrentPage(1) }}
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer"
+            >
+              <option value="">All Districts</option>
+              {(searchProvince && searchProvince !== "null" ? PROVINCE_DISTRICTS[searchProvince] ?? [] : ALL_DISTRICTS).map((o) => (
+                <option key={o} value={o}>{o}</option>
+              ))}
+            </select>
+          </div>
+            </>
+          ) : null}
 
           {/* From date */}
           <div>
@@ -294,26 +372,6 @@ export default function SearchFilters({
 
         {/* Right: actions */}
         <div className="flex flex-wrap items-center gap-2">
-          {/* Manual demographic sync */}
-          <button
-            onClick={onOpenDemographicSync}
-            disabled={isSyncingDemographic}
-            title="Run the Cloud Run demographic migration job now"
-            className={cn(
-              "inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium shadow-sm transition-colors",
-              isSyncingDemographic
-                ? "cursor-not-allowed border-border bg-muted text-muted-foreground"
-                : "border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
-            )}
-          >
-            {isSyncingDemographic ? (
-              <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <AlertTriangle className="h-3.5 w-3.5" />
-            )}
-            Sync Demographic
-          </button>
-
           {/* Export scope */}
           <label className="flex items-center gap-1.5 text-sm font-medium text-foreground">
             <span className="text-muted-foreground">Scope</span>
@@ -326,6 +384,7 @@ export default function SearchFilters({
               <option value="demo">Demo only</option>
               <option value="demo_test">Demo + Test</option>
               <option value="demo_test_screening">Demo + Test + Screening</option>
+              <option value="screening_basic">Screening Basic</option>
               <option value="full">Full</option>
               <option value="full_detail">Full + Detail</option>
             </select>

@@ -304,7 +304,7 @@ execute FUNCTION fn_set_storage_path ();
 
 
 CREATE VIEW user_record_summary_with_users AS
-SELECT 
+SELECT
   u.id,
   rs.recorder,
   rs.record_id,
@@ -326,7 +326,8 @@ SELECT
   rs.condition_status,
   rs.condition_changed_at,
   rs.last_migrate,
-  last_update_gcp
+  rs.last_update_gcp,
+  u.liveaddress
 FROM users u
 LEFT JOIN user_record_summary rs
   ON u.id = rs.user_id;

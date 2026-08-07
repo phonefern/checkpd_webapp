@@ -1,6 +1,6 @@
 "use client"
 
-import { MoreVertical, Eye, Pencil, Printer } from "lucide-react"
+import { MoreVertical, Eye, Pencil, Printer, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -16,10 +16,12 @@ interface UserActionsMenuProps {
   user: User
   onEdit: (user: User) => void
   onDetail: (user: User) => void
+  onSync?: (user: User) => void
+  isSyncing?: boolean
   isMobile?: boolean
 }
 
-export default function UserActionsMenu({ user, onEdit, onDetail, isMobile = false }: UserActionsMenuProps) {
+export default function UserActionsMenu({ user, onEdit, onDetail, onSync, isSyncing = false, isMobile = false }: UserActionsMenuProps) {
   const canOpenDetail = Boolean(user.thaiid || user.record_id)
 
   return (
@@ -67,6 +69,17 @@ export default function UserActionsMenu({ user, onEdit, onDetail, isMobile = fal
           <Printer className="mr-2 h-4 w-4 text-slate-500" />
           Print
         </DropdownMenuItem>
+        {onSync && (
+          <DropdownMenuItem
+            disabled={isSyncing}
+            onClick={() => onSync(user)}
+            title="Re-sync this person's Firestore data into Supabase now, without waiting for the daily cron"
+            className="cursor-pointer rounded-md px-2.5 py-2 text-slate-700 focus:bg-slate-100 focus:text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <RefreshCw className={`mr-2 h-4 w-4 text-slate-500 ${isSyncing ? "animate-spin" : ""}`} />
+            {isSyncing ? "Syncing…" : "Sync now"}
+          </DropdownMenuItem>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   )

@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react"
 import UserActionsMenu from "./UserActionsMenu"
+import { extractDistrict } from "@/app/pages/users/provinceDistricts"
 
 export function rowKey(user: User): string {
   return `${user.id}||${user.record_id ?? ""}`
@@ -45,6 +46,8 @@ interface UserTableProps {
   itemsPerPage: number
   onEdit: (user: User) => void
   onViewDetail: (user: User) => void
+  onSync?: (user: User) => void
+  syncingUserId?: string | null
   selectedKeys: Set<string>
   onSelectionChange: (keys: Set<string>) => void
   sortColumn: SortColumn
@@ -99,12 +102,25 @@ export function getRiskBadge(risk: boolean | null) {
   )
 }
 
+function formatRecordedDate(timestamp: string | undefined) {
+  if (!timestamp) return "-"
+  const date = new Date(timestamp)
+  date.setHours(date.getHours() + 7)
+  return date.toLocaleDateString("th-TH", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  })
+}
+
 export default function UserTable({
   users,
   currentPage,
   itemsPerPage,
   onEdit,
   onViewDetail,
+  onSync,
+  syncingUserId,
   selectedKeys,
   onSelectionChange,
   sortColumn,
@@ -192,7 +208,7 @@ export default function UserTable({
               <SortableHead column="timestamp" label="Recorded" />
               <SortableHead column="prediction_risk" label="Risk" />
               <SortableHead column="condition" label="Condition" />
-              <SortableHead column="other" label="Other" />
+              <SortableHead column="other" label="Other" className="min-w-[12rem]" />
               <SortableHead column="area" label="Area" />
               <TableHead className="text-right font-semibold">Actions</TableHead>
             </TableRow>
@@ -200,51 +216,60 @@ export default function UserTable({
           <TableBody>
             {users.map((user, index) => {
               const key = rowKey(user)
+              const district = extractDistrict(user.liveaddress, user.province)
               return (
-              <TableRow key={`${user.id}-${user.record_id ?? index}`} className="group hover:bg-muted/30">
-                <TableCell className="w-10">
-                  <input
-                    type="checkbox"
-                    checked={selectedKeys.has(key)}
-                    onChange={() => toggleRow(key)}
-                    className="cursor-pointer accent-blue-600"
-                  />
-                </TableCell>
-                <TableCell className="text-muted-foreground">{(currentPage - 1) * itemsPerPage + index + 1}</TableCell>
-                <TableCell>
-                  <div className="font-medium text-foreground">{user.id}</div>
-                  <div className="text-xs text-muted-foreground">{user.thaiid}</div>
-                </TableCell>
-                <TableCell>
-                  <div className="font-medium text-foreground">
-                    {user.firstname} {user.lastname}
-                  </div>
-                  <div className="text-xs text-muted-foreground">{user.record_id}</div>
-                </TableCell>
-                <TableCell className="text-foreground">{user.source || "-"}</TableCell>
-                <TableCell>
-                  <div className="text-foreground">{user.age} years</div>
-                  <div className="text-xs text-muted-foreground">{user.gender || "-"}</div>
-                </TableCell>
-                <TableCell>
-                  <div className="text-foreground">{user.province || "-"}</div>
-                  <div className="text-xs text-muted-foreground">{user.region || "-"}</div>
-                </TableCell>
-                <TableCell className="text-sm text-foreground">{formatToThaiTime(user.timestamp)}</TableCell>
-                <TableCell>{getRiskBadge(user.prediction_risk)}</TableCell>
-                <TableCell>{getConditionBadge(user.condition)}</TableCell>
-                <TableCell>
-                  <span className="text-foreground">{user.other || "-"}</span>
-                </TableCell>
-                <TableCell>
-                  <span className="text-foreground">{user.area || "-"}</span>
-                </TableCell>
-                <TableCell className="text-right">
-                  <div className="flex items-center justify-end">
-                    <UserActionsMenu user={user} onEdit={onEdit} onDetail={onViewDetail} />
-                  </div>
-                </TableCell>
-              </TableRow>
+                <TableRow key={`${user.id}-${user.record_id ?? index}`} className="group hover:bg-muted/30">
+                  <TableCell className="w-10">
+                    <input
+                      type="checkbox"
+                      checked={selectedKeys.has(key)}
+                      onChange={() => toggleRow(key)}
+                      className="cursor-pointer accent-blue-600"
+                    />
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">{(currentPage - 1) * itemsPerPage + index + 1}</TableCell>
+                  <TableCell>
+                    <div className="font-medium text-foreground">{user.id}</div>
+                    <div className="text-xs text-muted-foreground">{user.thaiid}</div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="font-medium text-foreground">
+                      {user.firstname} {user.lastname}
+                    </div>
+                    <div className="text-xs text-muted-foreground">{user.record_id}</div>
+                  </TableCell>
+                  <TableCell className="text-foreground">{user.source || "-"}</TableCell>
+                  <TableCell>
+                    <div className="text-foreground">{user.age} years</div>
+                    <div className="text-xs text-muted-foreground">{user.gender || "-"}</div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="text-foreground">{user.province || "-"}</div>
+                    <div className="text-xs text-muted-foreground">{district || "-"}</div>
+                  </TableCell>
+                  <TableCell className="text-sm text-foreground">
+                    <span title={formatToThaiTime(user.timestamp)}>{formatRecordedDate(user.timestamp)}</span>
+                  </TableCell>
+                  <TableCell>{getRiskBadge(user.prediction_risk)}</TableCell>
+                  <TableCell>{getConditionBadge(user.condition)}</TableCell>
+                  <TableCell className="max-w-[18rem] align-top">
+                    <span className="block whitespace-pre-wrap break-words text-foreground">{user.other || "-"}</span>
+                  </TableCell>
+                  <TableCell>
+                    <span className="text-foreground">{user.area || "-"}</span>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end">
+                      <UserActionsMenu
+                        user={user}
+                        onEdit={onEdit}
+                        onDetail={onViewDetail}
+                        onSync={onSync}
+                        isSyncing={syncingUserId === user.id}
+                      />
+                    </div>
+                  </TableCell>
+                </TableRow>
               )
             })}
           </TableBody>
@@ -285,49 +310,67 @@ export default function UserTable({
             )}
           </button>
         </div>
-        {users.map((user, index) => (
-          <Card key={`${user.id}-${user.record_id ?? index}`} className="shadow-sm">
-            <CardHeader className="pb-3">
-              <div className="mb-2 flex items-start justify-between">
-                <Badge variant="outline" className="text-xs">
-                  #{(currentPage - 1) * itemsPerPage + index + 1}
-                </Badge>
-                <UserActionsMenu user={user} onEdit={onEdit} onDetail={onViewDetail} isMobile />
-              </div>
-              <div className="space-y-1">
-                <h3 className="text-lg font-semibold text-foreground">
-                  {user.firstname} {user.lastname}
-                </h3>
-                <p className="text-sm text-muted-foreground">ID: {user.id}</p>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                <div>
-                  <span className="text-muted-foreground">Age:</span>{" "}
-                  <span className="font-medium text-foreground">{user.age}</span>
+        {users.map((user, index) => {
+          const district = extractDistrict(user.liveaddress, user.province)
+          return (
+            <Card key={`${user.id}-${user.record_id ?? index}`} className="shadow-sm">
+              <CardHeader className="pb-3">
+                <div className="mb-2 flex items-start justify-between">
+                  <Badge variant="outline" className="text-xs">
+                    #{(currentPage - 1) * itemsPerPage + index + 1}
+                  </Badge>
+                  <UserActionsMenu
+                  user={user}
+                  onEdit={onEdit}
+                  onDetail={onViewDetail}
+                  onSync={onSync}
+                  isSyncing={syncingUserId === user.id}
+                  isMobile
+                />
                 </div>
-                <div>
-                  <span className="text-muted-foreground">Gender:</span>{" "}
-                  <span className="font-medium text-foreground">{user.gender || "-"}</span>
+                <div className="space-y-1">
+                  <h3 className="text-lg font-semibold text-foreground">
+                    {user.firstname} {user.lastname}
+                  </h3>
+                  <p className="text-sm text-muted-foreground">ID: {user.id}</p>
                 </div>
-                <div>
-                  <span className="text-muted-foreground">Province:</span>{" "}
-                  <span className="font-medium text-foreground">{user.province || "-"}</span>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div>
+                    <span className="text-muted-foreground">Age:</span>{" "}
+                    <span className="font-medium text-foreground">{user.age}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Gender:</span>{" "}
+                    <span className="font-medium text-foreground">{user.gender || "-"}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Province:</span>{" "}
+                    <span className="font-medium text-foreground">{user.province || "-"}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">District:</span>{" "}
+                    <span className="font-medium text-foreground">
+                      {district || "-"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Source:</span>{" "}
+                    <span className="font-medium text-foreground">{user.source || "-"}</span>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-muted-foreground">Source:</span>{" "}
-                  <span className="font-medium text-foreground">{user.source || "-"}</span>
+                <div className="pt-1 text-xs text-muted-foreground">
+                  Recorded: <span title={formatToThaiTime(user.timestamp)}>{formatRecordedDate(user.timestamp)}</span>
                 </div>
-              </div>
-              <div className="pt-1 text-xs text-muted-foreground">Recorded: {formatToThaiTime(user.timestamp)}</div>
-              <div className="flex gap-2 pt-2">
-                {getRiskBadge(user.prediction_risk)}
-                {getConditionBadge(user.condition)}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+                <div className="flex gap-2 pt-2">
+                  {getRiskBadge(user.prediction_risk)}
+                  {getConditionBadge(user.condition)}
+                </div>
+              </CardContent>
+            </Card>
+          )
+        })}
       </div>
     </div>
   )
