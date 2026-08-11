@@ -1,10 +1,9 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useMemo } from "react"
 import { type User, formatToThaiTime } from "@/app/types/user"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-// import PatientHistoryModal from "./PatientHistoryModal"
 import { getConditionBadge, getRiskBadge } from "./UserTable"
 import { useDetailData } from "./useDetailData"
 
@@ -12,18 +11,14 @@ interface UserDetailModalProps {
   open: boolean
   user: User | null
   onClose: () => void
-  hasScreeningThaiId: (thaiid: string) => boolean
 }
 
-export default function UserDetailModal({ open, user, onClose, hasScreeningThaiId }: UserDetailModalProps) {
-  const [historyOpen, setHistoryOpen] = useState(false)
+export default function UserDetailModal({ open, user, onClose }: UserDetailModalProps) {
   const { loading, error, publicUser, recordSummary, checkpdUser, checkpdSummary, diagnosisV2, coreScores, perTest } = useDetailData({
     id: user?.id,
     recorder: user?.recorder,
     recordId: user?.record_id,
   })
-
-  const canOpenHistory = Boolean(user?.thaiid && hasScreeningThaiId(user.thaiid))
 
   const profileRows = useMemo(
     () => [
@@ -161,18 +156,9 @@ export default function UserDetailModal({ open, user, onClose, hasScreeningThaiI
         )}
 
         <DialogFooter className="items-center sm:justify-between">
-          {/* <div>
-            {canOpenHistory && (
-              <Button type="button" variant="outline" onClick={() => setHistoryOpen(true)}>
-                ดูประวัติการคัดกรอง
-              </Button>
-            )}
-          </div> */}
           <Button type="button" onClick={onClose}>Close</Button>
         </DialogFooter>
       </DialogContent>
-
-
     </Dialog>
   )
 }

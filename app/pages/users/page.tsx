@@ -34,7 +34,6 @@ export default function UsersClientPage() {
   const [searchTestResult, setSearchTestResult] = useState('')
   const [viewingUser, setViewingUser] = useState<User | null>(null)
   const [editingUser, setEditingUser] = useState<User | null>(null)
-  const [screeningThaiIds, setScreeningThaiIds] = useState<string[]>([])
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set())
   const [sortColumn, setSortColumn] = useState<SortColumn>('timestamp')
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
@@ -226,19 +225,6 @@ export default function UsersClientPage() {
     } else {
       setUsers((data ?? []) as User[])
       setTotalCount(count || 0)
-
-      const thaiids = (data ?? []).map((u) => u.thaiid).filter((id): id is string => Boolean(id))
-      if (thaiids.length > 0) {
-        const { data: screeningData, error: screeningError } = await supabase
-          .from('pd_screenings')
-          .select('thaiid')
-          .in('thaiid', thaiids)
-        if (!screeningError) {
-          setScreeningThaiIds(Array.from(new Set(screeningData?.map((row) => row.thaiid).filter(Boolean))))
-        }
-      } else {
-        setScreeningThaiIds([])
-      }
     }
     setLoading(false)
   }
@@ -368,7 +354,6 @@ export default function UsersClientPage() {
           open={viewingUser !== null}
           user={viewingUser}
           onClose={() => setViewingUser(null)}
-          hasScreeningThaiId={(thaiid) => screeningThaiIds.includes(thaiid)}
         />
 
         {isExporting ? (

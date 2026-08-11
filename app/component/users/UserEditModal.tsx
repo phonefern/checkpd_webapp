@@ -315,7 +315,24 @@ export default function UserEditModal({ open, user, onClose, onSaved }: UserEdit
       if (!user) return
       setSaving(true)
       try {
-        const usersPayload = {
+        const usersPayload: {
+          perfixname: string | null
+          firstname: string | null
+          lastname: string | null
+          thaiid: string | null
+          bod: string | null
+          gender: string | null
+          phonenumber: string | null
+          email: string | null
+          idcardaddress: string | null
+          province: string | null
+          area: string | null
+          educationstatus: string | null
+          maritalstatus: string | null
+          ethnicity: string | null
+          congenital_disease: string | null
+          liveaddress?: string | null
+        } = {
           perfixname: nullOrValue(values.perfixname),
           firstname: nullOrValue(values.firstname),
           lastname: nullOrValue(values.lastname),
@@ -324,7 +341,6 @@ export default function UserEditModal({ open, user, onClose, onSaved }: UserEdit
           gender: nullOrValue(values.gender),
           phonenumber: nullOrValue(values.phonenumber),
           email: nullOrValue(values.email),
-          liveaddress: nullOrValue(values.liveaddress),
           idcardaddress: nullOrValue(values.idcardaddress),
           province: nullOrValue(values.province),
           area: nullOrValue(values.area),
@@ -334,8 +350,29 @@ export default function UserEditModal({ open, user, onClose, onSaved }: UserEdit
           congenital_disease: nullOrValue(values.congenital_disease),
         }
 
-        const { error: publicErr } = await supabase.from("users").update(usersPayload).eq("id", user.id)
+        // public.users has a BEFORE UPDATE OF liveaddress trigger
+        // (set_province_trigger -> set_province()) that recomputes `province`
+        // FROM `liveaddress` whenever liveaddress is present in the UPDATE's
+        // SET list — even if its value is unchanged. This form used to send
+        // liveaddress on every save, so the trigger silently overwrote any
+        // manual Province selection right after this request landed. Only
+        // include it when the admin actually edited Live Address, so a
+        // province-only edit isn't clobbered by the trigger.
+        if (form.formState.dirtyFields.liveaddress) {
+          usersPayload.liveaddress = nullOrValue(values.liveaddress)
+        }
+
+        const { data: updatedUserRows, error: publicErr } = await supabase
+          .from("users")
+          .update(usersPayload)
+          .eq("id", user.id)
+          .select("id")
         if (publicErr) throw publicErr
+        if (!updatedUserRows || updatedUserRows.length === 0) {
+          throw new Error(
+            "Update matched 0 rows in public.users — likely blocked by a missing RLS UPDATE policy or grant for your role, not a form error. Check Supabase RLS policies / GRANT UPDATE on public.users."
+          )
+        }
 
         const recorderToUse = summaryRecorder ?? user.recorder ?? (user.source === "staff" ? "staff" : "user")
 
