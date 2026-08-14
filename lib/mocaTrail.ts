@@ -18,8 +18,43 @@ export const TRAIL_DOTS: TrailDot[] = [
 
 const FONT = "'Segoe UI','Sarabun',sans-serif"
 
-/** The Trail dots + start/end markers as SVG elements (to place behind strokes). */
+// Example guide arrows (dashed) for the first two connections 1→ก, ก→2,
+// as printed on the MoCA sheet.
+const TRAIL_GUIDE: [string, string][] = [
+  ['1', 'ก'],
+  ['ก', '2'],
+]
+
+function guideArrowSvg(a: TrailDot, b: TrailDot): string {
+  const HEAD = 11
+  const HALF = 6
+  const dx = b.x - a.x
+  const dy = b.y - a.y
+  const len = Math.hypot(dx, dy) || 1
+  const ux = dx / len
+  const uy = dy / len
+  const pad = TRAIL_DOT_R + 4
+  const x1 = a.x + ux * pad
+  const y1 = a.y + uy * pad
+  const x2 = b.x - ux * pad // tip at edge of dot b
+  const y2 = b.y - uy * pad
+  const bx = x2 - ux * HEAD // arrowhead base
+  const by = y2 - uy * HEAD
+  const px = -uy
+  const py = ux
+  const line = `<line x1="${x1}" y1="${y1}" x2="${bx}" y2="${by}" stroke="#94a3b8" stroke-width="2" stroke-dasharray="6 5" stroke-linecap="round"/>`
+  const head = `<polygon points="${x2},${y2} ${bx + px * HALF},${by + py * HALF} ${bx - px * HALF},${by - py * HALF}" fill="#94a3b8"/>`
+  return line + head
+}
+
+/** The Trail dots + example arrows + start/end markers as SVG (behind strokes). */
 export function trailDotsSvg(): string {
+  const guides = TRAIL_GUIDE.map(([af, bf]) => {
+    const a = TRAIL_DOTS.find((d) => d.label === af)
+    const b = TRAIL_DOTS.find((d) => d.label === bf)
+    return a && b ? guideArrowSvg(a, b) : ''
+  }).join('')
+
   const circles = TRAIL_DOTS.map(
     (d) =>
       `<circle cx="${d.x}" cy="${d.y}" r="${TRAIL_DOT_R}" fill="#ffffff" stroke="#cbd5e1" stroke-width="2"/>` +
@@ -33,5 +68,5 @@ export function trailDotsSvg(): string {
       ? `<text x="${d.x}" y="${d.y + 40}" text-anchor="middle" dominant-baseline="central" font-family="${FONT}" font-size="13" font-weight="600" fill="#94a3b8">${text}</text>`
       : ''
 
-  return circles + mark(start, 'จุดเริ่มต้น') + mark(end, 'จุดสิ้นสุด')
+  return guides + circles + mark(start, 'จุดเริ่มต้น') + mark(end, 'จุดสิ้นสุด')
 }

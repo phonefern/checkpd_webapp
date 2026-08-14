@@ -44,7 +44,57 @@ function tuple(canvas: HTMLCanvasElement, e: PointerEvent): StrokePoint {
   ]
 }
 
+// Example guide arrows (dashed) for the first two connections 1→ก, ก→2, as on
+// the printed MoCA sheet. Drawn behind the dots; not part of the patient's ink.
+const TRAIL_GUIDE: [string, string][] = [
+  ['1', 'ก'],
+  ['ก', '2'],
+]
+
+function drawTrailGuide(ctx: CanvasRenderingContext2D) {
+  const HEAD = 11
+  const HALF = 6
+  for (const [aLabel, bLabel] of TRAIL_GUIDE) {
+    const a = TRAIL_DOTS.find((d) => d.label === aLabel)
+    const b = TRAIL_DOTS.find((d) => d.label === bLabel)
+    if (!a || !b) continue
+    const dx = b.x - a.x
+    const dy = b.y - a.y
+    const len = Math.hypot(dx, dy) || 1
+    const ux = dx / len
+    const uy = dy / len
+    const pad = TRAIL_DOT_R + 4
+    const x1 = a.x + ux * pad
+    const y1 = a.y + uy * pad
+    const x2 = b.x - ux * pad // arrow tip (edge of dot b)
+    const y2 = b.y - uy * pad
+    const bx = x2 - ux * HEAD // arrowhead base
+    const by = y2 - uy * HEAD
+    const px = -uy
+    const py = ux
+    // dashed line up to the arrowhead base
+    ctx.strokeStyle = COLOR.faint
+    ctx.lineWidth = 2
+    ctx.setLineDash([6, 5])
+    ctx.beginPath()
+    ctx.moveTo(x1, y1)
+    ctx.lineTo(bx, by)
+    ctx.stroke()
+    // solid arrowhead
+    ctx.setLineDash([])
+    ctx.fillStyle = COLOR.faint
+    ctx.beginPath()
+    ctx.moveTo(x2, y2)
+    ctx.lineTo(bx + px * HALF, by + py * HALF)
+    ctx.lineTo(bx - px * HALF, by - py * HALF)
+    ctx.closePath()
+    ctx.fill()
+  }
+  ctx.setLineDash([])
+}
+
 function drawTrailDots(ctx: CanvasRenderingContext2D) {
+  drawTrailGuide(ctx) // dashed example arrows behind the dots
   for (const d of TRAIL_DOTS) {
     ctx.beginPath()
     ctx.arc(d.x, d.y, TRAIL_DOT_R, 0, Math.PI * 2)
