@@ -27,6 +27,7 @@ export type User = {
     record_id?: string
     other?: string
     area?: string
+    test_result?: string | null
   }
   
   export const riskOptions = [

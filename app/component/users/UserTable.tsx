@@ -23,6 +23,7 @@ export type SortColumn =
   | "condition"
   | "other"
   | "area"
+  | "test_result"
 
 export type SortDirection = "asc" | "desc"
 
@@ -38,6 +39,7 @@ export const SORT_OPTIONS: { value: SortColumn; label: string }[] = [
   { value: "condition", label: "Condition" },
   { value: "other", label: "Other" },
   { value: "area", label: "Area" },
+  { value: "test_result", label: "Test Result" },
 ]
 
 interface UserTableProps {
@@ -100,6 +102,37 @@ export function getRiskBadge(risk: boolean | null) {
       No Data
     </Badge>
   )
+}
+
+// Mirrors formatTestResultThai() in app/api/export/users-csv/route.ts exactly
+// (same substring precedence: partial-family checked before "complete", since
+// "incomplete" itself contains the substring "complete"). Blank/missing is
+// shown as "ไม่ได้ทำแบบทดสอบ" here for a readable badge — the export route
+// keeps it as an empty string in the CSV instead.
+export function getTestResultBadge(raw: string | null | undefined) {
+  const value = (raw ?? "").trim().toLowerCase()
+  if (value.includes("incomplete") || value.includes("imcomplete") || value.includes("partial")) {
+    return (
+      <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100 dark:bg-amber-900/30 dark:text-amber-300">
+        ทำแบบทดสอบบางส่วน
+      </Badge>
+    )
+  }
+  if (!value || value.includes("unattempt")) {
+    return (
+      <Badge variant="outline" className="bg-muted">
+        ไม่ได้ทำแบบทดสอบ
+      </Badge>
+    )
+  }
+  if (value.includes("complete")) {
+    return (
+      <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-300">
+        ทำแบบทดสอบครบ
+      </Badge>
+    )
+  }
+  return <Badge variant="secondary">{raw}</Badge>
 }
 
 function formatRecordedDate(timestamp: string | undefined) {
@@ -210,6 +243,7 @@ export default function UserTable({
               <SortableHead column="condition" label="Condition" />
               <SortableHead column="other" label="Other" className="min-w-[12rem]" />
               <SortableHead column="area" label="Area" />
+              <SortableHead column="test_result" label="Test Result" />
               <TableHead className="text-right font-semibold">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -258,6 +292,7 @@ export default function UserTable({
                   <TableCell>
                     <span className="text-foreground">{user.area || "-"}</span>
                   </TableCell>
+                  <TableCell>{getTestResultBadge(user.test_result)}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end">
                       <UserActionsMenu
@@ -363,9 +398,10 @@ export default function UserTable({
                 <div className="pt-1 text-xs text-muted-foreground">
                   Recorded: <span title={formatToThaiTime(user.timestamp)}>{formatRecordedDate(user.timestamp)}</span>
                 </div>
-                <div className="flex gap-2 pt-2">
+                <div className="flex flex-wrap gap-2 pt-2">
                   {getRiskBadge(user.prediction_risk)}
                   {getConditionBadge(user.condition)}
+                  {getTestResultBadge(user.test_result)}
                 </div>
               </CardContent>
             </Card>
