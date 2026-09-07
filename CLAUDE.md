@@ -77,6 +77,7 @@ Configured in `tsconfig.json`:
 Required in `.env.local`:
 - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` — Supabase client
 - `SUPABASE_SERVICE_ROLE_KEY` — server-side writes/reads that bypass RLS (export route, `/api/events/sync`); never expose to the browser
+- `DIAGNOSIS_PARTNER_API_KEYS` — comma-separated `name:key` pairs for `/api/external/diagnosis-lookup` partner access; never expose to the browser
 - `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, `PGPASSWORD` — direct PostgreSQL access
 - `FIREBASE_*` (admin credentials) + `NEXT_PUBLIC_FIREBASE_*` (client credentials)
 - `SUPABASE_S3_ENDPOINT`, `SUPABASE_S3_KEY_ID`, `SUPABASE_S3_KEY_SECRET`, `STORAGE_BUCKET` — file storage
