@@ -26,9 +26,9 @@ This plan defines that spec: a single read-only, partner-authenticated endpoint 
 - Response limited to: `condition`, `condition_status`, `condition_changed_at` — nothing else (no name, address, phone, scores, etc.)
 - thaiid input normalization (strip non-digits, same convention as [app/api/export/users-csv/route.ts](../app/api/export/users-csv/route.ts)'s `normalizeThaiId`)
 - Masked logging (never log a raw thaiid)
+- ~~Batch/bulk lookup~~ — pulled into scope, see [§13](#13-addendum-batch-endpoint-2026-09-07).
 
 **Out of scope (seed for future PLAN-03x)**
-- Batch/bulk lookup (array of thaiid in one call) — v1 is single-thaiid only
 - Push model (us calling the partner's API when a diagnosis changes) — the user's note describes a *pull* model (they call us); push is a separate future integration if requirements change
 - Persistent DB-backed audit log table — v1 logs to server console only (masked); add a table if compliance later requires queryable history
 - IP allowlist / mTLS — infra-level hardening, only worth it once the partner can share static egress IPs
@@ -205,7 +205,6 @@ Status `200` for both — absence is a normal business outcome, not an error.
 
 ## 11. Out-of-scope follow-ups (seed for PLAN-031+)
 
-- Batch lookup (`{"thaiids": [...]}`) if the partner needs bulk sync instead of per-person polling
 - Push/webhook model if the integration direction later flips (us notifying them on `condition_changed_at` change) — would reuse the [PLAN-022](PLAN_022_CONDITION_OTHER_BIDIRECTIONAL_SYNC.md) trigger as the natural hook point
 - Persistent, queryable audit-log table if a compliance/legal review of this integration requires more than console logs
 - IP allowlist or mTLS once the partner can supply static egress IPs
@@ -213,6 +212,22 @@ Status `200` for both — absence is a normal business outcome, not an error.
 ## 12. Rollback plan
 
 Fully additive — one new lib file, one new route folder, one new env var. Rollback = delete `lib/external-diagnosis-access.ts` and `app/api/external/diagnosis-lookup/`, remove the env var. No schema change, no existing route touched, zero blast radius to the rest of the app.
+
+## 13. Addendum: batch endpoint (2026-09-07)
+
+Implemented after initial ship. Two changes from the original plan, both already live in code:
+
+**Response shape drifted from §7's original example** — `condition_status` was dropped and `user_id`, `test_result`, `other`, `prediction_risk` were added (user request, post-launch). §6/§7/§9/§10 above describe the *original* shape and are left as historical record rather than rewritten; [docs/API_SPEC_DIAGNOSIS_LOOKUP_PARTNER.md](API_SPEC_DIAGNOSIS_LOOKUP_PARTNER.md) is the current source of truth for the actual response shape, not this plan doc.
+
+**Batch lookup added** — `POST /api/external/diagnosis-lookup/batch`, same auth/rate-limit as the single endpoint (one call = one hit against the 15/min budget, which is the point: N lookups in one round trip instead of N requests).
+
+- Request: `{ "thaiids": ["...", "...", ...] }`, 1–100 entries.
+- Response: `{ "results": [...], "count": N }` — `results` is positionally aligned with the input array (`results[i]` answers `thaiids[i]`), each item shaped like the single-lookup response plus `input` (the raw value as sent, for the partner to correlate without re-normalizing) and an `error: "invalid_thaiid"` field on entries that weren't a valid 13-digit ID (those entries don't fail the whole batch — the rest of the batch still resolves).
+- Query strategy: refactored the single-lookup logic into a shared `lookupDiagnosisByThaiIds(thaiids: string[])` in new `lib/diagnosis-lookup.ts`, used by both routes. For a batch it issues exactly 2 queries total regardless of batch size (`users.thaiid IN (...)` then `user_record_summary.user_id IN (...)`), not N×2 — avoids an N+1 query pattern.
+- Cap of 100 is a judgment call (not requested by the user), chosen to keep a single request's DB round-trip cheap; revisit if the partner's real bulk-sync size is larger.
+- The single-lookup route (`/diagnosis-lookup`) was refactored to call the same shared helper instead of duplicating the query — behavior-preserving, re-verified against production before/after.
+
+Files: `lib/diagnosis-lookup.ts` *(new, shared)*, `app/api/external/diagnosis-lookup/route.ts` *(refactored)*, `app/api/external/diagnosis-lookup/batch/route.ts` *(new)*.
 
 ---
 

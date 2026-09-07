@@ -1,0 +1,25 @@
+curl -X POST http://localhost:3000/api/external/diagnosis-lookup -H "x-api-key: bbb73069c8418faef2675728b80983fa" -H "Content-Type: application/json" -d "{"thaiid":"3720500334127"}"
+
+
+curl -X POST http://localhost:3000/api/external/diagnosis-lookup -H "x-api-key: bbb73069c8418faef2675728b80983fa" -H "Content-Type: application/json" -d "{\"thaiid\":\"3210300251940\"}"
+
+
+curl -X POST http://checkpd-chula.vercel.app/api/external/diagnosis-lookup -H "x-api-key: bbb73069c8418faef2675728b80983fa" -H "Content-Type: application/json" -d "{\"thaiid\":\"3210300251940\"}"
+
+
+curl -v -X POST https://checkpd-chula.vercel.app/api/external/diagnosis-lookup -H "x-api-key: bbb73069c8418faef2675728b80983fa" -H "Content-Type: application/json" -d "{\"thaiid\":\"3210400056880\"}"
+
+
+# 1) key ผิด -> ต้องได้ 401
+curl -v -X POST https://checkpd-chula.vercel.app/api/external/diagnosis-lookup -H "x-api-key: wrong-key" -H "Content-Type: application/json" -d "{\"thaiid\":\"3720500334127\"}"
+
+# 2) thaiid ผิด format -> ต้องได้ 400
+curl -v -X POST https://checkpd-chula.vercel.app/api/external/diagnosis-lookup -H "x-api-key: bbb73069c8418faef2675728b80983fa" -H "Content-Type: application/json" -d "{\"thaiid\":\"123\"}"
+
+# 3) thaiid ไม่มีในระบบ -> ต้องได้ 200 found:false
+curl -v -X POST https://checkpd-chula.vercel.app/api/external/diagnosis-lookup -H "x-api-key: bbb73069c8418faef2675728b80983fa" -H "Content-Type: application/json" -d "{\"thaiid\":\"0000012306700\"}"
+
+
+curl -X POST http://localhost:3000/api/external/diagnosis-lookup/batch -H "x-api-key: bbb73069c8418faef2675728b80983fa" -H "Content-Type: application/json" -d "{\"thaiids\":[\"3210400056880\",\"1830101157143\",\"111\"]}"
+
+

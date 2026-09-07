@@ -1,25 +1,16 @@
 import { NextResponse } from "next/server";
 
+import {
+  lookupDiagnosisByThaiIds,
+  maskThaiId,
+  normalizeThaiId,
+  notFoundResult,
+} from "@/lib/diagnosis-lookup";
 import { DiagnosisApiAccessError, requireDiagnosisApiKey } from "@/lib/external-diagnosis-access";
 import { checkRateLimit } from "@/lib/rateLimit";
-import { supabaseServer } from "@/lib/supabase-server";
 
 type DiagnosisLookupBody = {
   thaiid?: unknown;
-};
-
-type UserRow = {
-  id: string;
-};
-
-type SummaryRow = {
-  user_id: string;
-  condition: string | null;
-  test_result: string | null;
-  other: string | null;
-  prediction_risk: boolean | null;
-  condition_changed_at: string | null;
-  updated_at: string | null;
 };
 
 const RATE_LIMIT_MAX_REQUESTS = 15;
@@ -54,49 +45,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "thaiid must be 13 digits." }, { status: 400 });
     }
 
-    const { data: users, error: usersError } = await supabaseServer
-      .from("users")
-      .select("id")
-      .eq("thaiid", normalizedThaiId);
+    const resultsByThaiId = await lookupDiagnosisByThaiIds([normalizedThaiId]);
+    const result = resultsByThaiId.get(normalizedThaiId) ?? notFoundResult(normalizedThaiId);
 
-    if (usersError) throw usersError;
-
-    const userRows = (users ?? []) as UserRow[];
-    if (userRows.length === 0) {
-      logLookup({ partner, thaiid: normalizedThaiId, found: false, matchedRecords: 0 });
-      return NextResponse.json(notFoundResponse(normalizedThaiId));
-    }
-
-    const userIds = userRows.map((user) => user.id);
-    const { data: summaries, error: summariesError } = await supabaseServer
-      .from("user_record_summary")
-      .select("user_id,condition,test_result,other,prediction_risk,condition_changed_at,updated_at")
-      .in("user_id", userIds)
-      .order("condition_changed_at", { ascending: false, nullsFirst: false })
-      .order("updated_at", { ascending: false, nullsFirst: false });
-
-    if (summariesError) throw summariesError;
-
-    const summaryRows = (summaries ?? []) as SummaryRow[];
-    const latest = summaryRows[0];
-
-    if (!latest) {
-      logLookup({ partner, thaiid: normalizedThaiId, found: false, matchedRecords: 0 });
-      return NextResponse.json(notFoundResponse(normalizedThaiId));
-    }
-
-    logLookup({ partner, thaiid: normalizedThaiId, found: true, matchedRecords: summaryRows.length });
-    return NextResponse.json({
-      thaiid: normalizedThaiId,
-      found: true,
-      user_id: latest.user_id,
-      condition: latest.condition,
-      test_result: latest.test_result,
-      other: latest.other,
-      prediction_risk: latest.prediction_risk,
-      condition_changed_at: latest.condition_changed_at,
-      matched_records: summaryRows.length,
-    });
+    logLookup({ partner, thaiid: normalizedThaiId, found: result.found, matchedRecords: result.matched_records });
+    return NextResponse.json(result);
   } catch (err) {
     if (err instanceof DiagnosisApiAccessError) {
       console.warn("[external/diagnosis-lookup]", {
@@ -116,27 +69,6 @@ export async function POST(request: Request) {
   }
 }
 
-function normalizeThaiId(value: unknown): string {
-  if (typeof value !== "string" && typeof value !== "number") return "";
-
-  const normalized = String(value).replace(/\D/g, "");
-  return normalized.length === 13 ? normalized : "";
-}
-
-function notFoundResponse(thaiid: string) {
-  return {
-    thaiid,
-    found: false,
-    user_id: null,
-    condition: null,
-    test_result: null,
-    other: null,
-    prediction_risk: null,
-    condition_changed_at: null,
-    matched_records: 0,
-  };
-}
-
 function logLookup(args: { partner: string; thaiid: string; found: boolean; matchedRecords: number }) {
   console.info("[external/diagnosis-lookup]", {
     partner: args.partner,
@@ -144,9 +76,4 @@ function logLookup(args: { partner: string; thaiid: string; found: boolean; matc
     found: args.found,
     matched_records: args.matchedRecords,
   });
-}
-
-function maskThaiId(thaiid: string): string {
-  if (thaiid.length <= 5) return "***";
-  return `${thaiid.slice(0, 3)}********${thaiid.slice(-2)}`;
 }

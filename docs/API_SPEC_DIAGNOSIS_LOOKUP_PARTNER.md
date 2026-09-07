@@ -11,10 +11,10 @@ Lookup a patient's diagnosis condition by Thai national ID (`thaiid`), per the a
 ## 2. Endpoint
 
 ```
-POST {BASE_URL}/api/external/diagnosis-lookup
+POST https://checkpd-chula.vercel.app/api/external/diagnosis-lookup
 ```
 
-`{BASE_URL}` — to be filled in once deployed (e.g. `https://app.chulapd.org` or the assigned production hostname).
+`{BASE_URL}` — to be filled in once deployed (e.g. `https://checkpd-chula.vercel.app` or the assigned production hostname).
 
 ## 3. Authentication
 
@@ -30,7 +30,7 @@ x-api-key: <your assigned key>
 
 ## 4. Rate limit
 
-**15 requests per minute** per API key. Exceeding it returns `429 Too Many Requests`. If you need bulk/batch lookups instead of polling one thaiid at a time, contact us — a batch endpoint can be added.
+**15 requests per minute** per API key. Exceeding it returns `429 Too Many Requests`. A single **batch** request (§9) counts as one request toward this limit regardless of how many thaiids it contains — use it instead of polling one thaiid at a time if you're syncing more than a handful of records.
 
 ## 5. Request
 
@@ -100,9 +100,11 @@ x-api-key: <your key>
 
 ## 7. Error responses
 
+Applies to both the single and batch (§9) endpoints.
+
 | HTTP status | Meaning | Body |
 |---|---|---|
-| 400 | `thaiid` missing, not 13 digits after stripping non-digit characters, or malformed JSON body | `{ "error": "..." }` |
+| 400 | Malformed request — missing/invalid `thaiid` (single), missing/invalid/oversized `thaiids` (batch, max 100 entries), or malformed JSON body | `{ "error": "..." }` |
 | 401 | Missing or invalid `x-api-key` | `{ "error": "Unauthorized." }` |
 | 429 | Rate limit exceeded (>15 req/min for your key) | `{ "error": "Rate limit exceeded." }` |
 | 500 | Unexpected server error — retry with backoff; contact us if persistent | `{ "error": "Internal server error." }` |
@@ -110,22 +112,70 @@ x-api-key: <your key>
 ## 8. Example (curl)
 
 ```bash
-curl -X POST {BASE_URL}/api/external/diagnosis-lookup \
+curl -X POST https://checkpd-chula.vercel.app/api/external/diagnosis-lookup \
   -H "x-api-key: <your key>" \
   -H "Content-Type: application/json" \
   -d '{"thaiid":"1234567890123"}'
 ```
 
-## 9. Data handling notes
+## 9. Batch lookup
+
+For looking up many thaiids at once (e.g. a nightly sync) instead of one request per person:
+
+```
+POST {BASE_URL}/api/external/diagnosis-lookup/batch
+```
+
+Same `x-api-key` header as the single-lookup endpoint. Request body:
+
+```json
+{
+  "thaiids": ["1234567890123", "9876543210987", "111"]
+}
+```
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `thaiids` | array of string | yes | 1–100 entries per request. More than 100 → `400`. |
+
+Response — one item per input entry, **in the same order and count** as the request (`results[i]` answers `thaiids[i]`, including duplicates):
+
+```json
+{
+  "results": [
+    { "input": "1234567890123", "thaiid": "1234567890123", "found": true, "user_id": "abc123", "condition": "pd", "test_result": "Complete", "other": null, "prediction_risk": true, "condition_changed_at": "2026-08-01T10:00:00+07:00", "matched_records": 1 },
+    { "input": "9876543210987", "thaiid": "9876543210987", "found": false, "user_id": null, "condition": null, "test_result": null, "other": null, "prediction_risk": null, "condition_changed_at": null, "matched_records": 0 },
+    { "input": "111", "thaiid": "", "found": false, "user_id": null, "condition": null, "test_result": null, "other": null, "prediction_risk": null, "condition_changed_at": null, "matched_records": 0, "error": "invalid_thaiid" }
+  ],
+  "count": 3
+}
+```
+
+Each result item has the same fields as the single-lookup response (§6), plus:
+
+| Field | Type | Meaning |
+|---|---|---|
+| `input` | string | Echo of exactly what you sent for this entry, so you can correlate by value as well as by array position. |
+| `error` | `"invalid_thaiid"` (optional) | Present only when this entry wasn't a valid 13-digit thaiid. **A malformed entry does not fail the whole batch** — every other entry in the same request still resolves normally. |
+
+The same auth and rate-limit rules apply as the single endpoint (§3, §4) — a malformed `thaiids` array (missing, not an array, empty, or over 100 entries) returns `400` for the whole request before any lookup runs (see §7 for the full error table).
+
+```bash
+curl -X POST https://checkpd-chula.vercel.app/api/external/diagnosis-lookup/batch \
+  -H "x-api-key: <your key>" \
+  -H "Content-Type: application/json" \
+  -d '{"thaiids":["1234567890123","9876543210987"]}'
+```
+
+## 10. Data handling notes
 
 - This endpoint returns clinical/PHI data. Store and transmit it per your organization's data-protection obligations; do not log full `thaiid` values in plaintext where avoidable.
 - `thaiid` is sent in the POST body (not a URL query string) specifically so it does not appear in server/proxy access logs.
 - Scope is intentionally minimal: only the fields listed above are returned — no name, address, phone number, or test scores. If your integration needs additional fields, contact us to review before we extend the response — each additional field is a deliberate data-sharing decision, not a default.
 
-## 10. Out of scope (v1)
+## 11. Out of scope (v1)
 
-- Batch lookup (multiple thaiid per request)
-- Push notifications when a condition changes (this is pull/on-demand only)
+- Push notifications when a condition changes (this is pull/on-demand only, single or batch)
 - SLA/uptime guarantee — this endpoint currently has no formal SLA; treat it as best-effort until otherwise agreed
 
 ---
